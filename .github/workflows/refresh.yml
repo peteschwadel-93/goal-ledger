@@ -1,0 +1,68 @@
+name: Refresh Goal Ledger
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"      # every half hour; GitHub may start a run some minutes late
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - id: day
+        run: echo "d=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      # finished seasons are downloaded once and kept; the season in progress is fetched fresh
+      - uses: actions/cache@v4
+        with:
+          path: nhl_cache
+          key: nhl-cache-${{ steps.day.outputs.d }}
+          restore-keys: nhl-cache-
+
+      - name: Build data
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          # Hours before puck drop at which each game is priced. One request per game per look.
+          # "24,2" = a day ahead, then two hours out.  "6" = one look, about half the requests.
+          ODDS_LOOKS: "24,2"
+        run: python build_data.py --out data.json
+
+      # prices and injury flags already fetched are kept in the repository so they are never paid for twice
+      - name: Save prices
+        run: |
+          git config user.name "goal-ledger-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f odds.json flags.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "prices $(date -u +%FT%H:%MZ) [skip ci]" && git push)
+
+      - run: mkdir -p site && cp index.html data.json site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
