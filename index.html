@@ -234,15 +234,26 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .gksel{display:block;width:100%;margin-top:4px}
 .lteam li{align-items:baseline}.lteam li .tag,.lteam li .res{align-self:center}
 
-/* player rows: name over tags on the left, chance over price on the right, every row the same height */
-.lteam li.prow{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:0 10px;padding:8px 10px;min-height:60px}
-.prow .pn{display:flex;flex-direction:column;gap:5px;min-width:0}
-.prow .pname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.prow .ptags{display:flex;gap:6px;align-items:center;height:19px;overflow:hidden}
-.prow .pv{display:flex;flex-direction:column;gap:3px;align-items:flex-end;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* game cards: one matchup per row of the page */
+.lgrid{grid-template-columns:minmax(0,1fr)}
+/* player rows: name and tags on the left, chance, price, fair price and edge in fixed columns on the right, one line, every row the same height */
+.lteam li.prow{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:0 12px;padding:0 12px;height:42px}
+.prow .pn{display:flex;align-items:center;gap:10px;min-width:0}
+.prow .pname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.prow .ptags{display:flex;gap:6px;align-items:center;flex:none}
+.prow .pv{display:grid;gap:0 12px;align-items:center;justify-items:end;white-space:nowrap;font-variant-numeric:tabular-nums}
+.prow .pv4{grid-template-columns:56px 58px 82px 58px}
+.prow .pv2{grid-template-columns:56px 76px}
 .prow .pv b{color:var(--ink);font-weight:600}
-.prow .pv .o{margin-left:0;font-size:12.5px}
+.prow .pv .o{margin-left:0;font-size:13px}
 .lteam li.prow .tag,.lteam li.prow .res{align-self:auto}
+@media(max-width:760px){ /* too narrow for one line: name over tags, chance and price over fair and edge */
+  .lteam li.prow{height:60px;padding:0 10px}
+  .prow .pn{flex-direction:column;align-items:flex-start;gap:5px}
+  .prow .ptags{height:19px}
+  .prow .pv4{grid-template-columns:auto auto;gap:3px 8px}
+  .prow .pv2{grid-template-columns:auto;gap:3px}
+}
 </style>
 
 <div class="wrap">
@@ -523,7 +534,7 @@ function gameCard(m,rows,mode){
       '<div class="kv f3"><span>Faces '+gkLine(info,t,op)+'</span></div>'+
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
       '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
-        '<span class="pv"><span><span class="px c'+lv+'">'+p1(r.pr)+'</span>'+(r.px?' <b>'+fmtP(r.px.price)+'</b>':'')+'</span><span class="o">fair '+fairOdds(r.pr)+(r.px?' '+edgeTag(r):'')+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
+        '<span class="pv pv4"><span class="px c'+lv+'">'+p1(r.pr)+'</span><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b><span class="o">fair '+fairOdds(r.pr)+'</span><span>'+(r.px?edgeTag(r):'')+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
 
 /* ================= Slate table ================= */
@@ -561,7 +572,7 @@ function vLineups(){
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv2"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
       (src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){h+=li(p,"L"+(i+1))})});
       my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
