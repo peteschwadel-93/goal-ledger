@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "7,37 * * * *"      # every half hour; GitHub may start a run some minutes late
   workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Also load past 2026-27 prices (paid Odds API plans only; 10 requests per game)"
+        type: boolean
+        default: false
   push:
     branches: [main]
 
@@ -48,6 +53,7 @@ jobs:
           # Hours before puck drop at which each game is priced. One request per game per look.
           # "24,2" = a day ahead, then two hours out.  "6" = one look, about half the requests.
           ODDS_LOOKS: "24,2"
+          ODDS_BACKFILL: ${{ inputs.backfill && '1' || '' }}
         run: python build_data.py --out data.json
 
       # prices and injury flags already fetched are kept in the repository so they are never paid for twice
