@@ -259,6 +259,17 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .tight th,.tight td{padding:9px 10px}
 .tight th:first-child,.tight td:first-child{padding-left:14px}
 .tight th:last-child,.tight td:last-child{padding-right:14px}
+
+/* edge pills: one scale everywhere, deep red to bright green, so size reads at a glance */
+:root{--eg-n3:#6b211d;--eg-n3t:#ffc2b8;--eg-n2:#3d1b19;--eg-n2t:#eba095;--eg-n1t:#b98a84;--eg-p1:#12302a;--eg-p1t:#74cdb4;--eg-p2:#1b574a;--eg-p2t:#b4f5e2;--eg-p3:#3fbf9b;--eg-p4:#3ef07f;--eg-dark:#06140f}
+.tag.eg{min-width:52px;text-align:center;font-variant-numeric:tabular-nums;border-color:transparent}
+.tag.eg.n3{background:var(--eg-n3);color:var(--eg-n3t)}
+.tag.eg.n2{background:var(--eg-n2);color:var(--eg-n2t)}
+.tag.eg.n1{background:transparent;border-color:var(--line);color:var(--eg-n1t)}
+.tag.eg.p1{background:var(--eg-p1);color:var(--eg-p1t)}
+.tag.eg.p2{background:var(--eg-p2);color:var(--eg-p2t)}
+.tag.eg.p3{background:var(--eg-p3);color:var(--eg-dark)}
+.tag.eg.p4{background:var(--eg-p4);color:var(--eg-dark);box-shadow:0 0 10px -2px var(--eg-p4)}
 </style>
 
 <div class="wrap">
@@ -498,7 +509,9 @@ function dayPicker(dl){var day=S.day,at=dl.all.indexOf(day),mo={},opts="";
 function seg(id,opts,cur){return '<span class="seg" id="'+id+'">'+opts.map(function(o){return '<button data-v="'+o[0]+'" aria-pressed="'+(String(o[0])===String(cur))+'">'+o[1]+'</button>'}).join("")+'</span>'}
 function unitTag(u){return u===1?'<span class="tag q">PP1</span>':u===2?'<span class="tag">PP2</span>':""}
 function injTag(r){var s="";if(r.inj)s+='<span class="tag l" title="'+esc(r.inj.c||r.inj.ty||"")+'">'+esc(r.inj.st.toUpperCase())+'</span>';if(r.back)s+='<span class="tag" title="Did not dress in the team\'s last game; pencilled in for a player who is out.">NOT IN LAST LINEUP</span>';return s}
-function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':'<span class="tag '+(r.ev>0?"w":"")+'">'+(r.ev>0?"+":"")+Math.round(r.ev*100)+'%</span>'}
+function grade(v){return v>=.5?"p4":v>=.25?"p3":v>=.1?"p2":v>0?"p1":v>-.1?"n1":v>-.25?"n2":"n3"} // seven steps from deep red through neutral to bright green
+function pill(v){return '<span class="tag eg '+grade(v)+'">'+(v>0?"+":"")+Math.round(v*100)+'%</span>'}
+function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':pill(r.ev)}
 function resTag(r){if(!r.res)return "";return r.res[1]>0?'<span class="res m">'+(r.res[1]>1?r.res[1]+" GOALS":"GOAL")+'</span>':'<span class="res x">NO GOAL</span>'}
 function gkLine(info,t,op){var s=info.side[t],g=s.gk;if(!g.p)return '<span class="o">no goalie on record</span>';
   var K=IX.K[g.p],txt='<b>'+nm(g.p)+'</b> <span class="o">'+(K?f2(K.ga/Math.max(K.xga,.01)/IX.L.gk)+"× goals per expected goal":"no NHL record, treated as average")+'</span>';
@@ -787,7 +800,7 @@ function vTracker(){
   function band(title,key,cuts,fmt){var R=cuts.map(function(c){return{c:c,n:0,h:0,ret:0,p:0,be:0}});
     BT.forEach(function(x){for(var i=0;i<R.length;i++)if(x[key]>=R[i].c[0]&&x[key]<R[i].c[1]){var r=R[i];r.n++;r.h+=x.hit;r.ret+=x.hit*x.pay-1;r.p+=x.pr;r.be+=1/x.pay;break}});
     return '<div class="tw tight"><table><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n" title="The average chance the model gave these players">Model</th><th class="n" title="The average chance the best price implied: the break-even rate">Price</th><th class="n">Scored</th><th class="n" title="Profit or loss at one unit a bet">Units</th><th class="n" title="Units won divided by bets">Return</th></tr></thead><tbody>'+
-      R.map(function(r){return '<tr><td>'+fmt(r.c)+'</td><td class="n">'+r.n+'</td><td class="n">'+(r.n?p1(r.p/r.n):"–")+'</td><td class="n">'+(r.n?p1(r.be/r.n):"–")+'</td><td class="n"><b>'+(r.n?p1(r.h/r.n):"–")+'</b></td><td class="n">'+(r.n?(r.ret>=0?"+":"")+f1(r.ret):"–")+'</td><td class="n">'+(r.n?'<span class="tag '+(r.ret>0?"w":"l")+'">'+(r.ret>=0?"+":"")+(100*r.ret/r.n).toFixed(1)+'%</span>':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}
+      R.map(function(r){return '<tr><td>'+fmt(r.c)+'</td><td class="n">'+r.n+'</td><td class="n">'+(r.n?p1(r.p/r.n):"–")+'</td><td class="n">'+(r.n?p1(r.be/r.n):"–")+'</td><td class="n"><b>'+(r.n?p1(r.h/r.n):"–")+'</b></td><td class="n">'+(r.n?(r.ret>=0?"+":"")+f1(r.ret):"–")+'</td><td class="n">'+(r.n?'<span class="tag eg '+grade(r.ret/r.n)+'">'+(r.ret>=0?"+":"")+(100*r.ret/r.n).toFixed(1)+'%</span>':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}
   function pc(c){return Math.round(c[0]*100)+(c[1]<9?"% to "+Math.round(c[1]*100)+"%":"% and up")}
   var money=BT.length?'<h3>Against stored prices · '+Object.keys(priced).length+' games, one unit on every priced skater at the best price</h3>'+
     '<div class="grid2"><div>'+band("Edge","ev",[[-9,-.15],[-.15,0],[0,.1],[.1,.25],[.25,.5],[.5,99]],function(c){return c[0]<-1?"Worse than −15%":c[1]>9?"+50% and up":(c[0]>=0?"+":"")+Math.round(c[0]*100)+"% to "+(c[1]>0?"+":"")+Math.round(c[1]*100)+"%"})+'</div>'+
