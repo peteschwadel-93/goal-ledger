@@ -376,20 +376,27 @@ function gameKey(m){return m.d+"|"+m.a+"|"+m.h}
 function oddsOf(m){var o=(D.odds||{})[gameKey(m)];return o||null}
 function priceOf(o,name,day,pid){var man=S.px[day+"|"+pid];if(man)return{price:man,book:"your price",n:0,manual:1};
   if(!o||!o.p)return null;var k=normName(name);for(var i=0;i<o.p.length;i++)if(normName(o.p[i][0])===k)return{price:o.p[i][1],book:o.p[i][2],n:o.p[i][3],mid:o.p[i][4]};return null}
-function goaliesOf(t){ // goalies seen for this team in its last 15 games, most starts first
-  var T=IX.T[t];if(!T)return[];var c={},last=null;
-  T.games.slice(-15).forEach(function(g){g.g[t].forEach(function(k){var x=c[k[0]]=c[k[0]]||{p:k[0],st:0,gp:0,last:null};x.gp++;if(k[4]){x.st++;x.last=g.d}})});
-  return Object.keys(c).map(function(k){return c[k]}).filter(function(x){return IX.K[x.p]&&IX.K[x.p].team===t&&!isOut(injOf(t,pname(x.p)))}).sort(function(a,b){return b.st-a.st||b.gp-a.gp})}
+function onRoster(t,p){var r=(D.rost||{})[t];return !r||r.indexOf(p)>=0}
+function goaliesOf(t){ // the team's goalies now: on its roster if that is known, otherwise whoever played or dressed in its last five games this season
+  var T=IX.T[t];if(!T||!T.games.length)return[];var c={},cur=T.games[T.games.length-1].s,known=!!(D.rost||{})[t];
+  function row(p){return c[p]=c[p]||{p:p,st:0,gp:0,last:null}}
+  if(known)D.rost[t].forEach(function(p){if(ppos(p)==="G")row(p)});
+  if(!Object.keys(c).length)T.games.slice(-5).forEach(function(g){if(g.s!==cur)return;g.g[t].forEach(function(k){row(k[0])});((g.bk||{})[t]||[]).forEach(function(p){row(p)})});
+  T.games.slice(-15).forEach(function(g){g.g[t].forEach(function(k){var x=c[k[0]];if(!x)return;x.gp++;if(k[4]){x.st++;x.last=g.d}})});
+  return Object.keys(c).map(function(k){return c[k]}).filter(function(x){return !isOut(injOf(t,pname(x.p)))}).sort(function(a,b){return b.st-a.st||b.gp-a.gp})}
 function projGoalie(t,day,key){ // the usual starter, or the other goalie when the usual one started yesterday
   var l=goaliesOf(t),ov=S.goalie[key+"|"+t];if(ov&&l.some(function(x){return x.p===ov}))return{p:ov,set:1,list:l};
   if(!l.length)return{p:null,list:l};
   var pick=l[0];if(l.length>1&&pick.last&&days(pick.last,day)===1)pick=l[1];
   return{p:pick.p,list:l,rest:pick!==l[0]}}
-function projSkaters(t,day){ // who is expected to dress: the last lineup less anyone listed out, each gap filled by the busiest recent regular at that position
-  var T=IX.T[t];if(!T||!T.games.length)return[];var gs=T.games.slice(-6),last=gs[gs.length-1],seen={},out=[],gap={F:0,D:0},cand=[];
-  last.p[t].forEach(function(r){seen[r[0]]=1;var it=injOf(t,pname(r[0]));if(IX.P[r[0]].team===t&&!isOut(it))out.push({p:r[0],inj:it});else gap[isD(r[0])?"D":"F"]++});
-  gs.slice(0,-1).reverse().forEach(function(g){g.p[t].forEach(function(r){if(seen[r[0]])return;seen[r[0]]=1;var st=IX.P[r[0]],it=injOf(t,pname(r[0]));
-    if(st.team===t&&!isOut(it))cand.push({p:r[0],inj:it,back:1,v:(st.t[0]+st.t[1])/st.t[2]})})});
+function projSkaters(t,day){ // who is expected to dress: the last lineup less anyone listed out or off the roster, each gap filled by the busiest regular at that position
+  var T=IX.T[t];if(!T||!T.games.length)return[];var last=T.games[T.games.length-1],gs=T.games.slice(-6).filter(function(g){return g.s===last.s}),seen={},out=[],gap={F:0,D:0},cand=[];
+  function ok(p){return IX.P[p].team===t&&onRoster(t,p)&&!isOut(injOf(t,pname(p)))}
+  last.p[t].forEach(function(r){seen[r[0]]=1;if(ok(r[0]))out.push({p:r[0],inj:injOf(t,pname(r[0]))});else gap[isD(r[0])?"D":"F"]++});
+  gs.slice(0,-1).reverse().forEach(function(g){g.p[t].forEach(function(r){if(seen[r[0]])return;seen[r[0]]=1;var st=IX.P[r[0]];
+    if(ok(r[0]))cand.push({p:r[0],inj:injOf(t,pname(r[0])),back:1,v:(st.t[0]+st.t[1])/st.t[2]})})});
+  ((D.rost||{})[t]||[]).forEach(function(p){var st=IX.P[p];if(seen[p]||!st||ppos(p)==="G"||isOut(injOf(t,pname(p))))return;seen[p]=1; // on the roster, yet to play for this team this season
+    cand.push({p:p,inj:injOf(t,pname(p)),back:1,v:(st.t[0]+st.t[1])/st.t[2]})});
   cand.sort(function(a,b){return b.v-a.v}).forEach(function(c){var k=isD(c.p)?"D":"F";if(gap[k]>0){gap[k]--;out.push(c)}});
   return out}
 function ppUnits(list){ // rank a lineup by recent power-play minutes: first five are PP1, next five PP2
@@ -808,7 +815,7 @@ function start(d){
     var h=(location.hash||"").slice(1);if(TABS[h])S.tab=h}
   S.booted=1;
   $("subline").textContent=d.season+" · who scores tonight, from NHL play-by-play, shift charts and the prices on offer.";
-  $("fresh").innerHTML=d.games.length+" games through "+fmtD(d.through)+", "+d.through.slice(0,4)+"<br>data built "+esc(d.built.replace("T"," ").replace("Z"," UTC"))+(d.odds&&d.odds.left!=null?"<br>"+esc(d.odds.left)+" price requests left":"");
+  $("fresh").innerHTML=d.games.length+" games through "+fmtD(d.through)+", "+d.through.slice(0,4)+"<br>data built "+esc(d.built.replace("T"," ").replace("Z"," UTC"))+(d.odds&&d.odds.left!=null?"<br>"+esc(d.odds.left)+" price requests left":"")+(d.oddsNote?"<br>"+esc(d.oddsNote):"");
   render();
 }
 function fail(){$("fresh").textContent="No data loaded";

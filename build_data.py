@@ -44,7 +44,8 @@ except ImportError:  # --install adds them
 ARCHIVE = "https://raw.githubusercontent.com/sportsdataverse/fastRhockey-nhl-data/main/nhl/"
 FILES = {"pbp": "pbp_lite/parquet/play_by_play_lite_{y}.parquet", "skaters": "skater_box/parquet/skater_box_{y}.parquet",
          "goalies": "goalie_box/parquet/goalie_box_{y}.parquet", "shifts": "shifts/parquet/shifts_{y}.parquet",
-         "sched": "schedules/parquet/nhl_schedule_{y}.parquet"}
+         "sched": "schedules/parquet/nhl_schedule_{y}.parquet", "rosters": "game_rosters/parquet/game_rosters_{y}.parquet"}
+NHL_ROSTER = "https://api-web.nhle.com/v1/roster/{team}/current"
 PBP_COLS = ["game_id", "game_date", "season_type", "home_abbr", "away_abbr", "event_idx", "event_type", "event_team_type",
             "period_type", "game_seconds", "event_player_1_id", "event_player_1_name", "event_player_1_type",
             "event_player_2_id", "event_player_2_name", "event_player_2_type", "event_player_3_id", "event_player_3_name",
@@ -123,9 +124,14 @@ def fetch_file(kind, season, fresh):
 
 
 def load_season(season, fresh):
-    f = {k: fetch_file(k, season, fresh) for k in FILES}
+    f = {k: fetch_file(k, season, fresh) for k in FILES if k != "rosters"}
     pbp = pd.read_parquet(f["pbp"], columns=PBP_COLS)
-    return {"pbp": pbp, "skaters": pd.read_parquet(f["skaters"]), "goalies": pd.read_parquet(f["goalies"]),
+    try:   # who dressed for each game, which is how a backup goalie who has not played yet is known
+        rost = pd.read_parquet(fetch_file("rosters", season, fresh), columns=["game_id", "player_id", "full_name", "team_abbr", "position_code"])
+    except Exception as e:
+        print(f"no game rosters for {label(season)}: {e}", file=sys.stderr)
+        rost = None
+    return {"pbp": pbp, "rosters": rost, "skaters": pd.read_parquet(f["skaters"]), "goalies": pd.read_parquet(f["goalies"]),
             "shifts": pd.read_parquet(f["shifts"], columns=["game_id", "game_seconds", "ids_on", "ids_off"]),
             "sched": pd.read_parquet(f["sched"])}
 
@@ -212,6 +218,11 @@ def build_season(season, d):
     sk_by = {k: v for k, v in d["skaters"].groupby("game_id", sort=False)}
     gl_by = {k: v for k, v in d["goalies"].groupby("game_id", sort=False)}
     sh_by = {k: v for k, v in d["shifts"].groupby("game_id", sort=False)}
+    ro_by = {}
+    if d.get("rosters") is not None:
+        gro = d["rosters"][d["rosters"].position_code == "G"]
+        ro_by = {k: v for k, v in gro.groupby("game_id", sort=False)}
+        names.update({int(a): b for a, b in gro[["player_id", "full_name"]].dropna().drop_duplicates("player_id").values})
     games = []
     for gid in sorted(by_game):
         g, sk, gl = by_game[gid], sk_by.get(gid), gl_by.get(gid)
@@ -302,6 +313,13 @@ def build_season(season, d):
             gks[r.team_abbrev].append([p, k[0], k[1], round(k[2] * 100), 1 if bool(r.starter) else 0, toi_s(r.toi)])
         for t in gks:
             gks[t].sort(key=lambda x: (-x[4], -x[5]))
+        bk = {home: [], away: []}   # goalies who dressed and did not play
+        if gid in ro_by:
+            played = {x[0] for t in gks for x in gks[t]}
+            for r in ro_by[gid].itertuples():
+                if int(r.player_id) not in played and r.team_abbr in bk:
+                    bk[r.team_abbr].append(int(r.player_id))
+                    pos[int(r.player_id)] = "G"
         ln = {}
         for t in (home, away):
             fwd = [x[0] for x in rows[t] if pos.get(x[0]) in ("C", "L", "R")]
@@ -310,7 +328,7 @@ def build_season(season, d):
         hg = int((fin.event_team_type == "home").sum())
         ag = int((fin.event_team_type == "away").sum())
         games.append({"id": int(gid), "d": str(g.game_date.iloc[0])[:10], "s": season, "po": 1 if str(gid)[4:6] == "03" else 0,
-                      "h": home, "a": away, "sc": [ag, hg], "ot": 1 if end > 3600 else 0, "p": rows, "t": tm, "g": gks, "l": ln})
+                      "h": home, "a": away, "sc": [ag, hg], "ot": 1 if end > 3600 else 0, "p": rows, "t": tm, "g": gks, "l": ln, "bk": bk})
     return games, names, pos
 
 
@@ -332,6 +350,28 @@ def upcoming(sched, days=7):
                         "a": r.away_team_abbr, "gid": int(r.game_id)})
     out.sort(key=lambda x: (x["ts"], x["gid"]))
     return out
+
+
+# ---------- current rosters ----------
+def load_rosters(teams):
+    """Each team's current roster from the NHL: ({team: [player ids]}, {id: [name, position]}), or (None, {}) if it cannot be read."""
+    out, who = {}, {}
+    try:
+        for t in sorted(teams):
+            doc = json.loads(get(NHL_ROSTER.format(team=t), timeout=30)[0])
+            ids_ = []
+            for grp in ("forwards", "defensemen", "goalies"):
+                for p in doc.get(grp) or []:
+                    pid = int(p["id"])
+                    ids_.append(pid)
+                    nm = f"{(p.get('firstName') or {}).get('default', '')} {(p.get('lastName') or {}).get('default', '')}".strip()
+                    who[pid] = [nm, "G" if grp == "goalies" else p.get("positionCode") or ("D" if grp == "defensemen" else "C")]
+            if len(ids_) >= 18:
+                out[t] = ids_
+        return (out or None), who
+    except Exception as e:
+        print(f"rosters unavailable: {e}", file=sys.stderr)
+        return None, {}
 
 
 # ---------- injuries ----------
@@ -369,6 +409,9 @@ TEAM_NAMES = {"Anaheim Ducks": "ANA", "Boston Bruins": "BOS", "Buffalo Sabres": 
               "St Louis Blues": "STL", "St. Louis Blues": "STL", "Tampa Bay Lightning": "TBL", "Toronto Maple Leafs": "TOR",
               "Utah Mammoth": "UTA", "Utah Hockey Club": "UTA", "Vancouver Canucks": "VAN", "Vegas Golden Knights": "VGK",
               "Washington Capitals": "WSH", "Winnipeg Jets": "WPG"}
+
+
+ODDS_NOTE = [""]   # what the last price fetch did, shown on the page
 
 
 def odds_key():
@@ -462,6 +505,7 @@ def remember_odds(sched, old):
         pass
     key = odds_key()
     if not key:
+        ODDS_NOTE[0] = "No Odds API key reached the build, so no prices were fetched."
         return store
     before = json.dumps(store, sort_keys=True)
     now = datetime.now(ET)
@@ -531,8 +575,17 @@ def remember_odds(sched, old):
                     if float(left) < 15:
                         print("odds: request allowance nearly used; stopping", file=sys.stderr)
                         break
+            got = sum(1 for k, _, _ in want if (store.get(k) or {}).get("at") == stamp)
+            ODDS_NOTE[0] = f"Prices fetched for {got} of {len(want)} games due at {stamp[11:]} ET." + ("" if got == len(want) else " The rest have no prices posted yet.")
         except Exception as e:
-            print(f"odds unavailable: {str(e).replace(key, '***')}", file=sys.stderr)
+            msg = str(e).replace(key, "***")
+            if hasattr(e, "read"):
+                try:
+                    msg += " " + e.read().decode("utf-8", "replace")[:200].replace(key, "***")
+                except Exception:
+                    pass
+            ODDS_NOTE[0] = "The Odds API refused the request: " + msg
+            print(f"odds unavailable: {msg}", file=sys.stderr)
     cutoff = (now - timedelta(days=120)).strftime("%Y-%m-%d")
     store = {k: v for k, v in store.items() if k == "left" or (k.split("|")[1] if k.startswith("lines|") else k[:10]) >= cutoff}
     if json.dumps(store, sort_keys=True) != before:
@@ -601,17 +654,25 @@ def make(seasons=3, season=None, html=None, live=True):
         for t in g["p"]:
             used.update(r[0] for r in g["p"][t])
             used.update(r[0] for r in g["g"][t])
+            used.update(g.get("bk", {}).get(t, []))
     ys = sorted({g["s"] for g in games})
     out = {"season": " + ".join(label(y) for y in ys), "seasons": ys, "built": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
            "through": games[-1]["d"], "sched": sched,
            "players": {str(p): [names.get(p, f"#{p}"), pos.get(p, "")] for p in sorted(used)}, "games": games}
     if live:
+        rost, who = load_rosters({g["h"] for g in games if g["s"] == ys[-1]} | {u["h"] for u in sched} | {u["a"] for u in sched})
+        if rost:
+            out["rost"] = rost
+            for pid, v in who.items():
+                if str(pid) not in out["players"] or out["players"][str(pid)][0].startswith("#"):
+                    out["players"][str(pid)] = v
         inj = load_injuries()
         if inj is not None:
             out["inj"] = inj
         out["flags"] = remember_flags(sched, inj, old)
         out["odds"] = remember_odds(sched, old)
         out["hasKey"] = 1 if odds_key() else 0
+        out["oddsNote"] = ODDS_NOTE[0]
     if notes:
         out["note"] = "; ".join(notes)
     return out
