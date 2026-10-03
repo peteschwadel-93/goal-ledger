@@ -374,6 +374,81 @@ def load_rosters(teams):
         return None, {}
 
 
+# ---------- confirmed lineups and starting goalies ----------
+NHL_GAME = "https://api-web.nhle.com/v1/gamecenter/{gid}/{what}"
+DAILY_FACEOFF = "https://www.dailyfaceoff.com/starting-goalies"
+
+
+def parse_lineup(pbp, box):
+    """({team: {"sk": skaters, "g": goalies, "st": starter or None}}, {id: [name, pos]}, state) from the NHL's game feeds."""
+    abbr = {pbp["awayTeam"]["id"]: pbp["awayTeam"]["abbrev"], pbp["homeTeam"]["id"]: pbp["homeTeam"]["abbrev"]}
+    lu, who = {t: {"sk": [], "g": [], "st": None} for t in abbr.values()}, {}
+    for r in pbp.get("rosterSpots") or []:
+        t = abbr.get(r.get("teamId"))
+        if not t:
+            continue
+        pid, pos = int(r["playerId"]), r.get("positionCode") or ""
+        who[pid] = [f"{(r.get('firstName') or {}).get('default', '')} {(r.get('lastName') or {}).get('default', '')}".strip(), pos]
+        lu[t]["g" if pos == "G" else "sk"].append(pid)
+    for side in ("awayTeam", "homeTeam"):
+        t = (box or {}).get(side, {}).get("abbrev")
+        for g in (((box or {}).get("playerByGameStats") or {}).get(side) or {}).get("goalies") or []:
+            if g.get("starter") and t in lu:
+                lu[t]["st"] = int(g["playerId"])
+    # a posted game roster is 18 skaters and 2 goalies a side; anything bigger is the full roster, not a lineup
+    ok = all(15 <= len(v["sk"]) <= 19 and 1 <= len(v["g"]) <= 3 for v in lu.values())
+    return (lu if ok else None), who, pbp.get("gameState")
+
+
+def load_lineups(sched):
+    """Adds the posted lineup, the starting goalie once the game is under way, and the game's state to today's games."""
+    now, who = datetime.now(ET), {}
+    for u in sched:
+        hrs = (datetime.fromisoformat(u["ts"]) - now).total_seconds() / 3600
+        if not -6 <= hrs <= 3:
+            continue
+        try:
+            pbp = json.loads(get(NHL_GAME.format(gid=u["gid"], what="play-by-play"), timeout=30)[0])
+            box = None
+            if pbp.get("gameState") in ("LIVE", "CRIT", "OFF", "FINAL"):
+                box = json.loads(get(NHL_GAME.format(gid=u["gid"], what="boxscore"), timeout=30)[0])
+            lu, names, state = parse_lineup(pbp, box)
+            if lu:
+                u["lu"] = lu
+                who.update(names)
+            if state:
+                u["st"] = state
+        except Exception as e:
+            print(f"lineup for {u['a']}@{u['h']} unavailable: {e}", file=sys.stderr)
+    return who
+
+
+def load_daily_faceoff():
+    """Tonight's expected starters from Daily Faceoff: {team: [goalie name, "Confirmed" | "Likely" | ...]}, or {} if unreadable."""
+    try:
+        page = get(DAILY_FACEOFF, timeout=30, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36", "Accept": "text/html"})[0].decode("utf-8", "replace")
+        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+        out = {}
+
+        def walk(x):
+            if isinstance(x, dict):
+                if "homeGoalieName" in x and "awayGoalieName" in x:
+                    for side in ("home", "away"):
+                        t = TEAM_NAMES.get(x.get(side + "TeamName") or "")
+                        if t and x.get(side + "GoalieName"):
+                            out.setdefault(t, [x[side + "GoalieName"], x.get(side + "NewsStrengthName") or "Unconfirmed"])
+                for v in x.values():
+                    walk(v)
+            elif isinstance(x, list):
+                for v in x:
+                    walk(v)
+        walk(json.loads(m.group(1)))
+        return out
+    except Exception as e:
+        print(f"Daily Faceoff starters unavailable: {e}", file=sys.stderr)
+        return {}
+
+
 # ---------- injuries ----------
 def load_injuries():
     """Current injury designations by team from ESPN, or None if the feed cannot be read."""
@@ -747,6 +822,12 @@ def make(seasons=3, season=None, html=None, live=True):
             for pid, v in who.items():
                 if str(pid) not in out["players"] or out["players"][str(pid)][0].startswith("#"):
                     out["players"][str(pid)] = v
+        for pid, v in load_lineups(sched).items():
+            if str(pid) not in out["players"] or out["players"][str(pid)][0].startswith("#"):
+                out["players"][str(pid)] = v
+        dfg = load_daily_faceoff()
+        if dfg:
+            out["dfg"] = {"d": datetime.now(ET).strftime("%Y-%m-%d"), "t": dfg}
         inj = load_injuries()
         if inj is not None:
             out["inj"] = inj

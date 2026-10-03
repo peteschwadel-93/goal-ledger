@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0">
 <title>Goal Ledger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%9A%A8%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column of soft dark cards under pill tabs, the same frame as the Tip-Off Ledger. Single dark theme by design: cold rink-at-night charcoal, ice blue for headings, numbers and controls, green reserved for goals scored and picks that hit. */
@@ -309,7 +310,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 (function(){
 "use strict";
 var D=null,G=[],IX=null;
-var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:0,mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
+var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:.4,mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
 var $=function(id){return document.getElementById(id)};
 var view=$("view");
 /* ---- the model's constants. Fitted on 2024-25 and 2025-26 (every skater in every game, about 100,000 player-games),
@@ -426,12 +427,24 @@ function goaliesOf(t){ // the team's goalies now: on its roster if that is known
   if(!Object.keys(c).length)T.games.slice(-5).forEach(function(g){if(g.s!==cur)return;g.g[t].forEach(function(k){row(k[0])});((g.bk||{})[t]||[]).forEach(function(p){row(p)})});
   T.games.slice(-15).forEach(function(g){g.g[t].forEach(function(k){var x=c[k[0]];if(!x)return;x.gp++;if(k[4]){x.st++;x.last=g.d}})});
   return Object.keys(c).map(function(k){return c[k]}).filter(function(x){return !isOut(injOf(t,pname(x.p)))}).sort(function(a,b){return b.st-a.st||b.gp-a.gp})}
-function projGoalie(t,day,key){ // the usual starter, or the other goalie when the usual one started yesterday
-  var l=goaliesOf(t),ov=S.goalie[key+"|"+t];if(ov&&l.some(function(x){return x.p===ov}))return{p:ov,set:1,list:l};
+function stOf(p){return IX.P[p]||(IX.P[p]={a:[0,0,0,0,0,0,0,0],t:[0,0,0],team:null,last:null,log:[]})}
+function dfGoalie(t,day,l){ // Daily Faceoff's starter for today, matched to a known goalie
+  var d=D.dfg;if(!d||d.d!==day||!d.t[t])return null;var k=normName(d.t[t][0]),hit=null;
+  l.forEach(function(x){if(normName(pname(x.p))===k)hit=x.p});
+  if(!hit)(IX.names[k]||[]).forEach(function(p){if(ppos(p)==="G")hit=p});
+  return hit?{p:hit,s:d.t[t][1]}:null}
+function projGoalie(t,day,key,m){ // who starts: the NHL's own record once the puck drops, then your pick, then Daily Faceoff, then the usual starter (or his backup on a back-to-back)
+  var l=goaliesOf(t),lu=m&&m.lu&&m.lu[t];
+  if(lu&&lu.g.length){var by={};l.forEach(function(x){by[x.p]=x});l=lu.g.map(function(p){return by[p]||{p:p,st:0,gp:0,last:null}}).sort(function(a,b){return b.st-a.st})}
+  if(lu&&lu.st)return{p:lu.st,list:[],src:"STARTED"};
+  var ov=S.goalie[key+"|"+t];if(ov&&l.some(function(x){return x.p===ov}))return{p:ov,set:1,list:l};
+  var df=dfGoalie(t,day,l);
+  if(df&&/confirm|likely|expected/i.test(df.s)){if(!l.some(function(x){return x.p===df.p}))l=l.concat([{p:df.p,st:0,gp:0,last:null}]);return{p:df.p,list:l,src:df.s.toUpperCase()+" · DAILY FACEOFF"}}
   if(!l.length)return{p:null,list:l};
   var pick=l[0];if(l.length>1&&pick.last&&days(pick.last,day)===1)pick=l[1];
   return{p:pick.p,list:l,rest:pick!==l[0]}}
-function projSkaters(t,day){ // who is expected to dress: the last lineup less anyone listed out or off the roster, each gap filled by the busiest regular at that position
+function projSkaters(t,day,m){ // the posted lineup when there is one; otherwise who is expected to dress: the last lineup less anyone listed out or off the roster, each gap filled by the busiest regular at that position
+  if(m&&m.lu&&m.lu[t])return m.lu[t].sk.map(function(p){stOf(p);return{p:p,inj:null,conf:1}});
   var T=IX.T[t];if(!T||!T.games.length)return[];var last=T.games[T.games.length-1],gs=T.games.slice(-6).filter(function(g){return g.s===last.s}),seen={},out=[],gap={F:0,D:0},cand=[];
   function ok(p){return IX.P[p].team===t&&onRoster(t,p)&&!isOut(injOf(t,pname(p)))}
   last.p[t].forEach(function(r){seen[r[0]]=1;if(ok(r[0]))out.push({p:r[0],inj:injOf(t,pname(r[0]))});else gap[isD(r[0])?"D":"F"]++});
@@ -457,12 +470,12 @@ function slate(day){
     [[m.a,m.h],[m.h,m.a]].forEach(function(pr){var t=pr[0],op=pr[1],rows=[],f,gk;
       if(m.g){f=IX.CTX[m.g.id][t];gk={p:f.goalie,list:[]};
         m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r})})}
-      else{gk=projGoalie(op,day,key);var T=IX.T[t]||{},O=IX.T[op]||{};
+      else{gk=projGoalie(op,day,key,m);var T=IX.T[t]||{},O=IX.T[op]||{};
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
-        projSkaters(t,day).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p));rows.push({p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back})})}
+        projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p));rows.push({p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back})})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
       var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
-      info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null};
+      info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t])};
       rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);
         var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay)}
         out.push(r)})})});
@@ -482,9 +495,10 @@ function injTag(r){var s="";if(r.inj)s+='<span class="tag l" title="'+esc(r.inj.
 function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':'<span class="tag '+(r.ev>0?"w":"")+'">'+(r.ev>0?"+":"")+Math.round(r.ev*100)+'%</span>'}
 function resTag(r){if(!r.res)return "";return r.res[1]>0?'<span class="res m">'+(r.res[1]>1?r.res[1]+" GOALS":"GOAL")+'</span>':'<span class="res x">NO GOAL</span>'}
 function gkLine(info,t,op){var s=info.side[t],g=s.gk;if(!g.p)return '<span class="o">no goalie on record</span>';
-  var K=IX.K[g.p],rel=gkF(g.p),txt=nm(g.p)+' <span class="o">'+(K?f2(K.ga/Math.max(K.xga,.01)/IX.L.gk)+"× goals per expected goal":"")+'</span>';
-  if(info.m.g||g.list.length<2)return txt;
-  return '<select class="gksel" data-gk="'+info.key+"|"+op+'" aria-label="'+op+' starting goalie">'+g.list.map(function(x){return '<option value="'+x.p+'"'+(x.p===g.p?" selected":"")+'>'+nm(x.p)+" · "+x.st+" of last "+Math.min(15,IX.T[op].games.length)+" starts"+'</option>'}).join("")+'</select>'+(g.rest?' <span class="tag q" title="The usual starter played yesterday.">BACK-TO-BACK SWAP</span>':'')+(g.set?' <span class="tag">YOUR PICK</span>':'')}
+  var K=IX.K[g.p],txt='<b>'+nm(g.p)+'</b> <span class="o">'+(K?f2(K.ga/Math.max(K.xga,.01)/IX.L.gk)+"× goals per expected goal":"no NHL record, treated as average")+'</span>';
+  var src=g.src?' <span class="tag '+(/STARTED|CONFIRM/.test(g.src)?"w":"q")+'">'+esc(g.src)+'</span>':'';
+  if(info.m.g||g.list.length<2)return txt+src;
+  return '<select class="gksel" data-gk="'+info.key+"|"+op+'" aria-label="'+op+' starting goalie">'+g.list.map(function(x){return '<option value="'+x.p+'"'+(x.p===g.p?" selected":"")+'>'+nm(x.p)+" · "+x.st+" of last "+Math.min(15,IX.T[op].games.length)+" starts"+'</option>'}).join("")+'</select>'+src+(g.rest?' <span class="tag q" title="The usual starter played yesterday.">BACK-TO-BACK SWAP</span>':'')+(g.set?' <span class="tag">YOUR PICK</span>':'')+(!g.src&&!g.set&&!g.rest?' <span class="tag">PROJECTED</span>':'')}
 
 /* ================= Picks ================= */
 function vPicks(){
@@ -504,7 +518,7 @@ function vPicks(){
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
     (hasLines?(S.mkt?' Each team\'s skaters are scaled so their goals add up to what the moneyline and total say the team will score.':' Team goals are the model\'s own; the market lines are being ignored.'):"")+
-    (played?"":' Lineups are projected from each team\'s last game and the injury list; the opposing goalie is the usual starter unless you pick another on the game card.')+'</p></section>';
+    (played?"":' Until a lineup is posted it is projected from each team\'s last game and the injury list. The goalie is the one who started once the puck drops; before that it is your pick, then Daily Faceoff\'s confirmed or likely starter, then the usual starter.')+'</p></section>';
   var cards=top.slice(0,S.topN).map(function(r,i){return pickCard(r,i+1,mode)}).join("");
   var body='<section class="panel"><div class="phead"><h2>Top of the slate · '+({like:"most likely to score",value:"biggest edge over the price",blend:"best blend of chance and price"})[mode]+'</h2></div>'+
     (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':''):'<p class="empty">'+(rows.length?"Nobody clears these filters.":"No games on this day.")+'</p>')+'</section>';
@@ -527,10 +541,10 @@ function pickCard(r,i,mode){
 function gameCard(m,rows,mode){
   var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key}),info=mine.length?mine[0].info:null;if(!info)return "";
   var ln=info.o&&info.o.ln,g=m.g;
-  var head='<div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(g?"Final "+g.sc[0]+"–"+g.sc[1]+(g.ot?" (OT/SO)":""):esc(m.t||""))+'</span></div>';
+  var head='<div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(g?"Final "+g.sc[0]+"–"+g.sc[1]+(g.ot?" (OT/SO)":""):/LIVE|CRIT/.test(m.st||"")?"In progress":/OFF|FINAL/.test(m.st||"")?"Final · results load overnight":esc(m.t||""))+'</span></div>';
   var mk=ln?'<div class="kv"><span>Moneyline <b>'+(ln.ml?m.a+" "+fmtP(ln.ml[0])+" / "+m.h+" "+fmtP(ln.ml[1]):"–")+'</b></span><span>Total <b>'+(ln.tot?ln.tot[0]:"–")+'</b></span>'+(info.mk?'<span>Priced to score <b>'+m.a+" "+f2(info.mk.a)+" · "+m.h+" "+f2(info.mk.h)+'</b></span>':'')+'</div>':'';
   var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,s=info.side[t],l=ranked(mine.filter(function(r){return r.t===t}),mode).slice(0,6);
-    return '<div class="lteam"><h3>'+tmL(t)+' <span class="o">model '+f2(s.model)+(s.scale!==1?" → "+f2(s.model*s.scale)+" goals":" goals")+'</span></h3>'+
+    return '<div class="lteam"><h3>'+tmL(t)+(s.conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">model '+f2(s.model)+(s.scale!==1?" → "+f2(s.model*s.scale)+" goals":" goals")+'</span></h3>'+
       '<div class="kv f3"><span>Faces '+gkLine(info,t,op)+'</span></div>'+
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
       '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
@@ -573,7 +587,7 @@ function vLineups(){
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
       function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv2"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
-      var h='<div class="lteam"><h3>'+tmL(t)+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
+      var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
       (src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){h+=li(p,"L"+(i+1))})});
       my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
       my.filter(function(r){return r.pos==="D"}).sort(function(a,b){return b.b.tev-a.b.tev}).forEach(function(r){h+=li(r.p,"D")});
@@ -748,13 +762,13 @@ function vTeams(){
 
 /* ================= Tracker ================= */
 function vTracker(){
-  var ss=D.seasons,cur=S.ssn==="all"?ss[ss.length-1]:+S.ssn,gs=D.games.filter(function(g){return g.s===cur&&(S.po==="all"||String(g.po)===S.po)});
+  var ss=D.seasons,cur=ss.indexOf(S.trkS)>=0?S.trkS:ss[ss.length-1],gs=D.games.filter(function(g){return g.s===cur});
   var bands=[[0,.1],[.1,.15],[.15,.2],[.2,.25],[.25,.3],[.3,.35],[.35,.4],[.4,1]],B=bands.map(function(){return{n:0,p:0,h:0}});
-  var top1={n:0,h:0,p:0},top3={n:0,h:0,p:0},byDay={},bets={n:0,ret:0,h:0},betsV={n:0,ret:0,h:0};
+  var top1={n:0,h:0,p:0},top3={n:0,h:0,p:0},byDay={},BT=[],priced={};
   gs.forEach(function(g){var all=[],o=(D.odds||{})[g.d+"|"+g.a+"|"+g.h];
     [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var pr=1-Math.exp(-IX.PRE[g.id][r[0]][0]),hit=r[1]>0?1:0;all.push({p:r[0],t:t,pr:pr,hit:hit});
       for(var i=0;i<bands.length;i++)if(pr>=bands[i][0]&&pr<bands[i][1]){B[i].n++;B[i].p+=pr;B[i].h+=hit;break}
-      if(o&&o.p){var px=priceOf(o,pname(r[0]),"",0);if(px){var pay=payout(px.price),ev=pr*pay-1;bets.n++;bets.h+=hit;bets.ret+=hit*pay-1;if(ev>.05){betsV.n++;betsV.h+=hit;betsV.ret+=hit*pay-1}}}})});
+      if(o&&o.p){var px=priceOf(o,pname(r[0]),"",0);if(px){var pay=payout(px.price);BT.push({pr:pr,ev:pr*pay-1,hit:hit,pay:pay});priced[g.id]=1}}})});
     all.sort(function(a,b){return b.pr-a.pr});
     if(all.length){top1.n++;top1.h+=all[0].hit;top1.p+=all[0].pr;all.slice(0,3).forEach(function(x){top3.n++;top3.h+=x.hit;top3.p+=x.pr})}
     var d=byDay[g.d]=byDay[g.d]||{d:g.d,games:0,all:[]};d.games++;d.all=d.all.concat(all)});
@@ -764,13 +778,21 @@ function vTracker(){
   var cal='<div class="tw"><table style="width:auto"><thead><tr><th>Model said</th><th class="n">Player-games</th><th class="n">Average call</th><th class="n">Scored</th><th>Call vs result</th></tr></thead><tbody>'+
     B.map(function(b,i){return '<tr><td>'+Math.round(bands[i][0]*100)+(bands[i][1]<1?"–"+Math.round(bands[i][1]*100)+"%":"%+")+'</td><td class="n">'+b.n+'</td><td class="n">'+(b.n?p1(b.p/b.n):"–")+'</td><td class="n"><b>'+(b.n?p1(b.h/b.n):"–")+'</b></td><td>'+(b.n?'<div class="calbar"><i style="width:'+(100*b.p/b.n/mx)+'%"></i><b style="width:'+(100*b.h/b.n/mx)+'%"></b></div>':"")+'</td></tr>'}).join("")+'</tbody></table></div>';
   function rec(l,x){return '<span>'+l+' <b>'+x.h+" of "+x.n+'</b> · '+pct(x.h,x.n)+' <span class="o">(model expected '+pct(x.p,x.n)+')</span></span>'}
-  var money=bets.n?'<h3>Against stored prices</h3><div class="kv"><span>Every priced skater, one unit each: <b>'+bets.n+'</b> bets, <b>'+(bets.ret>=0?"+":"")+f1(bets.ret)+'</b> units ('+(100*bets.ret/bets.n).toFixed(1)+'% a bet)</span><span>Only edges above 5%: <b>'+betsV.n+'</b> bets, <b>'+(betsV.ret>=0?"+":"")+f1(betsV.ret)+'</b> units'+(betsV.n?" ("+(100*betsV.ret/betsV.n).toFixed(1)+"% a bet)":"")+'</span></div>':
-    '<p class="note">No prices are stored yet. Once the local helper has been fetching prices, this tab also shows what backing every edge above 5% would have returned.</p>';
+  function band(title,key,cuts,fmt){var R=cuts.map(function(c){return{c:c,n:0,h:0,ret:0,p:0,be:0}});
+    BT.forEach(function(x){for(var i=0;i<R.length;i++)if(x[key]>=R[i].c[0]&&x[key]<R[i].c[1]){var r=R[i];r.n++;r.h+=x.hit;r.ret+=x.hit*x.pay-1;r.p+=x.pr;r.be+=1/x.pay;break}});
+    return '<div class="tw"><table style="width:auto"><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n">Model said</th><th class="n">Price implied</th><th class="n">Scored</th><th class="n">Units won</th><th class="n">Return a bet</th></tr></thead><tbody>'+
+      R.map(function(r){return '<tr><td>'+fmt(r.c)+'</td><td class="n">'+r.n+'</td><td class="n">'+(r.n?p1(r.p/r.n):"–")+'</td><td class="n">'+(r.n?p1(r.be/r.n):"–")+'</td><td class="n"><b>'+(r.n?p1(r.h/r.n):"–")+'</b></td><td class="n">'+(r.n?(r.ret>=0?"+":"")+f1(r.ret):"–")+'</td><td class="n">'+(r.n?'<span class="tag '+(r.ret>0?"w":"l")+'">'+(r.ret>=0?"+":"")+(100*r.ret/r.n).toFixed(1)+'%</span>':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}
+  function pc(c){return Math.round(c[0]*100)+(c[1]<9?"% to "+Math.round(c[1]*100)+"%":"% and up")}
+  var money=BT.length?'<h3>Against stored prices · '+Object.keys(priced).length+' games, one unit on every priced skater at the best price</h3>'+
+    '<div class="grid2"><div>'+band("Edge","ev",[[-9,-.15],[-.15,0],[0,.1],[.1,.25],[.25,.5],[.5,99]],function(c){return c[0]<-1?"Worse than −15%":c[1]>9?"+50% and up":(c[0]>=0?"+":"")+Math.round(c[0]*100)+"% to "+(c[1]>0?"+":"")+Math.round(c[1]*100)+"%"})+'</div>'+
+    '<div>'+band("Model's chance","pr",[[0,.1],[.1,.2],[.2,.3],[.3,.4],[.4,9]],pc)+'</div></div>'+
+    '<p class="note">This is where a betting threshold comes from: look for the edge and chance rows that stay green as games pile up. A few dozen games is far too few to trust; a row needs a few hundred bets before its return means much. The best price across books flatters the result a little if you only bet at one book.</p>':
+    '<p class="note">No prices are stored for '+lab+'. Prices are kept from the day the site started fetching them; earlier games in the current season can be loaded once from Actions → Run workflow with the past-prices box ticked.</p>';
   var more=dayRows.length>S.trkN;
   var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th></tr></thead><tbody>'+
     dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML='<section class="panel"><div class="phead"><h2>Tracker · '+lab+'</h2></div>'+
-    '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test. Use the Season switch to change season.</p>'+
+  view.innerHTML='<section class="panel"><div class="phead"><h2>Tracker · '+lab+'</h2><label class="f">Season '+seg("seg-trks",ss.slice().reverse().map(function(y){return[y,y+"-"+String(y+1).slice(2)]}),cur)+'</label></div>'+
+    '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
     '<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
@@ -802,7 +824,7 @@ function render(){
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
   [["#seg-ssn",S.ssn],["#seg-po",S.po],["#seg-n",S.n]].forEach(function(x){[].forEach.call(document.querySelectorAll(x[0]+" button"),function(b){b.setAttribute("aria-pressed",b.dataset.v===String(x[1]))})});
   [].forEach.call(document.querySelectorAll("#tabs button"),function(b){b.setAttribute("aria-selected",b.dataset.tab===S.tab)});
-  $("filters").hidden=["picks","slate","lineups"].indexOf(S.tab)>=0;
+  $("filters").hidden=["picks","slate","lineups","tracker"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["picks","slate","lineups","tracker"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   TABS[S.tab]();
@@ -818,7 +840,7 @@ document.addEventListener("click",function(e){
   var b=e.target.closest(".seg button");
   if(b){var id=b.parentNode.id,v=b.dataset.v;
     if(id==="seg-po")S.po=v;else if(id==="seg-n")S.n=+v;else if(id==="seg-ssn")S.ssn=v;else if(id==="seg-rank"){S.rank=v;S.topN=12;save()}
-    else if(id==="seg-pos")S.pos=v;else if(id==="seg-mkt")S.mkt=+v;else if(id==="seg-all")S.slateAll=+v;else if(id==="seg-ldpos")S.ldPos=v;else return;
+    else if(id==="seg-pos")S.pos=v;else if(id==="seg-mkt")S.mkt=+v;else if(id==="seg-all")S.slateAll=+v;else if(id==="seg-ldpos")S.ldPos=v;else if(id==="seg-trks"){S.trkS=+v;S.trkN=30}else return;
     return render()}
   var id2=e.target.id;
   if(id2==="dayPrev"||id2==="dayNext"){var dl=dayList(),i=dl.all.indexOf(S.day)+(id2==="dayPrev"?1:-1);if(dl.all[i]){S.day=dl.all[i];S.topN=12;render()}return}
@@ -855,7 +877,7 @@ function start(d){
     Object.keys(S.px).forEach(function(k){if(k.slice(0,10)<today)delete S.px[k]});Object.keys(S.goalie).forEach(function(k){if(k.slice(0,10)<today)delete S.goalie[k]})}
   var ss=d.seasons||[];$("ssnWrap").hidden=ss.length<2;
   $("seg-ssn").innerHTML='<button data-v="all">All</button>'+ss.map(function(y){return '<button data-v="'+y+'">'+y+"-"+String(y+1).slice(2)+'</button>'}).join("");
-  if(!S.booted){var cur=ss[ss.length-1],nCur=d.games.filter(function(g){return g.s===cur}).length;S.ssn=nCur>=150?String(cur):ss.length>1?String(ss[ss.length-2]):"all";
+  if(!S.booted){var cur=ss[ss.length-1],nCur=d.games.filter(function(g){return g.s===cur}).length;S.ssn=String(cur);
     var h=(location.hash||"").slice(1);if(TABS[h])S.tab=h}
   S.booted=1;
   $("subline").textContent=d.season+" · who scores tonight, from NHL play-by-play, shift charts and the prices on offer.";
