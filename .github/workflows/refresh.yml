@@ -29,6 +29,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -62,7 +64,14 @@ jobs:
           git config user.name "goal-ledger-bot"
           git config user.email "actions@users.noreply.github.com"
           git add -f odds.json flags.json 2>/dev/null || true
-          git diff --cached --quiet || (git commit -m "prices $(date -u +%FT%H:%MZ) [skip ci]" && git push)
+          if ! git diff --cached --quiet; then
+            git commit -m "prices $(date -u +%FT%H:%MZ) [skip ci]"
+            # someone may have committed while this run was building: replay on top of theirs, and try again if needed
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              sleep 5
+            done
+          fi
 
       - run: mkdir -p site && cp index.html data.json site/
 
