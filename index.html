@@ -471,7 +471,9 @@ function slate(day){
         m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r})})}
       else{gk=projGoalie(op,day,key,m);var T=IX.T[t]||{},O=IX.T[op]||{};
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
-        projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p));rows.push({p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back})})}
+        var fin=/OFF|FINAL/.test(m.st||"");
+        projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back};
+          if(m.gl&&(n||fin))row.res=[e.p,n];rows.push(row)})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
       var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
       info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t])};
@@ -506,7 +508,7 @@ function vPicks(){
   var mode=priced?S.rank:"like",top=ranked(pool,mode);
   if(mode!=="like")top=top.filter(function(r){return r.px});
   var hasLines=rows.some(function(r){return r.info.mk});
-  var played=rows.some(function(r){return r.res});
+  var played=rows.some(function(r){return r.res&&r.info.m.g});
   var hd='<section class="panel"><div class="phead"><h2>Picks</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rank by '+seg("seg-rank",[["like","Likelihood"],["value","Value"],["blend","Blend"]],S.rank)+'</label>'+
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
@@ -540,7 +542,7 @@ function pickCard(r,i,mode){
 function gameCard(m,rows,mode){
   var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key}),info=mine.length?mine[0].info:null;if(!info)return "";
   var ln=info.o&&info.o.ln,g=m.g;
-  var head='<div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(g?"Final "+g.sc[0]+"–"+g.sc[1]+(g.ot?" (OT/SO)":""):/LIVE|CRIT/.test(m.st||"")?"In progress":/OFF|FINAL/.test(m.st||"")?"Final · results load overnight":esc(m.t||""))+'</span></div>';
+  var head='<div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(g?"Final "+g.sc[0]+"–"+g.sc[1]+(g.ot?" (OT/SO)":""):/LIVE|CRIT/.test(m.st||"")?"In progress"+(m.sc?" · "+m.sc[0]+"–"+m.sc[1]:""):/OFF|FINAL/.test(m.st||"")?"Final"+(m.sc?" "+m.sc[0]+"–"+m.sc[1]:"")+" · full stats load overnight":esc(m.t||""))+'</span></div>';
   var mk=ln?'<div class="kv"><span>Moneyline <b>'+(ln.ml?m.a+" "+fmtP(ln.ml[0])+" / "+m.h+" "+fmtP(ln.ml[1]):"–")+'</b></span><span>Total <b>'+(ln.tot?ln.tot[0]:"–")+'</b></span>'+(info.mk?'<span>Priced to score <b>'+m.a+" "+f2(info.mk.a)+" · "+m.h+" "+f2(info.mk.h)+'</b></span>':'')+'</div>':'';
   var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,s=info.side[t],l=ranked(mine.filter(function(r){return r.t===t}),mode).slice(0,6);
     return '<div class="lteam"><h3>'+tmL(t)+(s.conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">model '+f2(s.model)+(s.scale!==1?" → "+f2(s.model*s.scale)+" goals":" goals")+'</span></h3>'+

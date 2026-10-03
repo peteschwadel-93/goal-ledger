@@ -395,9 +395,16 @@ def parse_lineup(pbp, box):
         for g in (((box or {}).get("playerByGameStats") or {}).get(side) or {}).get("goalies") or []:
             if g.get("starter") and t in lu:
                 lu[t]["st"] = int(g["playerId"])
+    goals = {}   # goals so far by scorer; shootout attempts are not goals
+    for p in pbp.get("plays") or []:
+        if p.get("typeDescKey") == "goal" and (p.get("periodDescriptor") or {}).get("periodType") != "SO":
+            pid = (p.get("details") or {}).get("scoringPlayerId")
+            if pid:
+                goals[str(int(pid))] = goals.get(str(int(pid)), 0) + 1
+    score = [pbp["awayTeam"].get("score"), pbp["homeTeam"].get("score")]
     # a posted game roster is 18 skaters and 2 goalies a side; anything bigger is the full roster, not a lineup
     ok = all(15 <= len(v["sk"]) <= 19 and 1 <= len(v["g"]) <= 3 for v in lu.values())
-    return (lu if ok else None), who, pbp.get("gameState")
+    return (lu if ok else None), who, pbp.get("gameState"), goals, score
 
 
 def load_lineups(sched):
@@ -412,12 +419,14 @@ def load_lineups(sched):
             box = None
             if pbp.get("gameState") in ("LIVE", "CRIT", "OFF", "FINAL"):
                 box = json.loads(get(NHL_GAME.format(gid=u["gid"], what="boxscore"), timeout=30)[0])
-            lu, names, state = parse_lineup(pbp, box)
+            lu, names, state, goals, score = parse_lineup(pbp, box)
             if lu:
                 u["lu"] = lu
                 who.update(names)
             if state:
                 u["st"] = state
+            if state in ("LIVE", "CRIT", "OFF", "FINAL"):
+                u["gl"], u["sc"] = goals, score
         except Exception as e:
             print(f"lineup for {u['a']}@{u['h']} unavailable: {e}", file=sys.stderr)
     return who
