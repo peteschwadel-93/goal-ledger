@@ -594,6 +594,82 @@ def remember_odds(sched, old):
     return store
 
 
+def backfill_odds(games, starts, season):
+    """Closing anytime-goalscorer prices for finished games of one season, from The Odds API's historical snapshots.
+
+    Runs only when ODDS_BACKFILL=1. Historical data needs a paid plan and costs 10 requests a game (plus one a day
+    to find the games), so each game is asked for once, about 15 minutes before its puck drop, and the answer is
+    kept in odds.json. Stops when fewer than 50 requests remain or after ODDS_BACKFILL_MAX games (default 80).
+    """
+    key = odds_key()
+    if not key or os.environ.get("ODDS_BACKFILL", "").strip() not in ("1", "true", "True"):
+        return
+    try:
+        with open(ODDS, encoding="utf-8") as f:
+            store = json.load(f)
+    except Exception:
+        store = {}
+    todo = {}
+    for g in games:
+        k = f"{g['d']}|{g['a']}|{g['h']}"
+        rec = store.get(k) or {}
+        if g["s"] == season and not rec.get("p") and not rec.get("hist") and g["id"] in starts:
+            todo.setdefault(g["d"], []).append((k, g, starts[g["id"]]))
+    cap = int(os.environ.get("ODDS_BACKFILL_MAX", "80"))
+    done, hd = 0, {"Accept": "application/json"}
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    hist = ODDS_API.replace("/v4/sports/", "/v4/historical/sports/")
+    try:
+        for day in sorted(todo):
+            first = min(t for _, _, t in todo[day])
+            raw, _ = get(f"{hist}/events?apiKey={key}&date={(first - timedelta(hours=1)).strftime(fmt)}", headers=hd)
+            ids_ = {}
+            for e in json.loads(raw).get("data") or []:
+                ids_[(TEAM_NAMES.get(e.get("away_team")), TEAM_NAMES.get(e.get("home_team")), (e.get("commence_time") or "")[:13])] = e["id"]
+            for k, g, t in todo[day]:
+                if done >= cap:
+                    break
+                rec = store.get(k) or {}
+                rec["hist"] = 1
+                eid = ids_.get((g["a"], g["h"], t.strftime(fmt)[:13]))
+                if not eid:
+                    eid = next((v for (a, h, _), v in ids_.items() if (a, h) == (g["a"], g["h"])), None)
+                if eid:
+                    raw, rh = get(f"{hist}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime&oddsFormat=american"
+                                  f"&date={(t - timedelta(minutes=15)).strftime(fmt)}", headers=hd)
+                    doc = json.loads(raw)
+                    prices = parse_scorers(doc.get("data") or {})
+                    if prices:
+                        at = pd.to_datetime(doc.get("timestamp") or t, utc=True).tz_convert(ET).strftime("%Y-%m-%dT%H:%M")
+                        rec.update({"p": prices, "n": 1, "at": at, "eid": eid})
+                    left = rh.get("x-requests-remaining")
+                    if left is not None:
+                        store["left"] = left
+                    done += 1
+                    store[k] = rec
+                    if left is not None and float(left) < 50:
+                        raise StopIteration
+                else:
+                    store[k] = rec
+            if done >= cap:
+                break
+    except StopIteration:
+        print("odds backfill: fewer than 50 requests left; stopping", file=sys.stderr)
+    except Exception as e:
+        msg = str(e).replace(key, "***")
+        if hasattr(e, "read"):
+            try:
+                msg += " " + e.read().decode("utf-8", "replace")[:200].replace(key, "***")
+            except Exception:
+                pass
+        ODDS_NOTE.append("Past prices not loaded: " + msg)
+        print(f"odds backfill failed: {msg}", file=sys.stderr)
+    if done:
+        ODDS_NOTE.append(f"Past prices loaded for {done} finished games.")
+    with open(ODDS, "w", encoding="utf-8") as f:
+        json.dump(store, f, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
+
+
 def remember_flags(sched, inj, old):
     """Keep the injury designations seen before each of today's games, so the Tracker can replay what was known."""
     flags = dict((old or {}).get("flags") or {})
@@ -630,7 +706,7 @@ def embedded(path):
 
 def make(seasons=3, season=None, html=None, live=True):
     yr = season or current_season()
-    games, names, pos, sched, notes = [], {}, {}, [], []
+    games, names, pos, sched, notes, starts = [], {}, {}, [], [], {}
     old = embedded(html) if html else None
     for y in range(yr - seasons + 1, yr + 1):
         try:
@@ -646,6 +722,11 @@ def make(seasons=3, season=None, html=None, live=True):
         pos.update(ps)
         if y == yr:
             sched = upcoming(d["sched"])
+            for r in d["sched"].itertuples():
+                try:
+                    starts[int(r.game_id)] = pd.to_datetime(r.game_time, utc=True).to_pydatetime()
+                except Exception:
+                    pass
     if not games:
         raise RuntimeError("; ".join(notes) or "No games found")
     games.sort(key=lambda x: (x["d"], x["id"]))
@@ -670,9 +751,11 @@ def make(seasons=3, season=None, html=None, live=True):
         if inj is not None:
             out["inj"] = inj
         out["flags"] = remember_flags(sched, inj, old)
+        backfill_odds(games, starts, yr)
         out["odds"] = remember_odds(sched, old)
         out["hasKey"] = 1 if odds_key() else 0
-        out["oddsNote"] = ODDS_NOTE[0]
+        out["oddsNote"] = " ".join(x for x in ODDS_NOTE if x)
+        del ODDS_NOTE[1:]
     if notes:
         out["note"] = "; ".join(notes)
     return out

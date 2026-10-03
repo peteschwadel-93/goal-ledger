@@ -233,6 +233,16 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .lteam .kv{align-items:center}.lteam .kv>span{min-width:0;max-width:100%}
 .gksel{display:block;width:100%;margin-top:4px}
 .lteam li{align-items:baseline}.lteam li .tag,.lteam li .res{align-self:center}
+
+/* player rows: name over tags on the left, chance over price on the right, every row the same height */
+.lteam li.prow{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:0 10px;padding:8px 10px;min-height:60px}
+.prow .pn{display:flex;flex-direction:column;gap:5px;min-width:0}
+.prow .pname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .ptags{display:flex;gap:6px;align-items:center;height:19px;overflow:hidden}
+.prow .pv{display:flex;flex-direction:column;gap:3px;align-items:flex-end;white-space:nowrap;font-variant-numeric:tabular-nums}
+.prow .pv b{color:var(--ink);font-weight:600}
+.prow .pv .o{margin-left:0;font-size:12.5px}
+.lteam li.prow .tag,.lteam li.prow .res{align-self:auto}
 </style>
 
 <div class="wrap">
@@ -301,7 +311,10 @@ var C={gm:.99,   // each older game counts 1% less than the one after it (half w
        ke:20,    // games of league-average empty-net scoring
        kt:1,     // games of league-average ice time
        KT:10,KG:60,tDecay:.97,gDecay:.997,
-       b:{one:-.0393,home:.0602,oxga:.796,gk:.643,ob2b:.0389,b2b:-.0731}};
+       b:{one:-.0969,home:.0606,oxga:.7966,gk:.6436,ob2b:.0396,b2b:-.0719},
+       toi:.3075,    // players who get more ice than 15 minutes score more than their rates alone say, and those with less score less
+       mates:.0778,  // weight on linemates' playmaking (primary assists per minute against the typical forward's)
+       ma:1.709e-4,maNone:2.0e-4};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function pname(p){var x=D.players[p];return x?x[0]:"#"+p}
 function ppos(p){var x=D.players[p];return x?x[1]:""}
@@ -348,7 +361,9 @@ function rate(st,d){ // a player's scoring rate before the opponent is considere
   var tev=(t[0]+C.kt*L.tev)/(t[2]+C.kt),tpp=(t[1]+C.kt*L.tpp)/(t[2]+C.kt);
   var evr=(a[2]+C.k1*L.ev)/(a[0]+C.k1),ppr=(a[3]+C.k2*L.pp)/(a[1]+C.k2);
   var fin=(a[4]+C.m*L.fin)/(a[2]+a[3]+C.m),en=(a[5]+C.ke*L.en)/(a[6]+C.ke);
-  return{tev:tev,tpp:tpp,evr:evr,ppr:ppr,fin:fin,en:en,ev:fin*evr*tev,pp:fin*ppr*tpp,base:fin*(evr*tev+ppr*tpp)+en,finRel:fin/L.fin}}
+  var toiF=Math.pow(Math.max(300,Math.min(1500,tev+tpp))/900,C.toi),mt=1;
+  if(!d){var ms=st.mates||[],s=0;ms.forEach(function(q){var b=IX.P[q].a;s+=b[7]/(b[0]+b[1]+600)});mt=Math.max(.85,Math.min(1.2,Math.pow(((ms.length?s/ms.length:C.maNone)+1e-6)/C.ma,C.mates)))}
+  return{tev:tev,tpp:tpp,evr:evr,ppr:ppr,fin:fin,en:en,ev:fin*evr*tev,pp:fin*ppr*tpp,base:fin*(evr*tev+ppr*tpp)+en,finRel:fin/L.fin,toiF:toiF,mt:mt,role:toiF*mt}}
 function defF(t){var T=IX.T[t]||{xga:0,n:0};return (T.xga+C.KT*IX.L.xg)/(T.n+C.KT)/IX.L.xg}
 function gkF(k){var K=IX.K[k]||{ga:0,xga:0};return (K.ga+C.KG*IX.L.gk)/(K.xga+C.KG)/IX.L.gk}
 function context(home,od,gk,ob2b,b2b){ // multipliers for where and against whom
@@ -356,7 +371,7 @@ function context(home,od,gk,ob2b,b2b){ // multipliers for where and against whom
   f.all=f.home*f.def*f.gk*f.ob2b*f.b2b*f.k;return f}
 function build(){
   IX={L:league(D.games),P:{},T:{},K:{},PRE:{},CTX:{}};
-  function pl(p){return IX.P[p]||(IX.P[p]={a:[0,0,0,0,0,0,0],t:[0,0,0],team:null,last:null,log:[]})}
+  function pl(p){return IX.P[p]||(IX.P[p]={a:[0,0,0,0,0,0,0,0],t:[0,0,0],team:null,last:null,log:[]})}
   function tm(t){return IX.T[t]||(IX.T[t]={xga:0,n:0,last:null,games:[]})}
   D.games.forEach(function(g){
     var pre=IX.PRE[g.id]={},cx=IX.CTX[g.id]={};
@@ -364,14 +379,15 @@ function build(){
       var sg=g.g[o].length?g.g[o][0][0]:null;
       var f=context(t===g.h,defF(o),sg?gkF(sg):1,O.last&&days(O.last,g.d)===1,T.last&&days(T.last,g.d)===1);
       f.goalie=sg;cx[t]=f;
-      g.p[t].forEach(function(r){var st=pl(r[0]),x=rate(st,isD(r[0]));pre[r[0]]=[x.base*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6]]})});
+      g.p[t].forEach(function(r){var st=pl(r[0]),x=rate(st,isD(r[0]));pre[r[0]]=[x.base*x.role*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6],x.toiF,x.mt]})});
     [[g.h,g.a],[g.a,g.h]].forEach(function(pr){var t=pr[0],o=pr[1],T=tm(t);
       T.xga=T.xga*C.tDecay+g.t[o][3]/100;T.n=T.n*C.tDecay+1;T.last=g.d;T.games.push(g);
       g.g[t].forEach(function(k){var K=IX.K[k[0]]||(IX.K[k[0]]={ga:0,xga:0,sa:0,team:t,gp:0});K.ga=K.ga*C.gDecay+k[2];K.xga=K.xga*C.gDecay+k[3]/100;K.team=t;K.gp++});
-      g.p[t].forEach(function(r){var st=pl(r[0]),a=st.a,v=[r[6]-r[7],r[7],r[4]/1000,r[5]/1000,r[1]-r[9],r[9],1];
-        for(var i=0;i<7;i++)a[i]=a[i]*C.gm+v[i];
+      g.p[t].forEach(function(r){var st=pl(r[0]),a=st.a,v=[r[6]-r[7],r[7],r[4]/1000,r[5]/1000,r[1]-r[9],r[9],1,r[10]];
+        for(var i=0;i<8;i++)a[i]=a[i]*C.gm+v[i];
         st.t[0]=st.t[0]*C.gt+r[6]-r[7];st.t[1]=st.t[1]*C.gt+r[7];st.t[2]=st.t[2]*C.gt+1;
-        st.team=t;st.last=g.d;st.log.push({g:g,t:t,r:r})})})});
+        st.team=t;st.last=g.d;st.log.push({g:g,t:t,r:r})});
+      (g.l[t]||[]).forEach(function(tr){tr.forEach(function(p){if(IX.P[p])IX.P[p].mates=tr.filter(function(q){return q!==p&&IX.P[q]})})})})});
   IX.names={};Object.keys(D.players).forEach(function(p){var k=normName(D.players[p][0]);(IX.names[k]=IX.names[k]||[]).push(+p)});
 }
 /* ---- market lines: an expected goal count for each side from the total and the moneyline ---- */
@@ -429,10 +445,10 @@ function slate(day){
     var key=gameKey(m),o=oddsOf(m),mk=marketTotals(o&&o.ln),info={m:m,key:key,o:o,mk:mk,side:{}};
     [[m.a,m.h],[m.h,m.a]].forEach(function(pr){var t=pr[0],op=pr[1],rows=[],f,gk;
       if(m.g){f=IX.CTX[m.g.id][t];gk={p:f.goalie,list:[]};
-        m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],base:x[0]/f.all,ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r})})}
+        m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r})})}
       else{gk=projGoalie(op,day,key);var T=IX.T[t]||{},O=IX.T[op]||{};
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
-        projSkaters(t,day).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p));rows.push({p:e.p,lam0:x.base*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back})})}
+        projSkaters(t,day).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p));rows.push({p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back})})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
       var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
       info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null};
@@ -474,7 +490,7 @@ function vPicks(){
     (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">'+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
     '<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. '+
-    'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 36% of games and 40% or better in 43%.'+
+    'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
     (hasLines?(S.mkt?' Each team\'s skaters are scaled so their goals add up to what the moneyline and total say the team will score.':' Team goals are the model\'s own; the market lines are being ignored.'):"")+
     (played?"":' Lineups are projected from each team\'s last game and the injury list; the opposing goalie is the usual starter unless you pick another on the game card.')+'</p></section>';
@@ -506,8 +522,8 @@ function gameCard(m,rows,mode){
     return '<div class="lteam"><h3>'+tmL(t)+' <span class="o">model '+f2(s.model)+(s.scale!==1?" → "+f2(s.model*s.scale)+" goals":" goals")+'</span></h3>'+
       '<div class="kv f3"><span>Faces '+gkLine(info,t,op)+'</span></div>'+
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
-      '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span>'+esc(r.name)+'</span>'+unitTag(r.unit)+injTag(r)+resTag(r)+
-        '<span class="o"><span class="px c'+lv+'">'+p1(r.pr)+'</span> · fair '+fairOdds(r.pr)+(r.px?' · <b style="color:var(--ink)">'+fmtP(r.px.price)+'</b> '+edgeTag(r):'')+'</span></li>'}).join("")+'</ol></div>'}).join("");
+      '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
+        '<span class="pv"><span><span class="px c'+lv+'">'+p1(r.pr)+'</span>'+(r.px?' <b>'+fmtP(r.px.price)+'</b>':'')+'</span><span class="o">fair '+fairOdds(r.pr)+(r.px?' '+edgeTag(r):'')+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
 
 /* ================= Slate table ================= */
@@ -545,7 +561,7 @@ function vLineups(){
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick" tabindex="0"><span class="lpos">'+lab+'</span><span>'+nm(p)+'</span>'+(r?unitTag(r.unit)+injTag(r)+resTag(r)+'<span class="o"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span> · '+mmss(r.b.tev+r.b.tpp)+'</span>':'<span class="tag l">NOT EXPECTED</span>')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
       (src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){h+=li(p,"L"+(i+1))})});
       my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
@@ -589,7 +605,7 @@ function vMatchup(){
       '<div class="kv"><span>Usual starter <b>'+(gk.p?nm(gk.p):"–")+'</b></span><span>Goalie factor <b>'+(gk.p?f2(gkF(gk.p)):"–")+'×</b></span></div></div>'}
   var fa=defF(a),fb=defF(b);
   function scorers(t,op,home){var gk=projGoalie(op,"9999-12-31","mu"),f=context(home,defF(op),gk.p?gkF(gk.p):1,0,0);
-    var rows=projSkaters(t,"9999-12-31").map(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),lam=x.base*f.all;return{p:e.p,name:pname(e.p),pos:ppos(e.p),b:x,lam:lam,pr:1-Math.exp(-lam),inj:e.inj,back:e.back}});
+    var rows=projSkaters(t,"9999-12-31").map(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),lam=x.base*x.role*f.all;return{p:e.p,name:pname(e.p),pos:ppos(e.p),b:x,lam:lam,pr:1-Math.exp(-lam),inj:e.inj,back:e.back}});
     var u=ppUnits(rows);rows.forEach(function(r){r.unit=u[r.p]});
     return '<section class="panel"><div class="phead"><h2>'+tmL(t)+' scorers '+(home?"at home to ":"away at ")+op+'</h2></div>'+
       '<p class="note">Faces <b>'+(gk.p?nm(gk.p):"–")+'</b>. Matchup multiplier '+f2(f.all/f.k)+'× (defense '+f2(f.def)+'×, goalie '+f2(f.gk)+'×, '+(home?"home":"road")+' '+f2(f.home)+'×). No rest or market adjustment here.</p>'+
@@ -637,14 +653,16 @@ function vPlayer(){
     line("Finishing",f2(b.finRel)+"×","Goals per expected goal against the league's, pulled hard toward average: 30 expected goals of league finishing are mixed in, because shooting luck fades. Raw, he has "+f1(a[4])+" goals on "+f1(a[2]+a[3])+" xG (weighted).")+
     line("Empty-net goals",f2(b.en)+" a game","His empty-netters per game with 20 league-average games mixed in.")+
     line("Baseline goals a game",f2(lam0),"Finishing × (even-strength rate × time + power-play rate × time) + empty net = "+f2(b.ev)+" + "+f2(b.pp)+" + "+f2(b.en)+".")+
-    (row?line("Home or road",f2(f.home*f.k)+"×",(row.home?"Home":"Road")+" game. Home skaters scored about 6% more in the fit.")+
+    line("Role",f2(b.toiF)+"×","Players a coach leans on score more than their rates alone predict, and depth players less: total ice time against 15 minutes, raised to 0.31.")+
+    line("Linemates",f2(b.mt)+"×",d?"Not applied to defensemen.":"His two most recent linemates' primary assists per minute against the typical forward's, raised to 0.08"+((st.mates||[]).length?": "+st.mates.map(nm).join(" and ")+".":"."))+
+    (row?line("Home or road",f2(f.home)+"×",(row.home?"Home":"Road")+" game. Home skaters scored about 6% more in the fit.")+
       line(row.opp+" defense",f2(f.def)+"×",row.opp+" allows "+f2(defF(row.opp))+"× the league's expected goals a game; the fit gives that a weight of 0.80.")+
       line("Goalie",f2(f.gk)+"×",(f.goalie?nm(f.goalie):"Unknown")+" allows "+(f.goalie?f2(gkF(f.goalie)):"1.00")+"× the goals his shots against would predict (60 expected goals of an average goalie mixed in); weight 0.64.")+
       line("Rest",f2(f.ob2b*f.b2b)+"×",(f.ob2b>1?row.opp+" played yesterday (+4%). ":"")+(f.b2b<1?row.t+" played yesterday (−7%). ":"")+(f.ob2b===1&&f.b2b===1?"Neither side played yesterday.":""))+
       line("Market scaling",f2(scale)+"×",row.info.side[row.t].mkt!=null&&S.mkt?row.t+"'s skaters add up to "+f2(row.info.side[row.t].model)+" goals in the model; the moneyline and total price the team at "+f2(row.info.side[row.t].mkt)+".":"No market line in use for this game.")+
-      line("Expected goals",f2(row.lam),"Everything above multiplied together.")+
+      line("Expected goals",f2(row.lam),"Everything above multiplied together, times a fixed "+f2(f.k)+" that keeps the league total right.")+
       line("Chance to score",'<span class="px c'+level(row.pr)+'">'+p1(row.pr)+'</span>',"1 − e^(−expected goals). Fair price "+fairOdds(row.pr)+"."+(row.px?" Best price "+fmtP(row.px.price)+" at "+esc(row.px.book)+": edge "+(row.ev>0?"+":"")+Math.round(row.ev*100)+"%, value score "+row.vs.toFixed(1)+".":"")):
-      line("Chance to score, neutral game",p1(1-Math.exp(-lam0*Math.exp(C.b.one))),"He is not on the slate for "+fmtD(S.day)+", so no opponent is applied."))+
+      line("Chance to score, neutral game",p1(1-Math.exp(-lam0*b.role*Math.exp(C.b.one))),"He is not on the slate for "+fmtD(S.day)+", so no opponent is applied."))+
     '</tbody></table></div>';
   var log=st.log.filter(function(e){return (S.po==="all"||String(e.g.po)===S.po)&&(S.ssn==="all"||String(e.g.s)===S.ssn)}),win=lastN(log),tot={g:0,sog:0,xg:0,toi:0,pp:0,sc:0,pred:0,fen:0,hd:0};
   win.forEach(function(e){var r=e.r;tot.g+=r[1];tot.sog+=r[2];tot.fen+=r[3];tot.xg+=(r[4]+r[5])/1000;tot.toi+=r[6];tot.pp+=r[7];tot.hd+=r[11];if(r[1])tot.sc++;tot.pred+=1-Math.exp(-IX.PRE[e.g.id][p][0])});
