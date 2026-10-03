@@ -254,6 +254,11 @@ svg.logo{color:var(--ink);background:var(--bg)}
   .prow .pv4{grid-template-columns:auto auto;gap:3px 8px}
   .prow .pv2{grid-template-columns:auto;gap:3px}
 }
+
+/* compact tables that must fit two side by side */
+.tight th,.tight td{padding:9px 10px}
+.tight th:first-child,.tight td:first-child{padding-left:14px}
+.tight th:last-child,.tight td:last-child{padding-right:14px}
 </style>
 
 <div class="wrap">
@@ -781,7 +786,7 @@ function vTracker(){
   function rec(l,x){return '<span>'+l+' <b>'+x.h+" of "+x.n+'</b> · '+pct(x.h,x.n)+' <span class="o">(model expected '+pct(x.p,x.n)+')</span></span>'}
   function band(title,key,cuts,fmt){var R=cuts.map(function(c){return{c:c,n:0,h:0,ret:0,p:0,be:0}});
     BT.forEach(function(x){for(var i=0;i<R.length;i++)if(x[key]>=R[i].c[0]&&x[key]<R[i].c[1]){var r=R[i];r.n++;r.h+=x.hit;r.ret+=x.hit*x.pay-1;r.p+=x.pr;r.be+=1/x.pay;break}});
-    return '<div class="tw"><table style="width:auto"><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n">Model said</th><th class="n">Price implied</th><th class="n">Scored</th><th class="n">Units won</th><th class="n">Return a bet</th></tr></thead><tbody>'+
+    return '<div class="tw tight"><table><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n" title="The average chance the model gave these players">Model</th><th class="n" title="The average chance the best price implied: the break-even rate">Price</th><th class="n">Scored</th><th class="n" title="Profit or loss at one unit a bet">Units</th><th class="n" title="Units won divided by bets">Return</th></tr></thead><tbody>'+
       R.map(function(r){return '<tr><td>'+fmt(r.c)+'</td><td class="n">'+r.n+'</td><td class="n">'+(r.n?p1(r.p/r.n):"–")+'</td><td class="n">'+(r.n?p1(r.be/r.n):"–")+'</td><td class="n"><b>'+(r.n?p1(r.h/r.n):"–")+'</b></td><td class="n">'+(r.n?(r.ret>=0?"+":"")+f1(r.ret):"–")+'</td><td class="n">'+(r.n?'<span class="tag '+(r.ret>0?"w":"l")+'">'+(r.ret>=0?"+":"")+(100*r.ret/r.n).toFixed(1)+'%</span>':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}
   function pc(c){return Math.round(c[0]*100)+(c[1]<9?"% to "+Math.round(c[1]*100)+"%":"% and up")}
   var money=BT.length?'<h3>Against stored prices · '+Object.keys(priced).length+' games, one unit on every priced skater at the best price</h3>'+
