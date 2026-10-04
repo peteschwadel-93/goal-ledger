@@ -288,6 +288,20 @@ svg.logo{color:var(--ink);background:var(--bg)}
 /* tonight's running tally beside the pick cards */
 .tag.nt{font-size:12.5px;padding:8px 14px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
 .tag.nt.l{border-color:var(--line);color:var(--miss)}
+
+/* goal light: a pick card whose player has scored glows and pulses red, like the lamp behind the net */
+:root{--goal:#ff3b30;--goal-hot:#ff6a5e;--goal-soft:#3d100d;--goal-ink:#1a0504}
+.rcard.win{border-color:var(--goal);background:linear-gradient(180deg,var(--goal-soft),var(--bg) 60%);box-shadow:0 0 0 1px var(--goal),0 0 26px -4px var(--goal);animation:goallight 1.5s ease-in-out infinite}
+@keyframes goallight{0%,100%{box-shadow:0 0 0 1px var(--goal),0 0 14px -6px var(--goal)}50%{box-shadow:0 0 0 2px var(--goal-hot),0 0 46px 2px var(--goal)}}
+.rcard.win .rhead .tm,.rcard.win .rhead .tm .at{color:var(--goal-hot)}
+.rcard.win .rname{color:var(--goal-hot);text-shadow:0 0 18px color-mix(in srgb,var(--goal) 60%,transparent)}
+.rcard.win .rblock h3{color:var(--goal-hot)}
+.rcard.win .res.m{background:var(--goal);color:#fff;box-shadow:0 0 12px var(--goal)}
+.rcard.win .rval{border-top-color:color-mix(in srgb,var(--goal) 45%,var(--line))}
+.rcard.win .chev polyline.on{stroke:var(--goal-hot);filter:drop-shadow(0 0 4px var(--goal))}
+.rcard.win:hover{border-color:var(--goal-hot)}
+.rcard.win .edge{background:var(--goal);color:#fff}
+@media(prefers-reduced-motion:reduce){.rcard.win{animation:none;box-shadow:0 0 0 1px var(--goal),0 0 30px -4px var(--goal)}}
 </style>
 
 <div class="wrap">
