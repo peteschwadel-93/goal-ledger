@@ -340,6 +340,14 @@ tbody tr.glit .res.m{background:var(--goal);color:#fff}
 .bktip .bkr b{font-family:var(--mono);font-weight:500;color:var(--ink)}
 .bktip .bkr.top span,.bktip .bkr.top b{color:var(--hit,#4ade80)}
 .bktip .bkr.at span::after{content:" · shown";color:var(--muted);font-size:11.5px}
+
+/* game time on pick cards, and the jump strip of games at the top of Lineups */
+.rblock h3 .rtime{float:right;font:500 12.5px/1.2 var(--mono);letter-spacing:0;color:var(--soft);text-transform:none}
+.jumps{display:flex;flex-wrap:wrap;gap:8px}
+.jumps button{font:500 14px var(--body,inherit);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap}
+.jumps button span{color:var(--muted);font:500 12.5px var(--mono);margin-left:6px}
+.jumps button:hover{background:var(--raise);border-color:var(--accent)}
+.lcard{scroll-margin-top:12px}
 </style>
 
 <div class="wrap">
@@ -674,10 +682,11 @@ function vPicks(){
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-gc",gopt,gs)+'</label><label class="f">Show '+seg("seg-gcn",[[6,"Top six"],[0,"All skaters"]],S.gcN)+'</label></div>'+
     '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'. Clicking a column heading on any card sorts every card by that column.</p></section><div class="lgrid">'+games+'</div>':'');
 }
+function gameWhen(m){return m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||"")}
 function pickCard(r,i,mode){
   var lv=level(r.pr),s=r.info.side[r.t],b=r.b,hit=r.res&&r.res[1]>0;
   return '<div class="rcard'+(hit?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span>'+chev(lv,"sm")+'</div>'+
-    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'</h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.isVoid?'<span class="tag l" title="He was a locked pick but is not in the lineup. Books void the bet.">DID NOT DRESS · VOID</span>':'')+(r.locked?'<span class="tag">LOCKED</span>':r.openTs?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(r.openTs).replace(" ET",""))+'</span>':'')+(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g||r.locked?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.isVoid?'<span class="tag l" title="He was a locked pick but is not in the lineup. Books void the bet.">DID NOT DRESS · VOID</span>':'')+(r.locked?'<span class="tag">LOCKED</span>':r.openTs?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(r.openTs).replace(" ET",""))+'</span>':'')+(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g||r.locked?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
     (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+pxH(r.px,r.name)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.one?"":(r.px.n>1?" of "+r.px.n:""))+'</span></span>'+
       '<span>Edge</span><span>'+pill(r.evS)+'</span>'+
       '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
@@ -761,11 +770,12 @@ function vLineups(){
       var pp=[1,2].map(function(u){var l=my.filter(function(r){return r.unit===u}).sort(function(a,b){return b.b.tpp-a.b.tpp});return l.length?'<div><b>PP'+u+'</b> '+l.map(function(r){return esc(r.name)}).join(", ")+'</div>':""}).join("");
       var inj=((D.inj||{})[t]||[]).map(function(x){return '<div>'+esc(x.f)+' <span class="tag '+(isOut(x)?"l":"q")+'">'+esc(x.st.toUpperCase())+'</span> <span class="o">'+esc(x.ty)+'</span></div>'}).join("");
       return h+'<div class="lrep">'+pp+'<div><b>In goal for '+t+'</b> '+gkLine(info,op,t)+'</div>'+(inj?'<small>Injury list</small>'+inj:(D.inj?'<small>Nobody on the injury list.</small>':''))+'</div></div>'}).join("");
-    return '<section class="lcard"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
+    return '<section class="lcard" id="lu-'+m.a+m.h+'"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
   view.innerHTML='<section class="panel"><div class="phead"><h2>Lineups</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label>'+bookPicker(day)+'</div>'+
     '<p class="note">Each row reads: chance to score, fair price (the odds that match that chance; a best price longer than it is a positive edge), best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. <b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. For games still to be played, forward lines are Daily Faceoff\'s projected combinations when the heading says so. Otherwise, and for finished games, they are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts and ordered by expected ice time. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
     'Who is expected to dress is the team\'s last lineup, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+'. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
+    (ms.length>1?'<section class="panel jump"><div class="phead"><h2>'+fmtD(day)+' · '+ms.length+' games</h2></div><div class="jumps">'+ms.map(function(m){return '<button data-jump="lu-'+m.a+m.h+'">'+m.a+' @ '+m.h+' <span>'+gameWhen(m).replace(" ET","")+'</span></button>'}).join("")+'</div></section>':'')+
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
 }
 
@@ -1034,6 +1044,7 @@ document.addEventListener("scroll",hideTip,true);
 document.addEventListener("click",function(e){
   if(e.target.closest("input,select"))return;
   var ph=e.target.closest(".pxh");if(ph){e.stopPropagation();return TIP.el&&TIP.at===ph?hideTip():showTip(ph)}hideTip();
+  var jp=e.target.closest("[data-jump]");if(jp){var to=document.getElementById(jp.dataset.jump);if(to)to.scrollIntoView({behavior:"smooth",block:"start"});return}
   var t=e.target.closest("[data-tab]");if(t){S.tab=t.dataset.tab;try{history.replaceState(null,"","#"+S.tab)}catch(_){}return render()}
   var b=e.target.closest(".seg button");
   if(b){var id=b.parentNode.id,v=b.dataset.v;
