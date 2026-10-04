@@ -884,7 +884,8 @@ def backfill_odds(games, starts, season):
     for g in games:
         k = f"{g['d']}|{g['a']}|{g['h']}"
         rec = store.get(k) or {}
-        need_p = not rec.get("p") and not rec.get("hist")          # goalscorer prices never fetched
+        thin = bool(rec.get("p")) and any(len(x) < 6 for x in rec["p"]) and not rec.get("hp")   # only the best price was kept, not each book's
+        need_p = (not rec.get("p") and not rec.get("hist")) or thin   # goalscorer prices never fetched, or fetched before every book was kept
         need_s = "s" not in rec and not rec.get("hs")              # shots lines never fetched
         if g["s"] == season and (need_p or need_s) and g["id"] in starts:
             todo.setdefault(g["d"], []).append((k, g, starts[g["id"]], need_p))
@@ -904,6 +905,8 @@ def backfill_odds(games, starts, season):
                     break
                 rec = store.get(k) or {}
                 rec["hist"] = rec["hs"] = 1
+                if need_p:
+                    rec["hp"] = 1
                 markets = "player_goal_scorer_anytime,player_shots_on_goal" if need_p else "player_shots_on_goal"   # 10 requests a market
                 eid = ids_.get((g["a"], g["h"], t.strftime(fmt)[:13]))
                 if not eid:
@@ -916,7 +919,9 @@ def backfill_odds(games, starts, season):
                     shots = parse_shots(doc.get("data") or {})
                     at = pd.to_datetime(doc.get("timestamp") or t, utc=True).tz_convert(ET).strftime("%Y-%m-%dT%H:%M")
                     if prices:
-                        rec.update({"p": prices, "n": 1, "at": at, "eid": eid})
+                        if rec.get("p") and not rec.get("open"):
+                            rec["open"] = rec["p"]            # the earlier look is kept beside the new one
+                        rec.update({"p": prices, "n": max(1, rec.get("n", 0)), "at": at, "eid": eid})
                     if shots:
                         rec.update({"s": shots, "sat": at, "eid": eid})
                     left = rh.get("x-requests-remaining")
