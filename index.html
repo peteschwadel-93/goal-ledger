@@ -826,8 +826,8 @@ function vPlayer(){
   var rows=win.slice().reverse().slice(0,S.logN);
   var tbl='<div class="tw"><table><thead><tr><th>Game</th><th class="n">Model</th><th>Result</th><th class="n">Shots</th><th class="n">Attempts</th><th class="n">High-danger</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
     rows.map(function(e){var r=e.r,g=e.g,o=opp(g,e.t),gk=g.g[o].length?g.g[o][0][0]:null;return '<tr><td>'+fmtD(g.d)+" "+(g.h===e.t?"vs ":"at ")+o+'</td><td class="n">'+p1(1-Math.exp(-IX.PRE[g.id][p][0]))+'</td><td>'+(r[1]?'<span class="res m">'+(r[1]>1?r[1]+" GOALS":"GOAL")+(r[8]?" · PP":"")+(r[9]?" · EN":"")+'</span>':'<span class="res x">–</span>')+'</td><td class="n">'+r[2]+'</td><td class="n">'+r[3]+'</td><td class="n">'+r[11]+'</td><td class="n">'+f2((r[4]+r[5])/1000)+'</td><td class="n">'+mmss(r[6])+'</td><td class="n">'+mmss(r[7])+'</td><td>'+(gk?nm(gk):"–")+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML=hd+'<section class="panel"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+work+'</section>'+
-    '<section class="panel"><div class="phead"><h2>Game log</h2></div>'+sum+tbl+(win.length>S.logN?'<button class="more" id="logMore">Show 30 more</button>':'')+'</section>';
+  view.innerHTML=hd+'<section class="panel"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+(win.length>S.logN?'<button class="more" id="logMore">Show 30 more</button>':'')+'</section>'+
+    '<section class="panel"><div class="phead"><h2>How his number is built</h2></div>'+work+'</section>';
 }
 
 /* ================= Leaders ================= */
