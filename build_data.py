@@ -514,7 +514,7 @@ def implied(price):
 
 
 def parse_scorers(doc):
-    """Anytime-goalscorer prices per player: [[player, best price, book, books quoting, median price], ...]."""
+    """Anytime-goalscorer prices per player: [[player, best price, book, books quoting, median price, {book: price}], ...]."""
     seen = {}
     for bk in doc.get("bookmakers") or []:
         for mk in bk.get("markets") or []:
@@ -530,7 +530,7 @@ def parse_scorers(doc):
     for who, quotes in seen.items():
         quotes.sort(key=lambda q: implied(q[0]))            # cheapest implied chance first = best payout
         mid = sorted(quotes, key=lambda q: implied(q[0]))[len(quotes) // 2][0]
-        out.append([who, quotes[0][0], quotes[0][1], len(quotes), mid])
+        out.append([who, quotes[0][0], quotes[0][1], len(quotes), mid, {b: p for p, b in reversed(quotes)}])
     return sorted(out, key=lambda x: implied(x[1]), reverse=True)
 
 

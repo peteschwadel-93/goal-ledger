@@ -358,7 +358,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 (function(){
 "use strict";
 var D=null,G=[],IX=null;
-var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:"np",luSort:"lines",gcSort:"vs",gcN:6,unit:10,mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
+var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:"np",luSort:"lines",gcSort:"vs",gcN:6,unit:10,book:"",mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
 var $=function(id){return document.getElementById(id)};
 var view=$("view");
 /* ---- the model's constants. Fitted on 2024-25 and 2025-26 (every skater in every game, about 100,000 player-games),
@@ -472,7 +472,18 @@ function isOut(it){return !!it&&/out|reserve|suspen|ir/i.test(it.st)&&!/day/i.te
 function gameKey(m){return m.d+"|"+m.a+"|"+m.h}
 function oddsOf(m){var o=(D.odds||{})[gameKey(m)];return o||null}
 function priceOf(o,name,day,pid){var man=S.px[day+"|"+pid];if(man)return{price:man,book:"your price",n:0,manual:1};
-  if(!o||!o.p)return null;var k=normName(name);for(var i=0;i<o.p.length;i++)if(normName(o.p[i][0])===k)return{price:o.p[i][1],book:o.p[i][2],n:o.p[i][3],mid:o.p[i][4]};return null}
+  if(!o||!o.p)return null;var k=normName(name);
+  for(var i=0;i<o.p.length;i++)if(normName(o.p[i][0])===k){var x=o.p[i],q=x[5];
+    if(S.book&&!S.bookOff){ // one book only: his price there, or nothing if that book has not posted him
+      if(!q||q[S.book]==null)return null;
+      return{price:q[S.book],book:S.book,n:x[3],mid:x[4],best:x[1],bestBook:x[2],one:1}}
+    return{price:x[1],book:x[2],n:x[3],mid:x[4]}}
+  return null}
+function booksOn(day){ // every book that has posted a price on this day's games
+  var b={};matchups(day).forEach(function(m){var o=oddsOf(m);((o&&o.p)||[]).forEach(function(x){Object.keys(x[5]||{}).forEach(function(k){b[k]=(b[k]||0)+1})})});
+  return Object.keys(b).sort(function(x,y){return b[y]-b[x]})}
+function bookPicker(day){var l=booksOn(day);if(S.book&&l.indexOf(S.book)<0)l.push(S.book);if(!l.length)return "";
+  return '<label class="f">Book <select id="selBook"><option value="">Best of all books</option>'+l.map(function(b){return '<option value="'+esc(b)+'"'+(b===S.book?" selected":"")+'>'+esc(b)+'</option>'}).join("")+'</select></label>'}
 function onRoster(t,p){var r=(D.rost||{})[t];return !r||r.indexOf(p)>=0}
 function goaliesOf(t){ // the team's goalies now: on its roster if that is known, otherwise whoever played or dressed in its last five games this season
   var T=IX.T[t];if(!T||!T.games.length)return[];var c={},cur=T.games[T.games.length-1].s,known=!!(D.rost||{})[t];
@@ -578,8 +589,8 @@ function vPicks(){
     '<div class="bar"><label class="f">Show <select id="selMinP">'+[["np","Nightly Picks"],[0,"Everyone"],[.15,"15%+ chance"],[.2,"20%+ chance"],[.25,"25%+ · one chevron"],[.3,"30%+ · two chevrons"],[.35,"35%+ · three"],[.4,"40%+ · four"]].map(function(o){return '<option value="'+o[0]+'"'+(String(o[0])===String(S.minP)?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select></label>'+
     (np?'':'<label class="f">Rank by '+seg("seg-rank",[["like","Likelihood"],["value","Value"],["blend","Blend"]],S.rank)+'</label>')+
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
-    (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
-    '<p class="note">'+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
+    (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+bookPicker(day)+'</div>'+
+    '<p class="note">'+(S.book?'<b>Showing '+esc(S.book)+' prices only.</b> Edges and value scores use the price at that book; a player it has not posted has no price. The market\'s chance still comes from the middle of all books. ':'')+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
     (np?'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
     (np?'':'<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. ')+
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
@@ -605,7 +616,7 @@ function pickCard(r,i,mode){
   var lv=level(r.pr),s=r.info.side[r.t],b=r.b,hit=r.res&&r.res[1]>0;
   return '<div class="rcard'+(hit?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span>'+chev(lv,"sm")+'</div>'+
     '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'</h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
-    (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+fmtP(r.px.price)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.n>1?" of "+r.px.n:"")+'</span></span>'+
+    (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+fmtP(r.px.price)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.one?"":(r.px.n>1?" of "+r.px.n:""))+'</span></span>'+
       '<span>Edge</span><span>'+pill(r.evS)+'</span>'+
       '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
       '<span>Pick chance · fair</span><span>'+p1(r.ps)+" · "+fairOdds(r.ps)+'</span>'+
@@ -645,7 +656,7 @@ function vSlate(){
     {k:"pr",l:"Chance",num:1,v:function(r){return r.pr},f:function(r){return '<span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span>'}},
     {k:"fair",l:"Fair price",num:1,v:function(r){return r.pr},f:function(r){return fairOdds(r.pr)}},
     {k:"price",l:"Best price",num:1,v:function(r){return r.px?r.pay:null},f:function(r){return '<input class="pxin" type="text" inputmode="numeric" id="px-'+r.p+'" data-px="'+r.p+'" value="'+(r.px?fmtP(r.px.price):"")+'" placeholder="+000" aria-label="Price for '+esc(r.name)+'">'}},
-    {k:"book",l:"Book",v:function(r){return r.px?r.px.book:"~"},f:function(r){return r.px?esc(r.px.book)+(r.px.n>1?' <span class="o">of '+r.px.n+'</span>':''):'<span class="o">–</span>'}},
+    {k:"book",l:"Book",v:function(r){return r.px?r.px.book:"~"},f:function(r){return r.px?esc(r.px.book)+(r.px.one?(r.px.best!==r.px.price?' <span class="o" title="The best price across all books">best '+fmtP(r.px.best)+' '+esc(r.px.bestBook)+'</span>':' <span class="o">best price</span>'):(r.px.n>1?' <span class="o">of '+r.px.n+'</span>':'')):'<span class="o">–</span>'}},
     {k:"be",l:"Break-even",num:1,v:function(r){return r.be},f:function(r){return r.be?p1(r.be):"–"}},
     {k:"ev",l:"Edge",num:1,v:function(r){return r.ev},f:edgeTag},
     {k:"vs",l:"Value score",num:1,v:function(r){return r.vs},f:function(r){return vsTxt(r.vs)}},
@@ -656,8 +667,8 @@ function vSlate(){
     {k:"fin",l:"Finishing",num:1,v:function(r){return r.b.finRel},f:function(r){return f2(r.b.finRel)+"×"}},
     {k:"ctx",l:"Matchup",num:1,v:function(r){var s=r.info.side[r.t];return s.f.all*s.scale},f:function(r){var s=r.info.side[r.t];return f2(s.f.all/s.f.k*s.scale)+"×"}}];
   view.innerHTML='<section class="panel"><div class="phead"><h2>Slate value table</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
-    '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
-    '<p class="note">Every skater on the slate against the best anytime-goalscorer price across books'+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
+    '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
+    '<p class="note">Every skater on the slate against '+(S.book?'the anytime-goalscorer price at <b>'+esc(S.book)+'</b>':'the best anytime-goalscorer price across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
     'The price box takes American odds: type one to override the feed or to fill a gap, clear it to go back. <b>Matchup</b> is everything outside the player himself multiplied together: home ice, the defense and goalie he faces, rest, and the market scaling. Click a name for the full working.</p>'+
     table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" near":"")+'" data-player="'+r.p+'"'}})+'</section>';
 }
@@ -683,7 +694,7 @@ function vLineups(){
       return h+'<div class="lrep">'+pp+'<div><b>In goal for '+t+'</b> '+gkLine(info,op,t)+'</div>'+(inj?'<small>Injury list</small>'+inj:(D.inj?'<small>Nobody on the injury list.</small>':''))+'</div></div>'}).join("");
     return '<section class="lcard"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
   view.innerHTML='<section class="panel"><div class="phead"><h2>Lineups</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
-    '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label></div>'+
+    '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label>'+bookPicker(day)+'</div>'+
     '<p class="note">Each row reads: chance to score, best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. <b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. Forward lines are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
     'For games still to be played the lineup is the team\'s last one, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+', so a coach\'s new combinations will not show until he has used them in a game. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
@@ -848,7 +859,8 @@ function vTeams(){
 }
 
 /* ================= Tracker ================= */
-function vTracker(){
+function vTracker(){S.bookOff=1;try{vTracker2()}finally{S.bookOff=0}}
+function vTracker2(){
   var ss=D.seasons,cur=ss.indexOf(S.trkS)>=0?S.trkS:ss[ss.length-1],gs=D.games.filter(function(g){return g.s===cur});
   var bands=[[0,.1],[.1,.15],[.15,.2],[.2,.25],[.25,.3],[.3,.35],[.35,.4],[.4,1]],B=bands.map(function(){return{n:0,p:0,h:0}});
   var top1={n:0,h:0,p:0},top3={n:0,h:0,p:0},byDay={},BT=[],priced={};
@@ -932,7 +944,7 @@ function render(){
   TABS[S.tab]();
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
-function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank,unit:S.unit}))}catch(_){}}
+function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank,unit:S.unit,book:S.book}))}catch(_){}}
 function go(tab){S.tab=tab;try{history.replaceState(null,"","#"+tab)}catch(_){}render();window.scrollTo(0,0)}
 
 /* ---- events ---- */
@@ -965,7 +977,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
     save();return render()}
   if(id==="unitSize"){var u=parseFloat(String(v).replace(/[^0-9.]/g,""));if(u>0)S.unit=u;save();return render()}
   if(t.dataset.gk){S.goalie[t.dataset.gk]=+v;save();return render()}
-  if(id==="selA")S.a=v;else if(id==="selB")S.b=v;else if(id==="selDay"){S.day=v;S.topN=12}else if(id==="selMinP"){S.minP=v==="np"?"np":+v;S.topN=12}
+  if(id==="selA")S.a=v;else if(id==="selB")S.b=v;else if(id==="selDay"){S.day=v;S.topN=12}else if(id==="selBook"){S.book=v;S.topN=12}else if(id==="selMinP"){S.minP=v==="np"?"np":+v;S.topN=12}
   else if(id==="ldTeam")S.ldTeam=v;else if(id==="ldMin")S.ldMin=+v;else if(id==="selLog"){S.logTeam=v;S.logN=30}else return;
   save();render()});
 document.addEventListener("input",function(e){if(e.target.id==="q"){S.q=e.target.value;render()}});
@@ -976,7 +988,7 @@ function start(d){
   try{saved=JSON.parse(localStorage.getItem("gol"))||{}}catch(_){}
   var ts=teams(),last=d.games[d.games.length-1],today=todayET(),next=(d.sched||[]).filter(function(x){return x.d>=today})[0];
   S.a=ts.indexOf(saved.a)>=0?saved.a:(next?next.a:last.a);S.b=ts.indexOf(saved.b)>=0?saved.b:(next?next.h:last.h);
-  if(!S.booted){S.px=saved.px||{};S.goalie=saved.goalie||{};if(saved.rank)S.rank=saved.rank;if(saved.unit>0)S.unit=saved.unit;
+  if(!S.booted){S.px=saved.px||{};S.goalie=saved.goalie||{};if(saved.rank)S.rank=saved.rank;if(saved.unit>0)S.unit=saved.unit;if(typeof saved.book==="string")S.book=saved.book;
     Object.keys(S.px).forEach(function(k){if(k.slice(0,10)<today)delete S.px[k]});Object.keys(S.goalie).forEach(function(k){if(k.slice(0,10)<today)delete S.goalie[k]})}
   var ss=d.seasons||[];$("ssnWrap").hidden=ss.length<2;
   $("seg-ssn").innerHTML='<button data-v="all">All</button>'+ss.map(function(y){return '<button data-v="'+y+'">'+y+"-"+String(y+1).slice(2)+'</button>'}).join("");
