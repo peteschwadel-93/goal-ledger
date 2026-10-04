@@ -249,7 +249,8 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .lteam li.prow .tag,.lteam li.prow .res{align-self:auto}
 @media(max-width:760px){ /* too narrow for one line: name over tags, chance and price over fair and edge */
   .lteam li.prow{height:60px;padding:0 10px}
-  .prow .pn{flex-direction:column;align-items:flex-start;gap:5px}
+  .prow .pn{flex-direction:column;align-items:stretch;gap:5px;overflow:hidden}
+  .prow .pname{max-width:100%}
   .prow .ptags{height:19px}
   .prow .pv4{grid-template-columns:auto auto;gap:3px 8px}
   .prow .pv2{grid-template-columns:auto;gap:3px}
@@ -271,9 +272,18 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .tag.eg.p3{background:var(--eg-p3);color:var(--eg-dark)}
 .tag.eg.p4{background:var(--eg-p4);color:var(--eg-dark);box-shadow:0 0 10px -2px var(--eg-p4)}
 
-.prow .pv4.pvl{grid-template-columns:56px 58px 58px 76px}
-@media(max-width:760px){.prow .pv4.pvl{grid-template-columns:auto auto}}
+.prow .pv4.pvl{grid-template-columns:56px 58px 58px 46px 76px}
+.prow .vsc{font-weight:600;color:var(--ink)}
+@media(max-width:760px){.prow .pv4.pvl{grid-template-columns:auto auto auto}}
 @media(max-width:760px){.panel .bar label.f{flex-wrap:wrap}.panel .bar .seg{flex-wrap:wrap;border-radius:16px}}
+
+/* value score: tinted text on the edge scale (no pill, so it does not compete with the edge pill beside it) */
+:root{--vs-n3:#ff9d8f;--vs-n2:#e08a7e;--vs-n1:#a98f8b;--vs-p1:#8fbfb2;--vs-p2:#63d2b4;--vs-p3:#5fe6b0;--vs-p4:#3ef07f}
+.vst{font-weight:600;font-variant-numeric:tabular-nums}
+.vst.n3{color:var(--vs-n3)}.vst.n2{color:var(--vs-n2)}.vst.n1{color:var(--vs-n1)}
+.vst.p1{color:var(--vs-p1)}.vst.p2{color:var(--vs-p2)}.vst.p3{color:var(--vs-p3)}.vst.p4{color:var(--vs-p4);text-shadow:0 0 10px color-mix(in srgb,var(--vs-p4) 55%,transparent)}
+.prow .pv b.vst.n3{color:var(--vs-n3)}.prow .pv b.vst.n2{color:var(--vs-n2)}.prow .pv b.vst.n1{color:var(--vs-n1)}
+.prow .pv b.vst.p1{color:var(--vs-p1)}.prow .pv b.vst.p2{color:var(--vs-p2)}.prow .pv b.vst.p3{color:var(--vs-p3)}.prow .pv b.vst.p4{color:var(--vs-p4)}
 </style>
 
 <div class="wrap">
@@ -522,6 +532,8 @@ function unitTag(u){return u===1?'<span class="tag q">PP1</span>':u===2?'<span c
 function injTag(r){var s="";if(r.inj)s+='<span class="tag l" title="'+esc(r.inj.c||r.inj.ty||"")+'">'+esc(r.inj.st.toUpperCase())+'</span>';if(r.back)s+='<span class="tag" title="Did not dress in the team\'s last game; pencilled in for a player who is out.">NOT IN LAST LINEUP</span>';return s}
 function grade(v){return v>=.5?"p4":v>=.25?"p3":v>=.1?"p2":v>0?"p1":v>-.1?"n1":v>-.25?"n2":"n3"} // seven steps from deep red through neutral to bright green
 function pill(v){return '<span class="tag eg '+grade(v)+'">'+(v>0?"+":"")+Math.round(v*100)+'%</span>'}
+function vsGrade(v){return v>=6?"p4":v>=4?"p3":v>=2?"p2":v>0?"p1":v>-2?"n1":v>-5?"n2":"n3"}
+function vsTxt(v){return v==null?"–":'<b class="vst '+vsGrade(v)+'">'+(v>0?"+":"")+v.toFixed(1)+'</b>'} // value score, tinted on the same scale as the edge pills
 function pill2(u){return '<span class="tag eg '+(u>=3?"p3":u>=1?"p2":u>0?"p1":u>-1?"n1":u>-3?"n2":"n3")+'">'+(u>=0?"+":"")+f1(u)+'</span>'}
 function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':pill(r.ev)}
 function resTag(r){if(!r.res)return "";return r.res[1]>0?'<span class="res m">'+(r.res[1]>1?r.res[1]+" GOALS":"GOAL")+'</span>':'<span class="res x">NO GOAL</span>'}
@@ -568,7 +580,7 @@ function pickCard(r,i,mode){
     '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'</h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
     (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+fmtP(r.px.price)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.n>1?" of "+r.px.n:"")+'</span></span>'+
       '<span>Edge</span><span>'+pill(r.evS)+'</span>'+
-      '<span>Value score</span><span><b>'+(r.vsS>0?"+":"")+r.vsS.toFixed(1)+'</b></span>'+
+      '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
       '<span>Pick chance · fair</span><span>'+p1(r.ps)+" · "+fairOdds(r.ps)+'</span>'+
       '<span>Model says</span><span class="px c'+lv+'">'+p1(r.pr)+'</span>'+
       '<span>Market says</span><span>'+p1(r.mk)+'</span></div>':
@@ -576,7 +588,7 @@ function pickCard(r,i,mode){
     '<span>Fair price</span><span>'+fairOdds(r.pr)+'</span>'+
     '<span>Best price</span><span>'+(r.px?'<b>'+fmtP(r.px.price)+'</b> <span class="o">'+esc(r.px.book)+'</span>':'<span class="o">none loaded</span>')+'</span>'+
     '<span>Edge</span><span>'+edgeTag(r)+'</span>'+
-    '<span>Value score</span><span>'+(r.vs==null?"–":(r.vs>0?"+":"")+r.vs.toFixed(1))+'</span></div>')+
+    '<span>Value score</span><span>'+vsTxt(r.vs)+'</span></div>')+
     '<div class="rval"><div class="rq"><span>Ice time · power play</span><span>'+mmss(b.tev+b.tpp)+" · "+mmss(b.tpp)+'</span>'+
     '<span>Shot quality per 60</span><span>'+f2((b.evr*b.tev+b.ppr*b.tpp)/(b.tev+b.tpp)*3600)+' xG</span>'+
     '<span>Finishing vs average</span><span>'+f2(b.finRel)+'×</span>'+
@@ -609,7 +621,7 @@ function vSlate(){
     {k:"book",l:"Book",v:function(r){return r.px?r.px.book:"~"},f:function(r){return r.px?esc(r.px.book)+(r.px.n>1?' <span class="o">of '+r.px.n+'</span>':''):'<span class="o">–</span>'}},
     {k:"be",l:"Break-even",num:1,v:function(r){return r.be},f:function(r){return r.be?p1(r.be):"–"}},
     {k:"ev",l:"Edge",num:1,v:function(r){return r.ev},f:edgeTag},
-    {k:"vs",l:"Value score",num:1,v:function(r){return r.vs},f:function(r){return r.vs==null?"–":'<b>'+(r.vs>0?"+":"")+r.vs.toFixed(1)+'</b>'}},
+    {k:"vs",l:"Value score",num:1,v:function(r){return r.vs},f:function(r){return vsTxt(r.vs)}},
     {k:"lam",l:"Exp. goals",num:1,v:function(r){return r.lam},f:function(r){return f2(r.lam)}},
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"pp",l:"PP time",num:1,v:function(r){return r.b.tpp},f:function(r){return mmss(r.b.tpp)}},
@@ -630,13 +642,13 @@ function vLineups(){
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b><span>'+(r.px?edgeTag(r):'')+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
       var lab={},ord=[];(src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){lab[p]="L"+(i+1);ord.push(p)})});
       if(S.luSort==="lines"){ord.forEach(function(p){h+=li(p,lab[p])});
         my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
         my.filter(function(r){return r.pos==="D"}).sort(function(a,b){return b.b.tev-a.b.tev}).forEach(function(r){h+=li(r.p,"D")})}
-      else{var k=S.luSort,val=function(r){return k==="pr"?r.pr:k==="ev"?(r.ev==null?-9:r.ev):k==="px"?(r.px?-r.pay:-99):r.b.tev+r.b.tpp};
+      else{var k=S.luSort,val=function(r){return k==="pr"?r.pr:k==="ev"?(r.ev==null?-9:r.ev):k==="vs"?(r.vs==null?-999:r.vs):k==="px"?(r.px?-r.pay:-99):r.b.tev+r.b.tpp};
         my.slice().sort(function(a,b){return val(b)-val(a)}).forEach(function(r){h+=li(r.p,lab[r.p]||(r.pos==="D"?"D":"F"))})}
       h+='</ol>';
       var pp=[1,2].map(function(u){var l=my.filter(function(r){return r.unit===u}).sort(function(a,b){return b.b.tpp-a.b.tpp});return l.length?'<div><b>PP'+u+'</b> '+l.map(function(r){return esc(r.name)}).join(", ")+'</div>':""}).join("");
@@ -644,8 +656,8 @@ function vLineups(){
       return h+'<div class="lrep">'+pp+'<div><b>In goal for '+t+'</b> '+gkLine(info,op,t)+'</div>'+(inj?'<small>Injury list</small>'+inj:(D.inj?'<small>Nobody on the injury list.</small>':''))+'</div></div>'}).join("");
     return '<section class="lcard"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
   view.innerHTML='<section class="panel"><div class="phead"><h2>Lineups</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
-    '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["toi","Ice time"]],S.luSort)+'</label></div>'+
-    '<p class="note"><b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. Forward lines are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
+    '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label></div>'+
+    '<p class="note">Each row reads: chance to score, best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. <b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. Forward lines are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
     'For games still to be played the lineup is the team\'s last one, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+', so a coach\'s new combinations will not show until he has used them in a game. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
 }
