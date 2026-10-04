@@ -402,6 +402,12 @@ def parse_lineup(pbp, box):
         for g in (((box or {}).get("playerByGameStats") or {}).get(side) or {}).get("goalies") or []:
             if g.get("starter") and t in lu:
                 lu[t]["st"] = int(g["playerId"])
+    shots = {}   # shots on goal so far by skater, from the box score
+    for side in ("awayTeam", "homeTeam"):
+        grp = ((box or {}).get("playerByGameStats") or {}).get(side) or {}
+        for sk in (grp.get("forwards") or []) + (grp.get("defense") or []):
+            if sk.get("playerId") is not None and isinstance(sk.get("sog"), (int, float)):
+                shots[str(int(sk["playerId"]))] = int(sk["sog"])
     goals = {}   # goals so far by scorer; shootout attempts are not goals
     events = []  # the same goals one by one, in the shape build_season stores them
     home_id = (pbp.get("homeTeam") or {}).get("id")
@@ -425,7 +431,7 @@ def parse_lineup(pbp, box):
     score = [pbp["awayTeam"].get("score"), pbp["homeTeam"].get("score")]
     # a posted game roster is 18 skaters and 2 goalies a side; anything bigger is the full roster, not a lineup
     ok = all(15 <= len(v["sk"]) <= 19 and 1 <= len(v["g"]) <= 3 for v in lu.values())
-    return (lu if ok else None), who, pbp.get("gameState"), goals, score, events
+    return (lu if ok else None), who, pbp.get("gameState"), goals, score, events, shots
 
 
 def load_lineups(sched):
@@ -440,7 +446,7 @@ def load_lineups(sched):
             box = None
             if pbp.get("gameState") in ("LIVE", "CRIT", "OFF", "FINAL"):
                 box = json.loads(get(NHL_GAME.format(gid=u["gid"], what="boxscore"), timeout=30)[0])
-            lu, names, state, goals, score, events = parse_lineup(pbp, box)
+            lu, names, state, goals, score, events, shots = parse_lineup(pbp, box)
             if lu:
                 u["lu"] = lu
                 who.update(names)
@@ -450,6 +456,8 @@ def load_lineups(sched):
                 u["gl"], u["sc"] = goals, score
                 if len(events) == sum(goals.values()):
                     u["ge"] = events
+                if shots:
+                    u["sg"] = shots
         except Exception as e:
             print(f"lineup for {u['a']}@{u['h']} unavailable: {e}", file=sys.stderr)
     return who

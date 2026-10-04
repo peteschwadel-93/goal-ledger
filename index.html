@@ -375,6 +375,8 @@ tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,va
 .sside.u{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
 .rcard.win .sside{color:#fff;border-color:var(--goal);background:var(--goal)}
 tbody tr.spk>td:nth-child(2) b{color:var(--goal-hot)}
+
+.res.live{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--accent)}
 </style>
 
 <div class="wrap">
@@ -626,7 +628,7 @@ function slate(day){
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
         var fin=/OFF|FINAL/.test(m.st||"");
         projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back,xs:sogMu(x.sog0,t===m.h,op)};
-          if(m.gl&&(n||fin))row.res=[e.p,n];rows.push(row)})}
+          if(m.gl&&(n||fin))row.res=[e.p,n];if(m.sg)row.sgl=[m.sg[e.p]||0,fin?1:0];rows.push(row)})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
       var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
       info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t])};
@@ -652,6 +654,9 @@ function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line a
   return out}
 /* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
 var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
+function shotAct(r){return r.info.m.g&&r.res?[r.res[2],1]:r.sgl||null} // [his shots so far, 1 once the game is over], or null before it starts
+function shotGrade(side,line,act){ // 1 won, -1 lost, 0 push, null still open. An over is won the moment it is cleared; an under is lost the same moment
+  if(!act)return null;var a=act[0];if(a>line)return side==="o"?1:-1;if(!act[1])return null;return a===line?0:side==="o"?-1:1}
 function shotCands(day,rows){ // every side that passes the tests, best edge first; r.spx marks a row the model likes but the market disagrees with too much
   var out=[];(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
     var pm=nbOver(r.xs,h.line),best=null;
@@ -668,13 +673,13 @@ function shotPicks(day,rows){ // tonight's list: the saved one where the build h
   var by={};rows.forEach(function(r){by[r.p]=r});var L=(D.locks||{})[day],st=L&&L.shots&&(!S.book||S.bookOff)?L.shots:null,list;
   if(st&&st.length)list=st.map(function(k){var r=by[k.p];return r?{r:r,p:k.p,side:k.side,line:k.line,price:k.price,book:k.book,lab:k.book+" · "+k.line,all:null,pm:k.pm,mk:k.mk,ps:k.ps,ev:k.ev,vs:k.vs,xs:k.xs,ts:k.ts,locked:k.lk?1:0,saved:1}:null}).filter(Boolean);
   else list=shotSelect(shotCands(day,rows),npCap(matchups(day).length),[]);
-  list.forEach(function(c){var r=c.r,a=r.info.m.g&&r.res?r.res[2]:null;c.act=a;c.win=a==null?null:a===c.line?0:(c.side==="o")===(a>c.line)?1:-1;c.u=c.win==null?null:c.win>0?payout(c.price)-1:c.win<0?-1:0});
+  list.forEach(function(c){var act=shotAct(c.r);c.act=act?act[0]:null;c.live=act&&!act[1]?1:0;c.win=shotGrade(c.side,c.line,act);c.u=c.win==null?null:c.win>0?payout(c.price)-1:c.win<0?-1:0});
   return list}
 function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
   return '<div class="rcard'+(c.win>0?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
     '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+
-      (c.win==null?'':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+'</span>')+
-      (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
+      (c.act==null?'':c.win==null?'<span class="res live">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · LIVE</span>':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+(c.live?" · LIVE":"")+'</span>')+
+      (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g&&c.act==null&&Date.parse(c.ts)>Date.now()?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
       (c.side==="o"&&c.xs>=c.line+SG.ladder?'<span class="tag lad">LADDER</span>':'')+'</div></div>'+
     '<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+(c.all?pxH({price:c.price,book:c.lab,all:c.all},r.name+(c.side==="o"?" over":" under")):fmtP(c.price))+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(c.book)+'</span></span>'+
       '<span>Edge</span><span>'+pill(c.ev)+'</span>'+
@@ -880,17 +885,18 @@ function vShots(){
       n1:nbOver(r.xs,h.line+1),n2:nbOver(r.xs,h.line+2),lad:r.xs>=h.line+SG.ladder};
     r.sv.best=Math.max(r.sv.eo==null?-9:r.sv.eo,r.sv.eu==null?-9:r.sv.eu);r.sv.side=r.sv.best===-9?"":r.sv.eo===r.sv.best?"o":"u";
     var lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<day}).slice(-10);r.sv.l10=lg.length;r.sv.h10=lg.filter(function(e){return e.r[2]>h.line}).length;
-    r.sv.act=r.info.m.g&&r.res?r.res[2]:null});
+    var act=shotAct(r);r.sv.act=act?act[0]:null;r.sv.fin=act?act[1]:0});
   var picks=shotPicks(day,all),cands=shotCands(day,all),chk=all.filter(function(r){return r.spx}).length,isPk={};picks.forEach(function(c){isPk[c.p]=c.side});
   var gr=picks.filter(function(c){return c.win!=null}),won=gr.filter(function(c){return c.win>0}).length,un=0;gr.forEach(function(c){un+=c.u});
   var priced=all.filter(function(r){return r.sh}),show=S.slateAll?all.filter(function(r){return r.xs>=1||r.sh}):priced,lads=priced.filter(function(r){return r.sv.lad});
   function side(r,k){var h=r.sh,px=h&&h[k];return px?'<b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over":" under"))+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span>':'<span class="o">–</span>'}
-  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':'<span class="res x">'+a+' · UNDER</span>'}
+  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':r.sv.fin?'<span class="res x">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
     {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag pk" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
     {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
     {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return '<b>'+f2(r.xs)+'</b>'}},
+    {k:"act",l:"Shots",num:1,v:function(r){return r.sv.act},f:function(r){return r.sv.act==null?'<span class="o">–</span>':'<b>'+r.sv.act+'</b>'}},
     {k:"line",l:"Line",num:1,v:function(r){return r.sh?r.sh.line:null},f:function(r){return r.sh?f1(r.sh.line):"–"}},
     {k:"gap",l:"xSOG − line",num:1,v:function(r){return r.sh?r.xs-r.sh.line:null},f:function(r){if(!r.sh)return "";var d=r.xs-r.sh.line;return '<span class="'+(d>=1?"vst p3":d>0?"vst p1":"o")+'">'+(d>0?"+":"")+f2(d)+'</span>'}},
     {k:"po",l:"Over",num:1,v:function(r){return r.sv.po},f:function(r){return r.sh?p1(r.sv.po)+' <span class="o">'+fairOdds(r.sv.po)+'</span>':""}},
@@ -906,14 +912,14 @@ function vShots(){
     {k:"h10",l:"Last 10",num:1,v:function(r){return r.sh&&r.sv.l10?r.sv.h10/r.sv.l10:null},f:function(r){return r.sh&&r.sv.l10?r.sv.h10+' of '+r.sv.l10+' over':""}},
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"sr",l:"Shots / 60",num:1,v:function(r){return r.b.sr},f:function(r){return r.b.sr?f1(r.b.sr*3600):"–"}}];
-  var graded=priced.filter(function(r){return r.sv.act!=null}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null});
+  var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
   var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span></div>'+
     '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
     (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+'</section>';
   view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span>'+
-      (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+'</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates over: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+'</span>':'')+'</div>'+
+      (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+' finished</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates over: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+'</span>':'')+'</div>'+
     '<p class="note"><b>xSOG</b> is the shots on goal the model expects: his shot rate, weighted to recent games and leaning on unblocked attempts, times his expected ice time, adjusted for home ice and how many shots '+
     'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
     '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance and fair price for one and two more shots, to hold against the alternate lines in your book. '+
@@ -1140,7 +1146,7 @@ function shotRecord(season,lab){ // Shot Picks graded at one unit: the saved lis
     var rows=slate(d),pk=shotPicks(d,rows).filter(function(c){return c.win!=null&&(!c.saved||c.locked)});if(!pk.length)return;
     var u=0,w=0;pk.forEach(function(c){u+=c.u;if(c.win>0)w++});R.n+=pk.length;R.w+=w;R.u+=u;R.days.push({d:d,pk:pk,u:u,w:w,run:R.u,lock:pk[0].saved})});
   S.book=keepB;R.days.reverse();
-  if(!R.n)return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div><p class="note">No finished day has stored shots lines yet. The record starts once the first night with lines is in the overnight data.</p></section>';
+  if(!R.n)return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div><p class="note">No finished day has stored shots lines yet. The record starts once the first night with lines has finished.</p></section>';
   function usd(u){return (u<0?"−$":"$")+Math.abs(u*S.unit).toFixed(2)}
   return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div>'+
     '<p class="note">The Shot Picks from the Shots tab, one unit on each at the price shown, graded on the shots on goal in the official record. Days marked LOCKED use the list and prices saved as each game started; replayed days are worked out afresh from the stored lines.</p>'+
@@ -1329,7 +1335,15 @@ if(served){
 var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
 function eab(x){return EAB[x]||x}
 function applyLive(){var ch=0;(D.sched||[]).forEach(function(m){var L=LIVE[gameKey(m)];if(!L)return;
-  var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;ch=1}});return ch}
+  var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length,L.sg]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;if(L.sg)m.sg=L.sg;ch=1}});return ch}
+function liveShots(doc,t){ // shots on goal by player id for one team, from ESPN's box score; an empty object if the column cannot be found
+  var out={};((doc.boxscore||{}).players||[]).forEach(function(tm){if(eab((tm.team||{}).abbreviation)!==t)return;
+    (tm.statistics||[]).forEach(function(grp){var ks=grp.keys||[],si=-1;["shotsTotal","shotsOnGoal","shots","totalShots"].forEach(function(k){if(si<0)si=ks.indexOf(k)});
+      if(si<0){var lb=grp.labels||[];["S","SOG"].forEach(function(k){if(si<0)si=lb.indexOf(k)})}
+      if(si<0||ks.indexOf("goals")<0)return; // skaters only: the goalie group has no goals column
+      (grp.athletes||[]).forEach(function(a){var n=+((a.stats||[])[si]);if(isNaN(n))return;var k=normName((a.athlete||{}).displayName),hit=null;
+        (IX.names[k]||[]).forEach(function(p){if(ppos(p)!=="G"&&(!hit||(IX.P[p]&&IX.P[p].team===t)))hit=p});
+        if(hit)out[hit]=n})})});return out}
 function liveBox(doc,t){ // goals by player id for one team, from ESPN's box score (shootout goals are a separate column and are left out)
   var out={};((doc.boxscore||{}).players||[]).forEach(function(tm){if(eab((tm.team||{}).abbreviation)!==t)return;
     (tm.statistics||[]).forEach(function(grp){var gi=(grp.keys||[]).indexOf("goals");if(gi<0)return;
@@ -1362,13 +1376,14 @@ function liveTick(){
       var key=gameKey(m),L=LIVE[key];if(L&&L.st==="FINAL")return;
       jobs.push(fetch(ESPN+"summary?event="+e.id,{cache:"no-store"}).then(function(r){return r.json()}).then(function(doc){
         var gl=liveBox(doc,a),g2=liveBox(doc,h);Object.keys(g2).forEach(function(p){gl[p]=g2[p]});
-        LIVE[key]={gl:gl,sc:[as,hs],st:st==="post"?"FINAL":"LIVE",ge:livePlays(doc,m)}}).catch(function(){}))})});
+        var sg=liveShots(doc,a),s2=liveShots(doc,h);Object.keys(s2).forEach(function(p){sg[p]=s2[p]});
+        LIVE[key]={gl:gl,sc:[as,hs],st:st==="post"?"FINAL":"LIVE",ge:livePlays(doc,m),sg:Object.keys(sg).length?sg:null}}).catch(function(){}))})});
     return Promise.all(jobs)}).then(function(){
       var now=new Date(),hh=now.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});$("liveMsg").hidden=false;$("liveMsg").textContent="Live goals checked "+hh;
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
-      if(applyLive()&&!typing&&["picks","slate","lineups","feed"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
+      if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
