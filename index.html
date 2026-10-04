@@ -402,6 +402,7 @@ function p1(x){return (100*x).toFixed(1)+"%"}
 function f1(x){return x==null||isNaN(x)?"–":x.toFixed(1)}
 function f2(x){return x==null||isNaN(x)?"–":x.toFixed(2)}
 function mmss(s){s=Math.round(s);return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
+function fmtClock(iso){try{return new Date(iso).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"})+" ET"}catch(_){return iso}}
 function fmtD(d){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return m[+d.slice(5,7)-1]+" "+(+d.slice(8))}
 function days(a,b){return Math.round((Date.parse(b+"T12:00:00Z")-Date.parse(a+"T12:00:00Z"))/864e5)}
 function todayET(){ // the hockey day: it turns over at 6am Eastern, so a late game still belongs to the night it started
@@ -563,6 +564,18 @@ function slate(day){
         out.push(r)})})});
   return out}
 function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} // one pick for every three games on the slate, five at most
+/* Locked picks. The build saves each night's Nightly Picks and freezes each one when its own game starts, so the list you
+   bet from is the list that gets graded, whatever lineups, goalies or prices do afterwards. A noon game locks at noon and
+   leaves the evening places open until those games start. Price and chances are the ones on the card at the lock.
+   A locked pick who then does not dress is void. */
+function lockOf(day){var L=(D.locks||{})[day];return L&&L.locked&&(!S.book||S.bookOff)?L:null}
+function lockedRows(day,rows){var L=lockOf(day);if(!L)return null;var by={};rows.forEach(function(r){by[r.p]=r});
+  return L.picks.map(function(k){var base=by[k.p],r;
+    if(base)r=Object.assign({},base);
+    else{var mate=rows.filter(function(x){return x.t===k.t})[0];if(!mate)return null;
+      r={p:k.p,name:pname(k.p),pos:ppos(k.p),t:k.t,opp:k.o,home:mate.home,info:mate.info,b:rate(stOf(k.p),isD(k.p)),unit:0,isVoid:1}}
+    r.pr=k.pr;r.px={price:k.price,book:k.book,n:k.nb||0,mid:null,locked:1};r.pay=payout(k.price);r.be=1/r.pay;r.ps=k.ps;r.mk=k.mk;r.evS=k.ev;r.vsS=k.vs;r.ev=k.pr*r.pay-1;r.vs=valScore(k.pr,r.pay);r.np=1;r.locked=k.lk===0?0:1;r.openTs=k.lk===0?k.ts:null;r.outl=0;
+    return r}).filter(Boolean)}
 function ranked(rows,mode){var k=mode==="np"?"vsS":mode==="value"?"ev":mode==="blend"?"vs":"pr";
   return rows.slice().sort(function(a,b){var x=a[k],y=b[k];if(x==null&&y==null)return b.pr-a.pr;if(x==null)return 1;if(y==null)return -1;return y-x})}
 function dayList(){var sd={},pd={},today=todayET();(D.sched||[]).forEach(function(x){if(x.d>=today)sd[x.d]=1;else pd[x.d]=1});D.games.forEach(function(g){pd[g.d]=1}); // a night still waiting on the archive stays in the list
@@ -599,6 +612,8 @@ function vPicks(){
   var mode=np?"np":priced?S.rank:"like",top=ranked(pool,mode);
   if(mode!=="like")top=top.filter(function(r){return r.px});
   var npAll=top.length,cap=npCap(ms.length),capW=["","one","two","three","four","five"][cap];if(np)top=top.slice(0,cap);
+  var LK=np?lockOf(day):null,pre=(D.locks||{})[day];if(LK){top=lockedRows(day,rows);if(S.pos!=="all")top=top.filter(function(r){return (S.pos==="D")===(r.pos==="D")})}
+  var lockNote=!np?"":LK?(LK.done===0?' <b>Each pick locks when its own game starts.</b> Cards tagged LOCKED are fixed, with the price and chances from that moment; cards tagged OPEN belong to games still to start and can change until they do.':' <b>These picks are locked</b>: each one was fixed when its own game started, with the price and chances from that moment.'):(S.book?' With a single book chosen the list is worked out fresh each time and is not locked.':(pre?' The list can still move with lineup and price news; each pick locks when its own game starts.':''));
   var hasLines=rows.some(function(r){return r.info.mk});
   var played=rows.some(function(r){return r.res&&r.info.m.g});
   var hd='<section class="panel"><div class="phead"><h2>Picks</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
@@ -607,7 +622,7 @@ function vPicks(){
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
     (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+bookPicker(day)+'</div>'+
     '<p class="note">'+(S.book?'<b>Showing '+esc(S.book)+' prices only.</b> Edges and value scores use the price at that book; a player it has not posted has no price. The market\'s chance still comes from the middle of all books. ':'')+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
-    (np?'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
+    (np?lockNote.replace(/^ /,"")+(lockNote?" ":"")+'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
     (np?'':'<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. ')+
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
@@ -616,7 +631,7 @@ function vPicks(){
   var cards=top.slice(0,S.topN).map(function(r,i){return pickCard(r,i+1,mode)}).join("");
   // tonight's running score for the cards on show: a goal settles a pick as a win at once, a miss only when his game is final
   var shown=top.slice(0,S.topN),tk={n:shown.length,h:0,u:0,open:0,priced:0};
-  shown.forEach(function(r){var pay=mode==="np"||r.px?r.pay:null;if(pay)tk.priced++;
+  shown.forEach(function(r){if(r.isVoid){tk.n--;return}var pay=mode==="np"||r.px?r.pay:null;if(pay)tk.priced++;
     if(r.res&&r.res[1]>0){tk.h++;if(pay)tk.u+=pay-1}else if(r.res){if(pay)tk.u-=1}else tk.open++});
   var started=shown.some(function(r){return r.res||/LIVE|CRIT|OFF|FINAL/.test(r.info.m.st||"")});
   var tkHtml=shown.length&&started?'<span class="tag nt '+(tk.priced?(tk.u>0?"w":tk.u<0?"l":""):(tk.h?"w":""))+'" title="Goals settle a pick as a win straight away; a miss counts once his game is final. One unit on each pick at the best price.">'+tk.h+' OF '+tk.n+' SCORED'+(tk.priced?' · '+(tk.u>=0?"+":"−")+Math.abs(tk.u).toFixed(1)+'U'+(S.unit?' · '+(tk.u>=0?"+":"−")+'$'+Math.abs(tk.u*S.unit).toFixed(0):''):'')+(tk.open?' · '+tk.open+' STILL OPEN':'')+'</span>':'';
@@ -631,7 +646,7 @@ function vPicks(){
 function pickCard(r,i,mode){
   var lv=level(r.pr),s=r.info.side[r.t],b=r.b,hit=r.res&&r.res[1]>0;
   return '<div class="rcard'+(hit?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span>'+chev(lv,"sm")+'</div>'+
-    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'</h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'</h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.isVoid?'<span class="tag l" title="He was a locked pick but is not in the lineup. Books void the bet.">DID NOT DRESS · VOID</span>':'')+(r.locked?'<span class="tag">LOCKED</span>':r.openTs?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(r.openTs).replace(" ET",""))+'</span>':'')+(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g||r.locked?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
     (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+fmtP(r.px.price)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.one?"":(r.px.n>1?" of "+r.px.n:""))+'</span></span>'+
       '<span>Edge</span><span>'+pill(r.evS)+'</span>'+
       '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
@@ -906,17 +921,20 @@ function vTracker2(){
     '<p class="note">No prices are stored for '+lab+'. Prices are kept from the day the site started fetching them; earlier games in the current season can be loaded once from Actions → Run workflow with the past-prices box ticked.</p>';
   // Nightly Picks, graded: every finished day replayed through the same four tests the Picks page applies
   var NP={n:0,h:0,u:0,exp:0,days:[]},T3={n:0,h:0,u:0};
-  Object.keys(byDay).sort().reverse().forEach(function(d){var pk=slate(d).filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,npCap(byDay[d].games));if(!pk.length)return;
-    var x={d:d,pk:pk,h:0,u:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
+  Object.keys(byDay).sort().reverse().forEach(function(d){var rows=slate(d),lk=lockedRows(d,rows),pk;
+    if(lk)pk=lk.filter(function(r){return r.locked&&!r.isVoid&&r.res&&r.info.m.g}); // the list as locked that night; a pick who did not dress is void
+    else pk=rows.filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,npCap(byDay[d].games));
+    if(!pk.length)return;
+    var x={d:d,pk:pk,h:0,u:0,lock:lk?1:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
     NP.n+=pk.length;NP.h+=x.h;NP.u+=x.u;NP.days.push(x)});
   var run=0;NP.days.slice().reverse().forEach(function(x){run+=x.u;x.run=run});
   function un(u){return (u>=0?"+":"")+f1(u)}
   function usd(u){var v=u*S.unit;return (v<0?"−":"+")+"$"+Math.abs(v).toFixed(2)}
   var npHtml=NP.n?'<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2><label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label></div>'+
-    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the strongest by value score: one pick for every three games that day, five at most. One unit on each, at the best price. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
+    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the strongest by value score: one pick for every three games that day, five at most. One unit on each, at the best price. Days marked LOCKED are graded on the exact list and prices saved as each game started, which is what you could have bet. Days marked replayed have no saved list, so they are worked out afresh from the real lineups, the real starting goalie and the last price before puck drop, which is slightly kinder than what you would have seen that afternoon.</p>'+
     '<div class="kv"><span>All picks <b>'+NP.h+" of "+NP.n+'</b> · '+pct(NP.h,NP.n)+' <span class="o">(expected '+pct(NP.exp,NP.n)+')</span></span><span>Units <b>'+un(NP.u)+'</b></span><span>Staked <b>$'+(NP.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(NP.u>=0?"made":"miss")+')">'+usd(NP.u)+'</b></span><span>ROI (return per bet) '+pill(NP.u/NP.n)+'</span><span>Days <b>'+NP.days.length+'</b></span></div>'+
     '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th class="n">Profit</th><th class="n">Running</th><th>The picks, best first</th></tr></thead><tbody>'+
-    NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
+    NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+(x.lock?' <span class="tag" title="Graded on the list and prices locked as each game started.">LOCKED</span>':' <span class="o" title="No locked list was saved for this day, so it is worked out afresh from the stored prices and the real lineups.">replayed</span>')+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
       x.pk.map(function(r){return '<span class="pick" data-player="'+r.p+'" style="white-space:nowrap">'+esc(r.name)+' <span class="o">'+fmtP(r.px.price)+'</span> <span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>':
     '<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div><p class="note">No finished day in '+lab+' has stored prices yet, so there are no graded picks.</p></section>';
   var more=dayRows.length>S.trkN;
@@ -1066,6 +1084,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
