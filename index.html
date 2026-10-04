@@ -800,13 +800,19 @@ function clockOf(sec){var per=Math.min(Math.floor(sec/1200),sec>=3600?3:2)+1,x=s
   return{per:per,txt:(per>3?"OT":"P"+per)+" "+Math.floor(x/60)+":"+("0"+x%60).slice(-2)}}
 function goalEvents(day){ // one entry per goal: the archive's or the NHL feed's list, or ESPN's while a game is live, or bare counts if neither has the detail yet
   var out=[];matchups(day).forEach(function(m){var key=gameKey(m),L=LIVE[key]||{},base=m.g?m.g.ge:m.ge,ev=[];
-    if(base&&base.length)ev=base.map(function(e,i){var c=clockOf(e[2]);return{p:e[0],t:e[1]?m.h:m.a,sec:e[2],per:c.per,clk:c.txt,kind:e[3],a:[e[4],e[5]].filter(Boolean).map(pname),i:i}});
+    if(base&&base.length)ev=base.map(function(e,i){var c=clockOf(e[2]);var w=e[6]||(m.g&&m.g.gt?m.g.gt[i]:0);return{p:e[0],t:e[1]?m.h:m.a,sec:e[2],per:c.per,clk:c.txt,kind:e[3],a:[e[4],e[5]].filter(Boolean).map(pname),wall:w?w*1000:null,i:i}});
     if(!m.g&&L.ge&&L.ge.length>ev.length)ev=L.ge.map(function(e,i){return{p:e.p,t:e.t,sec:e.sec,per:e.per,clk:e.clk,kind:e.kind,a:e.a,wall:e.wall,i:i}});
     var gl=m.g?null:m.gl;if(gl){var seen={};ev.forEach(function(e){seen[e.p]=(seen[e.p]||0)+1}); // a goal the counts know about but the play list does not yet
       Object.keys(gl).forEach(function(p){for(var k=seen[p]||0;k<gl[p];k++)ev.push({p:+p,t:IX.P[p]&&(IX.P[p].team===m.h||IX.P[p].team===m.a)?IX.P[p].team:"",sec:null,per:null,clk:"",kind:null,a:[],i:ev.length})})}
-    var t0=m.ts?Date.parse(m.ts):0;
+var t0=Date.parse(m.ts||(m.g&&m.g.ts)||"")||0;
     ev.forEach(function(e){e.m=m;e.opp=e.t===m.h?m.a:e.t===m.a?m.h:"";e.home=e.t===m.h;e.first=0;
-      e.ord=e.wall||(t0+(e.sec==null?9e6:e.sec*2500))+e.i}); // clock time where known, else an estimate good enough to put games in order
+      // time of day: the real one where a feed gave it, otherwise worked out from the start time and the game clock
+      // (puck drop about 8 minutes after the listed start, a period about 37 minutes of real time, 18-minute intermissions, a short break before overtime)
+      if(e.wall){e.when=e.wall;e.est=0}
+      else if(t0&&e.sec!=null){var p=Math.min(Math.floor(e.sec/1200),3),inP=e.sec-p*1200;e.when=t0+(8+(p<3?p*55:150))*6e4+inP*1850;e.est=1}
+      else if(e.sec==null&&!m.g){e.when=Date.now();e.est=1} // a goal the count has but the play list does not: it has only just happened
+      else e.when=null;
+      e.ord=(e.when||e.sec*2500||0)+e.i});
     var c=ev.filter(function(e){return e.sec!=null}).sort(function(x,y){return x.sec-y.sec||x.i-y.i})[0];if(c)c.first=1;
     out=out.concat(ev)});
   var n={};out.slice().sort(function(x,y){return x.ord-y.ord}).forEach(function(e){e.nth=n[e.p]=(n[e.p]||0)+1});
@@ -818,7 +824,8 @@ function vFeed(){
   var scorers={},pkHit={},edgeHit={};ev.forEach(function(e){scorers[e.p]=1;if(e.pick)pkHit[e.p]=1;if(e.r&&e.r.ev>0)edgeHit[e.p]=1});
   var ms=matchups(day),live=ms.filter(function(m){return !m.g&&/LIVE|CRIT/.test(m.st||"")}).length,started=ms.filter(function(m){return m.g||m.gl}).length;
   var cols=[
-    {k:"ord",l:"When",v:function(e){return e.ord},f:function(e){return '<span class="fwhen">'+(e.clk?esc(e.clk):'<span class="o">just in</span>')+'</span>'+(e.wall?' <span class="o">'+esc(fmtClock(new Date(e.wall).toISOString()).replace(" ET",""))+'</span>':'')}},
+    {k:"ord",l:"Time",v:function(e){return e.ord},f:function(e){return e.when?'<span class="fwhen"'+(e.est?' title="Estimated from the start time and the game clock"':'')+'>'+(e.est?'<span class="o">≈</span> ':'')+esc(fmtClock(new Date(e.when).toISOString()).replace(" ET",""))+'</span>':'<span class="o">–</span>'}},
+    {k:"sec",l:"Clock",v:function(e){return e.sec==null?9e9:e.sec},f:function(e){return e.clk?'<span class="fwhen">'+esc(e.clk)+'</span>':'<span class="o">just in</span>'}},
     {k:"t",l:"Team",v:function(e){return e.t},f:function(e){return e.t?tmL(e.t):"–"}},
     {k:"name",l:"Player",v:function(e){return pname(e.p)},f:function(e){return '<span class="o lposi">'+esc(ppos(e.p))+'</span> <b>'+nm(e.p)+'</b>'+(e.first?' <span class="tag fg">FIRST GOAL</span>':'')+(e.pick?' <span class="tag pk">PICK</span>':'')}},
     {k:"opp",l:"Opponent",v:function(e){return e.opp},f:function(e){return e.opp?'<span class="o">'+(e.home?"vs ":"@ ")+'</span>'+e.opp:"–"}},
@@ -835,7 +842,7 @@ function vFeed(){
     '<div class="bar"><span class="tag nt">'+ev.length+(ev.length===1?" goal":" goals")+' · '+Object.keys(scorers).length+' scorers</span>'+
       (pk.length?'<span class="tag nt pkc">Nightly Picks: '+Object.keys(pkHit).length+' of '+pk.length+'</span>':'')+
       '<span class="tag nt">Scorers with a positive edge: '+Object.keys(edgeHit).length+'</span>'+bookPicker(day)+'</div>'+
-    '<p class="note">Every goal on '+fmtD(day)+', newest first: '+started+' of '+ms.length+' games started'+(live?', '+live+' in progress':'')+'. Click a heading to sort. Rows that glow red are your Nightly Picks; rows with a red edge are the first goal of a game. Shootout goals are not counted, as the books do not count them. <b>Units</b> is what one unit on him at the price shown returned, on his first goal only. Chance, price and edge are the numbers the other tabs show for that day'+(dl.today===day?'; games in progress are checked every minute while this page is open':'')+'.</p>'+
+    '<p class="note">Every goal on '+fmtD(day)+', newest first: '+started+' of '+ms.length+' games started'+(live?', '+live+' in progress':'')+'. Click a heading to sort. <b>Time</b> is the time of day in Eastern time; a time marked ≈ is worked out from the start time and the game clock, usually within ten minutes, because that goal\'s real time was not captured. Rows that glow red are your Nightly Picks; rows with a red edge are the first goal of a game. Shootout goals are not counted, as the books do not count them. <b>Units</b> is what one unit on him at the price shown returned, on his first goal only. Chance, price and edge are the numbers the other tabs show for that day'+(dl.today===day?'; games in progress are checked every minute while this page is open':'')+'.</p>'+
     table("feed",cols,ev,{k:"ord",dir:-1},{row:function(e){return ' class="pick'+(e.pick?" fpick":"")+(e.first?" ffirst":"")+'" data-player="'+e.p+'"'}})+
     (ev.length?'':'<p class="empty">'+(started?"No goals yet.":"No game on this day has started.")+'</p>')+'</section>';
 }

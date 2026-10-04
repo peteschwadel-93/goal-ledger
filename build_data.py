@@ -543,6 +543,56 @@ def load_df_lines(sched):
     return out
 
 
+ESPN_NHL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/"
+
+
+def espn_goal_times(doc):
+    """Clock time of each non-shootout goal in one ESPN game summary, in order, as epoch seconds."""
+    out = []
+    for p in doc.get("plays") or []:
+        if not p.get("scoringPlay"):
+            continue
+        label = f"{(p.get('type') or {}).get('text', '')} {p.get('text', '')}".lower()
+        if "shootout" in label or (p.get("period") or {}).get("type") == "shootout":
+            continue
+        w = p.get("wallclock")
+        if not w:
+            return []
+        out.append(int(datetime.fromisoformat(w.replace("Z", "+00:00")).timestamp()))
+    return out
+
+
+def load_goal_times(sched):
+    """Real clock times for the goals of games under way or just finished: {game key: [epoch seconds per goal]}.
+    The NHL feed gives the period and game clock of a goal but not the time of day; ESPN's does."""
+    want = [u for u in sched if u.get("ge")]
+    out = {}
+    if not want:
+        return out
+    try:
+        ids = {}
+        for d in sorted({u["ts"][:10].replace("-", "") for u in want} | {u["d"].replace("-", "") for u in want}):
+            board = json.loads(get(ESPN_NHL + "scoreboard?dates=" + d, timeout=30)[0])
+            for e in board.get("events") or []:
+                side = {}
+                for c in ((e.get("competitions") or [{}])[0].get("competitors") or []):
+                    ab = (c.get("team") or {}).get("abbreviation")
+                    side[c.get("homeAway")] = ESPN_ABBR.get(ab, ab)
+                ids[(side.get("away"), side.get("home"))] = e.get("id")
+        for u in want:
+            eid = ids.get((u["a"], u["h"]))
+            if not eid:
+                continue
+            times = espn_goal_times(json.loads(get(ESPN_NHL + "summary?event=" + str(eid), timeout=30)[0]))
+            if len(times) == len(u["ge"]):      # only when the two feeds agree on how many goals there have been
+                out[f"{u['d']}|{u['a']}|{u['h']}"] = times
+                for ev, t in zip(u["ge"], times):
+                    ev.append(t)
+    except Exception as e:
+        print(f"goal clock times unavailable: {e}", file=sys.stderr)
+    return out
+
+
 # ---------- injuries ----------
 def load_injuries():
     """Current injury designations by team from ESPN, or None if the feed cannot be read."""
@@ -841,7 +891,7 @@ def backfill_odds(games, starts, season):
         json.dump(store, f, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
 
 
-def remember_flags(sched, inj, old):
+def remember_flags(sched, inj, old, goal_times=None):
     """Keep the injury designations seen before each of today's games, so the Tracker can replay what was known."""
     flags = dict((old or {}).get("flags") or {})
     try:
@@ -857,6 +907,8 @@ def remember_flags(sched, inj, old):
             continue
         key = f"{u['d']}|{u['a']}|{u['h']}"
         flags[key] = {"inj": {t: [[x["f"], x["st"]] for x in inj.get(t, [])] for t in (u["a"], u["h"]) if inj.get(t)}}
+    for key, times in (goal_times or {}).items():      # kept so a finished game still has its goal times once it is in the archive
+        flags.setdefault(key, {"inj": {}})["gt"] = times
     cutoff = (now - timedelta(days=120)).strftime("%Y-%m-%d")
     flags = {k: v for k, v in flags.items() if k[:10] >= cutoff}
     if json.dumps(flags, sort_keys=True) != before:
@@ -911,6 +963,9 @@ def make(seasons=3, season=None, html=None, live=True):
     out = {"season": " + ".join(label(y) for y in ys), "seasons": ys, "built": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
            "through": games[-1]["d"], "sched": sched,
            "players": {str(p): [names.get(p, f"#{p}"), pos.get(p, "")] for p in sorted(used)}, "games": games}
+    for g in games:                          # start time, so the goals feed can place a goal in the evening
+        if g["id"] in starts:
+            g["ts"] = starts[g["id"]].strftime("%Y-%m-%dT%H:%M:%SZ")
     if live:
         rost, who = load_rosters({g["h"] for g in games if g["s"] == ys[-1]} | {u["h"] for u in sched} | {u["a"] for u in sched})
         if rost:
@@ -930,7 +985,11 @@ def make(seasons=3, season=None, html=None, live=True):
         inj = load_injuries()
         if inj is not None:
             out["inj"] = inj
-        out["flags"] = remember_flags(sched, inj, old)
+        out["flags"] = remember_flags(sched, inj, old, load_goal_times(sched))
+        for g in games:                      # goal clock times saved while the game was live
+            gt = (out["flags"].get(f"{g['d']}|{g['a']}|{g['h']}") or {}).get("gt")
+            if gt and len(gt) == len(g.get("ge") or []):
+                g["gt"] = gt
         backfill_odds(games, starts, yr)
         out["odds"] = remember_odds(sched, old)
         out["hasKey"] = 1 if odds_key() else 0
