@@ -389,14 +389,19 @@ tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 .res.su{color:var(--goal-hot);border-color:color-mix(in srgb,var(--goal) 60%,var(--line))}
 
 /* player page: headshot card on the team's colour, beside the name and game log */
-.pprof{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+.pprof{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:stretch}
 .pprof .pmain{min-width:0}
-.pphoto{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--tc) 55%,var(--accent));
+.pphoto{position:relative;min-height:280px;height:100%;border-radius:16px;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--tc) 55%,var(--accent));
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 85%,#000) 0%,color-mix(in srgb,var(--tc) 45%,var(--bg)) 55%,var(--bg) 100%);
   box-shadow:0 0 0 1px color-mix(in srgb,var(--tc) 35%,transparent),0 10px 30px -14px var(--tc)}
 .pphoto img{position:absolute;bottom:0;left:50%;width:150%;max-width:none;height:auto;display:block;transform:translateX(-50%)}
 .pphoto .pini{position:absolute;inset:0;display:grid;place-items:center;font:700 64px var(--display);letter-spacing:.04em;color:color-mix(in srgb,#fff 28%,transparent)}
-@media(max-width:760px){.pprof{grid-template-columns:1fr}.pphoto{width:170px;margin:0 auto}}
+@media(max-width:760px){.pprof{grid-template-columns:1fr}.pphoto{width:170px;height:215px;min-height:0;margin:0 auto}}
+/* the game log shows five games and scrolls for the rest; the header row stays put */
+.pprof .pmain{display:flex;flex-direction:column}
+.pprof .plog{flex:1;max-height:calc(38px + 5 * 50px);overflow-y:auto;margin-top:10px;scrollbar-width:thin}
+.pprof .plog thead th{position:sticky;top:0;z-index:1;background:var(--surface)}
+.pprof .plog tbody td{height:50px;box-sizing:border-box}
 
 /* picks that were listed earlier today and have since dropped off */
 .dropped{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:13.5px}
@@ -1101,10 +1106,10 @@ function vPlayer(){
   win.forEach(function(e){var r=e.r;tot.g+=r[1];tot.sog+=r[2];tot.fen+=r[3];tot.xg+=(r[4]+r[5])/1000;tot.toi+=r[6];tot.pp+=r[7];tot.hd+=r[11];if(r[1])tot.sc++;tot.pred+=1-Math.exp(-IX.PRE[e.g.id][p][0])});
   var n=win.length||1;
   var sum='<div class="kv"><span>Games <b>'+win.length+'</b></span><span>Goals <b>'+tot.g+'</b></span><span>Scored in <b>'+pct(tot.sc,win.length)+'</b> of games</span><span>Model said <b>'+pct(tot.pred,win.length)+'</b></span><span>xG <b>'+f1(tot.xg)+'</b></span><span>Goals − xG <b>'+(tot.g-tot.xg>0?"+":"")+f1(tot.g-tot.xg)+'</b></span><span>Shots <b>'+f1(tot.sog/n)+'</b> a game</span><span>Shooting <b>'+pct(tot.g,tot.sog)+'</b></span><span>Ice time <b>'+mmss(tot.toi/n)+'</b></span><span>Power play <b>'+mmss(tot.pp/n)+'</b></span></div>';
-  var rows=win.slice().reverse().slice(0,S.logN);
-  var tbl='<div class="tw"><table><thead><tr><th>Game</th><th class="n">Model</th><th>Result</th><th class="n">Shots</th><th class="n">Attempts</th><th class="n">High-danger</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
+  var rows=win.slice().reverse(); // every game, newest first, in a box five rows tall that scrolls
+  var tbl='<div class="tw plog"><table><thead><tr><th>Game</th><th class="n">Model</th><th>Result</th><th class="n">Shots</th><th class="n">Attempts</th><th class="n">High-danger</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
     rows.map(function(e){var r=e.r,g=e.g,o=opp(g,e.t),gk=g.g[o].length?g.g[o][0][0]:null;return '<tr><td>'+fmtD(g.d)+" "+(g.h===e.t?"vs ":"at ")+o+'</td><td class="n">'+p1(1-Math.exp(-IX.PRE[g.id][p][0]))+'</td><td>'+(r[1]?'<span class="res m">'+(r[1]>1?r[1]+" GOALS":"GOAL")+(r[8]?" · PP":"")+(r[9]?" · EN":"")+'</span>':'<span class="res x">–</span>')+'</td><td class="n">'+r[2]+'</td><td class="n">'+r[3]+'</td><td class="n">'+r[11]+'</td><td class="n">'+f2((r[4]+r[5])/1000)+'</td><td class="n">'+mmss(r[6])+'</td><td class="n">'+mmss(r[7])+'</td><td>'+(gk?nm(gk):"–")+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML=hd+'<section class="panel pprof">'+mugCard(p,t)+'<div class="pmain"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+(win.length>S.logN?'<button class="more" id="logMore">Show 30 more</button>':'')+'</div></section>'+
+  view.innerHTML=hd+'<section class="panel pprof">'+mugCard(p,t)+'<div class="pmain"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+'</div></section>'+
     '<section class="panel"><div class="phead"><h2>How his number is built</h2></div>'+work+'</section>';
 }
 
