@@ -369,6 +369,12 @@ td .bk{margin-left:6px}
 .tag.nt.ladc{border-color:color-mix(in srgb,var(--lad) 70%,var(--line));color:var(--lad)}
 tbody tr.ladr>td:first-child{box-shadow:inset 3px 0 0 var(--lad)}
 tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,var(--lad) 7%,var(--bg))}
+
+.sside{font:700 15px var(--display);letter-spacing:.06em;padding:5px 11px;border-radius:8px;border:1px solid var(--line);white-space:nowrap}
+.sside.o{color:var(--made,#4ade80);border-color:color-mix(in srgb,var(--made,#4ade80) 50%,var(--line))}
+.sside.u{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.rcard.win .sside{color:#fff;border-color:var(--goal);background:var(--goal)}
+tbody tr.spk>td:nth-child(2) b{color:var(--goal-hot)}
 </style>
 
 <div class="wrap">
@@ -424,6 +430,7 @@ tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,va
 
 <script id="goal-data" type="application/json"></script>
 <script>
+
 (function(){
 "use strict";
 var D=null,G=[],IX=null;
@@ -632,15 +639,53 @@ function slate(day){
   return out}
 function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line across books and the best price each way on it, or one book's own line
   if(!o||!o.s)return null;var k=normName(name),q=null;for(var i=0;i<o.s.length;i++)if(normName(o.s[i][0])===k){q=o.s[i][1];break}
-  if(!q)return null;var bs=Object.keys(q);if(S.book&&!S.bookOff)bs=bs.filter(function(b){return b===S.book});if(!bs.length)return null;
-  var cnt={},line=null;bs.forEach(function(b){cnt[q[b][0]]=(cnt[q[b][0]]||0)+1});Object.keys(cnt).forEach(function(l){if(line==null||cnt[l]>cnt[line]||(cnt[l]===cnt[line]&&+l<+line))line=l});line=+line;
-  var out={line:line,n:bs.length,allO:{},allU:{}};
-  bs.forEach(function(b){var x=q[b],lab=b+" · "+x[0];
-    if(x[1]!=null){out.allO[lab]=x[1];if(x[0]===line&&(!out.o||payout(x[1])>payout(out.o.price)))out.o={price:x[1],book:lab,bk:b}}
-    if(x[2]!=null){out.allU[lab]=x[2];if(x[0]===line&&(!out.u||payout(x[2])>payout(out.u.price)))out.u={price:x[2],book:lab,bk:b}}});
+  if(!q)return null;var all=Object.keys(q);if(!all.length)return null;
+  var cnt={},cons=null;all.forEach(function(b){cnt[q[b][0]]=(cnt[q[b][0]]||0)+1});Object.keys(cnt).forEach(function(l){if(cons==null||cnt[l]>cnt[cons]||(cnt[l]===cnt[cons]&&+l<+cons))cons=l});cons=+cons;
+  // the market's own over chance on that line: each book's two prices with its margin taken out, then the middle book
+  var fair=all.filter(function(b){return q[b][0]===cons&&q[b][1]!=null&&q[b][2]!=null}).map(function(b){var io=1/payout(q[b][1]),iu=1/payout(q[b][2]);return io/(io+iu)}).sort(function(x,y){return x-y});
+  var bs=S.book&&!S.bookOff?all.filter(function(b){return b===S.book}):all;if(!bs.length)return null;
+  var line=S.book&&!S.bookOff?q[bs[0]][0]:cons,out={line:line,n:bs.length,nl:cnt[cons],cons:cons,allO:{},allU:{},fairO:line===cons&&fair.length?fair[Math.floor(fair.length/2)]:null};
+  all.forEach(function(b){var x=q[b],lab=b+" · "+x[0],mine=bs.indexOf(b)>=0;
+    if(x[1]!=null){out.allO[lab]=x[1];if(mine&&x[0]===line&&(!out.o||payout(x[1])>payout(out.o.price)))out.o={price:x[1],book:lab,bk:b}}
+    if(x[2]!=null){out.allU[lab]=x[2];if(mine&&x[0]===line&&(!out.u||payout(x[2])>payout(out.u.price)))out.u={price:x[2],book:lab,bk:b}}});
   if(out.o)out.o.all=out.allO;if(out.u)out.u.all=out.allU;
-  if(out.o&&out.u){var io=1/payout(out.o.price),iu=1/payout(out.u.price);out.fairO=io/(io+iu);out.hold=io+iu-1}
   return out}
+/* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
+var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
+function shotCands(day,rows){ // every side that passes the tests, best edge first; r.spx marks a row the model likes but the market disagrees with too much
+  var out=[];(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
+    var pm=nbOver(r.xs,h.line),best=null;
+    [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var ps=SP.w*x[1]+(1-SP.w)*x[2],ev=ps*payout(x[3].price)-1;
+      if(!best||ps-1/payout(x[3].price)>best.vs)best={r:r,p:r.p,side:x[0],line:h.line,price:x[3].price,book:x[3].bk,all:x[3].all,lab:x[3].book,pm:x[1],mk:x[2],ps:ps,ev:ev,vs:ps-1/payout(x[3].price),xs:r.xs,ts:r.info.m.ts||null}});
+    if(!best||best.vs<SP.minVs)return;
+    if(Math.abs(best.pm-best.mk)>SP.gap){r.spx=1;return}
+    out.push(best)});
+  return out.sort(function(a,b){return b.vs-a.vs})}
+function shotSelect(cands,cap,kept){ // one per team, up to the cap, after the places already locked
+  var teams={},out=[];(kept||[]).forEach(function(k){teams[k.t]=1});
+  cands.forEach(function(c){var t=c.r.t;if(teams[t]||out.length>=Math.max(0,cap-(kept||[]).length))return;teams[t]=1;out.push(c)});return out}
+function shotPicks(day,rows){ // tonight's list: the saved one where the build has locked or listed it, otherwise worked out now
+  var by={};rows.forEach(function(r){by[r.p]=r});var L=(D.locks||{})[day],st=L&&L.shots&&(!S.book||S.bookOff)?L.shots:null,list;
+  if(st&&st.length)list=st.map(function(k){var r=by[k.p];return r?{r:r,p:k.p,side:k.side,line:k.line,price:k.price,book:k.book,lab:k.book+" · "+k.line,all:null,pm:k.pm,mk:k.mk,ps:k.ps,ev:k.ev,vs:k.vs,xs:k.xs,ts:k.ts,locked:k.lk?1:0,saved:1}:null}).filter(Boolean);
+  else list=shotSelect(shotCands(day,rows),npCap(matchups(day).length),[]);
+  list.forEach(function(c){var r=c.r,a=r.info.m.g&&r.res?r.res[2]:null;c.act=a;c.win=a==null?null:a===c.line?0:(c.side==="o")===(a>c.line)?1:-1;c.u=c.win==null?null:c.win>0?payout(c.price)-1:c.win<0?-1:0});
+  return list}
+function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
+  return '<div class="rcard'+(c.win>0?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+
+      (c.win==null?'':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+'</span>')+
+      (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
+      (c.side==="o"&&c.xs>=c.line+SG.ladder?'<span class="tag lad">LADDER</span>':'')+'</div></div>'+
+    '<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+(c.all?pxH({price:c.price,book:c.lab,all:c.all},r.name+(c.side==="o"?" over":" under")):fmtP(c.price))+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(c.book)+'</span></span>'+
+      '<span>Edge</span><span>'+pill(c.ev)+'</span>'+
+      '<span>Above break-even</span><span><b>+'+(c.vs*100).toFixed(1)+' pts</b> <span class="o">needs '+p1(1/payout(c.price))+'</span></span>'+
+      '<span>Pick chance · fair</span><span>'+p1(c.ps)+" · "+fairOdds(c.ps)+'</span>'+
+      '<span>Model says</span><span>'+p1(c.pm)+'</span>'+
+      '<span>Market says</span><span>'+p1(c.mk)+'</span></div>'+
+    '<div class="rval"><div class="rq"><span>Expected shots</span><span><b>'+f2(c.xs)+'</b></span>'+
+      '<span>Ice time · power play</span><span>'+mmss(b.tev+b.tpp)+" · "+mmss(b.tpp)+'</span>'+
+      '<span>'+(c.side==="o"?"Over":"Under")+' in last '+lg.length+'</span><span>'+hit+' of '+lg.length+'</span>'+
+      '<span>'+r.opp+' shots allowed</span><span>'+f2(saF(r.opp))+'× league</span></div></div></div>'}
 function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} // one pick for every three games on the slate, five at most
 /* Locked picks. The build saves each night's Nightly Picks and freezes each one when its own game starts, so the list you
    bet from is the list that gets graded, whatever lineups, goalies or prices do afterwards. A noon game locks at noon and
@@ -836,12 +881,14 @@ function vShots(){
     r.sv.best=Math.max(r.sv.eo==null?-9:r.sv.eo,r.sv.eu==null?-9:r.sv.eu);r.sv.side=r.sv.best===-9?"":r.sv.eo===r.sv.best?"o":"u";
     var lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<day}).slice(-10);r.sv.l10=lg.length;r.sv.h10=lg.filter(function(e){return e.r[2]>h.line}).length;
     r.sv.act=r.info.m.g&&r.res?r.res[2]:null});
+  var picks=shotPicks(day,all),cands=shotCands(day,all),chk=all.filter(function(r){return r.spx}).length,isPk={};picks.forEach(function(c){isPk[c.p]=c.side});
+  var gr=picks.filter(function(c){return c.win!=null}),won=gr.filter(function(c){return c.win>0}).length,un=0;gr.forEach(function(c){un+=c.u});
   var priced=all.filter(function(r){return r.sh}),show=S.slateAll?all.filter(function(r){return r.xs>=1||r.sh}):priced,lads=priced.filter(function(r){return r.sv.lad});
   function side(r,k){var h=r.sh,px=h&&h[k];return px?'<b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over":" under"))+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span>':'<span class="o">–</span>'}
   function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':'<span class="res x">'+a+' · UNDER</span>'}
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
-    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
+    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag pk" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
     {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
     {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return '<b>'+f2(r.xs)+'</b>'}},
     {k:"line",l:"Line",num:1,v:function(r){return r.sh?r.sh.line:null},f:function(r){return r.sh?f1(r.sh.line):"–"}},
@@ -860,7 +907,10 @@ function vShots(){
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"sr",l:"Shots / 60",num:1,v:function(r){return r.b.sr},f:function(r){return r.b.sr?f1(r.b.sr*3600):"–"}}];
   var graded=priced.filter(function(r){return r.sv.act!=null}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null});
-  view.innerHTML='<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+  var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span></div>'+
+    '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
+    (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+'</section>';
+  view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span>'+
       (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+'</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates over: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+'</span>':'')+'</div>'+
@@ -868,7 +918,7 @@ function vShots(){
     'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
     '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance and fair price for one and two more shots, to hold against the alternate lines in your book. '+
     '<b>Last 10</b> is how often he cleared this line in his last ten games. On 2025-26, games the model never saw, its over chances matched what happened to within a point or two at every line from 0.5 to 4.5, with the highest-volume shooters at the highest lines landing a few points under what it said, so treat the top rungs with some caution. That shows the projection is sound, not that it beats the books: no shots prices were stored before now.</p>'+
-    (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{row:function(r){return ' class="pick'+(r.sv.lad?" ladr":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
+    (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{row:function(r){return ' class="pick'+(r.sv.lad?" ladr":"")+(isPk[r.p]?" spk":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
 }
 
 /* ================= goals feed: every goal of the day, newest first ================= */
@@ -1083,6 +1133,21 @@ function vTeams(){
 }
 
 /* ================= Tracker ================= */
+function shotRecord(season,lab){ // Shot Picks graded at one unit: the saved list where there is one, otherwise the rule replayed on the stored lines
+  var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
+  var keepB=S.book;S.book="";var R={n:0,w:0,u:0,days:[]};
+  Object.keys(days).sort().forEach(function(d){if(!D.games.some(function(g){return g.d===d&&g.s===season}))return;
+    var rows=slate(d),pk=shotPicks(d,rows).filter(function(c){return c.win!=null&&(!c.saved||c.locked)});if(!pk.length)return;
+    var u=0,w=0;pk.forEach(function(c){u+=c.u;if(c.win>0)w++});R.n+=pk.length;R.w+=w;R.u+=u;R.days.push({d:d,pk:pk,u:u,w:w,run:R.u,lock:pk[0].saved})});
+  S.book=keepB;R.days.reverse();
+  if(!R.n)return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div><p class="note">No finished day has stored shots lines yet. The record starts once the first night with lines is in the overnight data.</p></section>';
+  function usd(u){return (u<0?"−$":"$")+Math.abs(u*S.unit).toFixed(2)}
+  return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div>'+
+    '<p class="note">The Shot Picks from the Shots tab, one unit on each at the price shown, graded on the shots on goal in the official record. Days marked LOCKED use the list and prices saved as each game started; replayed days are worked out afresh from the stored lines.</p>'+
+    '<div class="kv"><span>Picks <b>'+R.w+" of "+R.n+'</b> · '+pct(R.w,R.n)+'</span><span>Units <b>'+(R.u>=0?"+":"")+R.u.toFixed(2)+'</b></span><span>Staked <b>$'+(R.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(R.u>=0?"made":"miss")+')">'+usd(R.u)+'</b></span><span>ROI (return per bet) '+pill(R.u/R.n)+'</span><span>Days <b>'+R.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Won</th><th class="n">Units</th><th class="n">Profit</th><th class="n">Running</th><th>The picks, best first</th></tr></thead><tbody>'+
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+(x.lock?' <span class="tag">LOCKED</span>':' <span class="o">replayed</span>')+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
+      x.pk.map(function(c){return '<span class="pick" data-player="'+c.p+'" style="white-space:nowrap">'+esc(c.r.name)+' <span class="o">'+(c.side==="o"?"o":"u")+f1(c.line)+' '+fmtP(c.price)+'</span> <span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.win>0?" WON":c.win<0?" LOST":" PUSH")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
 function vTracker(){S.bookOff=1;try{vTracker2()}finally{S.bookOff=0}}
 function vTracker2(){
   var ss=D.seasons,cur=ss.indexOf(S.trkS)>=0?S.trkS:ss[ss.length-1],gs=D.games.filter(function(g){return g.s===cur});
@@ -1136,7 +1201,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+shotRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
@@ -1303,7 +1368,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);

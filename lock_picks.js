@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Locks each night's Nightly Picks.
+/* Locks each night's Nightly Picks and Shot Picks.
 
    Run after build_data.py:   node lock_picks.js [index.html] [data.json] [picks.json]
 
@@ -50,8 +50,19 @@ if (games.length) {
       pr: +r.pr.toFixed(4), mk: +r.mk.toFixed(4), ps: +r.ps.toFixed(4), ev: +r.evS.toFixed(4), vs: +r.vsS.toFixed(2), lk: 0 }));
   const picks = kept.concat(open).sort((a, b) => b.vs - a.vs);
   const anyStarted = games.some(m => Date.parse(m.ts) <= now), allStarted = games.every(m => Date.parse(m.ts) <= now);
-  if (picks.length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || new Date(now).toISOString(), locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks };
+  /* Shot Picks lock the same way: a pick whose game has started is kept as saved; the other places stay open. */
+  let shots = (store[day] && store[day].shots) || [];
+  if (api.shotCands) {
+    const rows = api.slate(day);
+    const keptS = shots.filter(k => k.ts && Date.parse(k.ts) <= now).map(k => Object.assign(k, { lk: 1 }));
+    const have = new Set(keptS.map(k => k.p));
+    const cands = api.shotCands(day, rows).filter(c => !have.has(c.p) && c.ts && Date.parse(c.ts) > now);
+    const openS = api.shotSelect(cands, cap, keptS).map(c => ({ p: c.p, n: c.r.name, t: c.r.t, o: c.r.opp, ts: c.ts, side: c.side, line: c.line,
+      price: c.price, book: c.book, pm: +c.pm.toFixed(4), mk: +c.mk.toFixed(4), ps: +c.ps.toFixed(4), ev: +c.ev.toFixed(4), vs: +c.vs.toFixed(4), xs: +c.xs.toFixed(3), lk: 0 }));
+    shots = keptS.concat(openS).sort((x, y) => (y.vs || 0) - (x.vs || 0));
+  }
+  if (picks.length || shots.length || store[day]) {
+    store[day] = { at: (store[day] && allStarted && store[day].at) || new Date(now).toISOString(), locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots };
   }
 }
 const keep = Object.keys(store).sort().slice(-250);
@@ -62,3 +73,4 @@ doc.locks = store;
 fs.writeFileSync(dataPath, JSON.stringify(doc));
 const t = store[day];
 console.log(`lock_picks: ${day} ${t ? (t.done ? "all locked" : t.locked ? "partly locked" : "open") + ", " + t.picks.length + " picks: " + t.picks.map(x => x.n + " " + (x.price > 0 ? "+" : "") + x.price + (x.lk ? " [locked]" : "")).join(", ") : "no picks"}`);
+if (t && t.shots && t.shots.length) console.log(`lock_picks: shot picks: ${t.shots.map(x => x.n + " " + (x.side === "o" ? "over " : "under ") + x.line + " " + (x.price > 0 ? "+" : "") + x.price + (x.lk ? " [locked]" : "")).join(", ")}`);
