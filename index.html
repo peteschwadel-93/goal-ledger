@@ -329,7 +329,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 (function(){
 "use strict";
 var D=null,G=[],IX=null;
-var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:"np",luSort:"lines",gcSort:"vs",gcN:6,mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
+var S={tab:"picks",po:"all",ssn:"all",n:0,day:null,rank:"blend",pos:"all",minP:"np",luSort:"lines",gcSort:"vs",gcN:6,unit:10,mkt:1,topN:12,slateAll:0,a:null,b:null,player:null,q:"",ldTeam:"",ldPos:"all",ldMin:5,logTeam:"",logN:30,trkN:30,goalie:{},px:{},sort:{}};
 var $=function(id){return document.getElementById(id)};
 var view=$("view");
 /* ---- the model's constants. Fitted on 2024-25 and 2025-26 (every skater in every game, about 100,000 player-games),
@@ -828,7 +828,7 @@ function vTracker(){
   function rec(l,x){return '<span>'+l+' <b>'+x.h+" of "+x.n+'</b> · '+pct(x.h,x.n)+' <span class="o">(model expected '+pct(x.p,x.n)+')</span></span>'}
   function band(title,key,cuts,fmt){var R=cuts.map(function(c){return{c:c,n:0,h:0,ret:0,p:0,be:0}});
     BT.forEach(function(x){for(var i=0;i<R.length;i++)if(x[key]>=R[i].c[0]&&x[key]<R[i].c[1]){var r=R[i];r.n++;r.h+=x.hit;r.ret+=x.hit*x.pay-1;r.p+=x.pr;r.be+=1/x.pay;break}});
-    return '<div class="tw tight"><table><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n" title="The average chance the model gave these players">Model</th><th class="n" title="The average chance the best price implied: the break-even rate">Price</th><th class="n">Scored</th><th class="n" title="Profit or loss at one unit a bet">Units</th><th class="n" title="Units won divided by bets">Return</th></tr></thead><tbody>'+
+    return '<div class="tw tight"><table><thead><tr><th>'+title+'</th><th class="n">Bets</th><th class="n" title="The average chance the model gave these players">Model</th><th class="n" title="The average chance the best price implied: the break-even rate">Price</th><th class="n">Scored</th><th class="n" title="Profit or loss at one unit a bet">Units</th><th class="n" title="Return per bet: units won divided by bets">Return</th></tr></thead><tbody>'+
       R.map(function(r){return '<tr><td>'+fmt(r.c)+'</td><td class="n">'+r.n+'</td><td class="n">'+(r.n?p1(r.p/r.n):"–")+'</td><td class="n">'+(r.n?p1(r.be/r.n):"–")+'</td><td class="n"><b>'+(r.n?p1(r.h/r.n):"–")+'</b></td><td class="n">'+(r.n?(r.ret>=0?"+":"")+f1(r.ret):"–")+'</td><td class="n">'+(r.n?'<span class="tag eg '+grade(r.ret/r.n)+'">'+(r.ret>=0?"+":"")+(100*r.ret/r.n).toFixed(1)+'%</span>':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}
   function pc(c){return Math.round(c[0]*100)+(c[1]<9?"% to "+Math.round(c[1]*100)+"%":"% and up")}
   var money=BT.length?'<h3>Against stored prices · '+Object.keys(priced).length+' games, one unit on every priced skater at the best price</h3>'+
@@ -841,13 +841,14 @@ function vTracker(){
   Object.keys(byDay).sort().reverse().forEach(function(d){var pk=slate(d).filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,C.np.cap);if(!pk.length)return;
     var x={d:d,pk:pk,h:0,u:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
     NP.n+=pk.length;NP.h+=x.h;NP.u+=x.u;NP.days.push(x)});
+  var run=0;NP.days.slice().reverse().forEach(function(x){run+=x.u;x.run=run});
   function un(u){return (u>=0?"+":"")+f1(u)}
-  var npHtml=NP.n?'<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div>'+
-    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the five strongest by value score. One unit on each. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
-    '<div class="kv"><span>All picks <b>'+NP.h+" of "+NP.n+'</b> · '+pct(NP.h,NP.n)+' <span class="o">(expected '+pct(NP.exp,NP.n)+')</span></span><span>Units <b>'+un(NP.u)+'</b></span><span>Return a bet '+pill(NP.u/NP.n)+'</span>'+
-    '<span>Top three each day <b>'+T3.h+" of "+T3.n+'</b> · <b>'+un(T3.u)+'</b> units '+pill(T3.u/T3.n)+'</span><span>Days <b>'+NP.days.length+'</b></span></div>'+
-    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th>The picks, best first</th></tr></thead><tbody>'+
-    NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="cell" style="white-space:normal">'+
+  function usd(u){var v=u*S.unit;return (v<0?"−":"+")+"$"+Math.abs(v).toFixed(2)}
+  var npHtml=NP.n?'<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2><label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label></div>'+
+    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the five strongest by value score. One unit on each, at the best price. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
+    '<div class="kv"><span>All picks <b>'+NP.h+" of "+NP.n+'</b> · '+pct(NP.h,NP.n)+' <span class="o">(expected '+pct(NP.exp,NP.n)+')</span></span><span>Units <b>'+un(NP.u)+'</b></span><span>Staked <b>$'+(NP.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(NP.u>=0?"made":"miss")+')">'+usd(NP.u)+'</b></span><span>ROI (return per bet) '+pill(NP.u/NP.n)+'</span><span>Days <b>'+NP.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th class="n">Profit</th><th class="n">Running</th><th>The picks, best first</th></tr></thead><tbody>'+
+    NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
       x.pk.map(function(r){return '<span class="pick" data-player="'+r.p+'" style="white-space:nowrap">'+esc(r.name)+' <span class="o">'+fmtP(r.px.price)+'</span> <span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>':
     '<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div><p class="note">No finished day in '+lab+' has stored prices yet, so there are no graded picks.</p></section>';
   var more=dayRows.length>S.trkN;
@@ -892,7 +893,7 @@ function render(){
   TABS[S.tab]();
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
-function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank}))}catch(_){}}
+function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank,unit:S.unit}))}catch(_){}}
 function go(tab){S.tab=tab;try{history.replaceState(null,"","#"+tab)}catch(_){}render();window.scrollTo(0,0)}
 
 /* ---- events ---- */
@@ -923,6 +924,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
   if(t.dataset.px){var n=parseInt(String(v).replace(/[^0-9+-]/g,""),10),k=S.day+"|"+t.dataset.px;
     if(!v.trim())delete S.px[k];else if(n&&Math.abs(n)>=100)S.px[k]=n;else{t.value="";return}
     save();return render()}
+  if(id==="unitSize"){var u=parseFloat(String(v).replace(/[^0-9.]/g,""));if(u>0)S.unit=u;save();return render()}
   if(t.dataset.gk){S.goalie[t.dataset.gk]=+v;save();return render()}
   if(id==="selA")S.a=v;else if(id==="selB")S.b=v;else if(id==="selDay"){S.day=v;S.topN=12}else if(id==="selMinP"){S.minP=v==="np"?"np":+v;S.topN=12}
   else if(id==="ldTeam")S.ldTeam=v;else if(id==="ldMin")S.ldMin=+v;else if(id==="selLog"){S.logTeam=v;S.logN=30}else return;
@@ -935,7 +937,7 @@ function start(d){
   try{saved=JSON.parse(localStorage.getItem("gol"))||{}}catch(_){}
   var ts=teams(),last=d.games[d.games.length-1],today=todayET(),next=(d.sched||[]).filter(function(x){return x.d>=today})[0];
   S.a=ts.indexOf(saved.a)>=0?saved.a:(next?next.a:last.a);S.b=ts.indexOf(saved.b)>=0?saved.b:(next?next.h:last.h);
-  if(!S.booted){S.px=saved.px||{};S.goalie=saved.goalie||{};if(saved.rank)S.rank=saved.rank;
+  if(!S.booted){S.px=saved.px||{};S.goalie=saved.goalie||{};if(saved.rank)S.rank=saved.rank;if(saved.unit>0)S.unit=saved.unit;
     Object.keys(S.px).forEach(function(k){if(k.slice(0,10)<today)delete S.px[k]});Object.keys(S.goalie).forEach(function(k){if(k.slice(0,10)<today)delete S.goalie[k]})}
   var ss=d.seasons||[];$("ssnWrap").hidden=ss.length<2;
   $("seg-ssn").innerHTML='<button data-v="all">All</button>'+ss.map(function(y){return '<button data-v="'+y+'">'+y+"-"+String(y+1).slice(2)+'</button>'}).join("");
