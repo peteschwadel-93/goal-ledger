@@ -61,8 +61,36 @@ if (games.length) {
       price: c.price, book: c.book, pm: +c.pm.toFixed(4), mk: +c.mk.toFixed(4), ps: +c.ps.toFixed(4), ev: +c.ev.toFixed(4), vs: +c.vs.toFixed(4), xs: +c.xs.toFixed(3), lk: 0 }));
     shots = keptS.concat(openS).sort((x, y) => (y.vs || 0) - (x.vs || 0));
   }
+  /* A record of every pick as it was first listed, and the last price on it before its game started. A pick that
+     drops off the list before it locks stays here, so the Tracker can grade what was on offer earlier in the day and
+     see whether the price then moved toward it (the "closing line"). */
+  const stamp = new Date(now).toISOString(), prevDay = store[day] || {};
+  const seenG = prevDay.seenG || {}, seenS = prevDay.seenS || {};
+  const byP = {}; api.slate(day).forEach(r => { byP[r.p] = r; });
+  picks.forEach(k => {
+    if (!seenG[k.p]) seenG[k.p] = { p: k.p, n: k.n, t: k.t, o: k.o, ts: k.ts, price0: k.price, book0: k.book, at0: stamp };
+    if (!k.lk) seenG[k.p].last = stamp;
+  });
+  Object.values(seenG).forEach(e => {
+    if (!e.ts || Date.parse(e.ts) <= now) return;
+    const r = byP[e.p];
+    if (r && r.px) { e.close = r.px.price; e.closeBook = r.px.book; }
+  });
+  shots.forEach(k => {
+    const key = k.p + "|" + k.side + "|" + k.line;
+    if (!seenS[key]) seenS[key] = { p: k.p, n: k.n, t: k.t, o: k.o, ts: k.ts, side: k.side, line: k.line, price0: k.price, book0: k.book, at0: stamp };
+    if (!k.lk) seenS[key].last = stamp;
+  });
+  Object.values(seenS).forEach(e => {
+    if (!e.ts || Date.parse(e.ts) <= now) return;
+    const r = byP[e.p], h = r && r.sh;
+    if (!h) return;
+    e.closeLine = h.line;
+    const px = h.line === e.line ? (e.side === "o" ? h.o : h.u) : null;
+    if (px) { e.close = px.price; e.closeBook = px.bk; }
+  });
   if (picks.length || shots.length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || new Date(now).toISOString(), locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots };
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS };
   }
 }
 const keep = Object.keys(store).sort().slice(-250);

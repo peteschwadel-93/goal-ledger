@@ -394,9 +394,14 @@ tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 .pphoto{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--tc) 55%,var(--accent));
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 85%,#000) 0%,color-mix(in srgb,var(--tc) 45%,var(--bg)) 55%,var(--bg) 100%);
   box-shadow:0 0 0 1px color-mix(in srgb,var(--tc) 35%,transparent),0 10px 30px -14px var(--tc)}
-.pphoto img{position:absolute;inset:auto 0 0 0;width:100%;height:auto;display:block}
+.pphoto img{position:absolute;bottom:0;left:50%;width:150%;max-width:none;height:auto;display:block;transform:translateX(-50%)}
 .pphoto .pini{position:absolute;inset:0;display:grid;place-items:center;font:700 64px var(--display);letter-spacing:.04em;color:color-mix(in srgb,#fff 28%,transparent)}
 @media(max-width:760px){.pprof{grid-template-columns:1fr}.pphoto{width:170px;margin:0 auto}}
+
+/* picks that were listed earlier today and have since dropped off */
+.dropped{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:13.5px}
+.dropped small{flex-basis:100%;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.dropped .pick{cursor:pointer;white-space:nowrap}
 </style>
 
 <div class="wrap">
@@ -707,7 +712,7 @@ function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).fi
       '<span>Pick chance · fair</span><span>'+p1(c.ps)+" · "+fairOdds(c.ps)+'</span>'+
       '<span>Model says</span><span>'+p1(c.pm)+'</span>'+
       '<span>Market says</span><span>'+p1(c.mk)+'</span></div>'+
-    '<div class="rval"><div class="rq"><span>Expected shots</span><span><b>'+f2(c.xs)+'</b></span>'+
+    '<div class="rval"><div class="rq">'+(function(){var e=((((D.locks||{})[S.day]||{}).seenS)||{})[c.p+"|"+c.side+"|"+c.line];return e&&e.price0!==c.price?'<span>First listed</span><span>'+fmtP(e.price0)+' <span class="o">'+esc(fmtClock(e.at0).replace(" ET",""))+'</span></span>':""})()+'<span>Expected shots</span><span><b>'+f2(c.xs)+'</b></span>'+
       '<span>Ice time · power play</span><span>'+mmss(b.tev+b.tpp)+" · "+mmss(b.tpp)+'</span>'+
       '<span>'+(c.side==="o"?"Over":"Under")+' in last '+lg.length+'</span><span>'+hit+' of '+lg.length+'</span>'+
       '<span>'+r.opp+' shots allowed</span><span>'+f2(saF(r.opp))+'× league</span></div></div></div>'}
@@ -788,7 +793,7 @@ function vPicks(){
   var started=shown.some(function(r){return r.res||/LIVE|CRIT|OFF|FINAL/.test(r.info.m.st||"")});
   var tkHtml=shown.length&&started?'<span class="tag nt '+(tk.priced?(tk.u>0?"w":tk.u<0?"l":""):(tk.h?"w":""))+'" title="Goals settle a pick as a win straight away; a miss counts once his game is final. One unit on each pick at the best price.">'+tk.h+' OF '+tk.n+' SCORED'+(tk.priced?' · '+(tk.u>=0?"+":"−")+Math.abs(tk.u).toFixed(1)+'U'+(S.unit?' · '+(tk.u>=0?"+":"−")+'$'+Math.abs(tk.u*S.unit).toFixed(0):''):'')+(tk.open?' · '+tk.open+' STILL OPEN':'')+'</span>':'';
   var body='<section class="panel"><div class="phead"><h2>Top of the slate · '+({np:"tonight\'s picks",like:"most likely to score",value:"biggest edge over the price",blend:"best blend of chance and price"})[mode]+'</h2>'+tkHtml+'</div>'+
-    (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':'')+(S.minP==="np"&&!priced&&rows.length?'<p class="note">Nightly Picks need prices, and none are loaded for this day, so this is the likelihood ranking.</p>':''):'<p class="empty">'+(rows.length?(np?"No bet clears all four tests on this slate. That is a real answer: some nights the prices are fair. Choose another view in the Show list to browse anyway.":"Nobody clears these filters."):"No games on this day.")+'</p>')+'</section>';
+    (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':'')+(S.minP==="np"&&!priced&&rows.length?'<p class="note">Nightly Picks need prices, and none are loaded for this day, so this is the likelihood ranking.</p>':''):'<p class="empty">'+(rows.length?(np?"No bet clears all four tests on this slate. That is a real answer: some nights the prices are fair. Choose another view in the Show list to browse anyway.":"Nobody clears these filters."):"No games on this day.")+'</p>')+(np&&!(S.book&&!S.bookOff)&&S.pos==="all"?droppedStrip(day,"g",(function(){var m={};top.forEach(function(r){m[r.p]=1});return m})()):"")+'</section>';
   var gs=priced?(S.gcSort==="toi"?"vs":S.gcSort):"pr",games=ms.map(function(m){return gameCard(m,rows,gs)}).join("");
   var gopt=priced?[["vs","Value"],["pr","Chance"],["px","Shortest price"],["ev","Edge"]]:[["pr","Chance"]];
   view.innerHTML=hd+body+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
@@ -805,7 +810,7 @@ function pickCard(r,i,mode){
       '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
       '<span>Pick chance · fair</span><span>'+p1(r.ps)+" · "+fairOdds(r.ps)+'</span>'+
       '<span>Model says</span><span class="px c'+lv+'">'+p1(r.pr)+'</span>'+
-      '<span>Market says</span><span>'+p1(r.mk)+'</span></div>':
+      '<span>Market says</span><span>'+p1(r.mk)+'</span>'+(function(){var e=((((D.locks||{})[S.day]||{}).seenG)||{})[r.p];return e&&e.price0!==r.px.price?'<span>First listed</span><span>'+fmtP(e.price0)+' <span class="o">'+esc(fmtClock(e.at0).replace(" ET",""))+'</span></span>':""})()+'</div>':
     '<div class="rq"><span>Chance to score</span><span class="px c'+lv+'" style="font-size:20px">'+p1(r.pr)+'</span>'+
     '<span>Fair price</span><span>'+fairOdds(r.pr)+'</span>'+
     '<span>Best price</span><span>'+(r.px?'<b>'+fmtP(r.px.price)+'</b> <span class="o">'+esc(r.px.book)+'</span>':'<span class="o">none loaded</span>')+'</span>'+
@@ -935,7 +940,8 @@ function vShots(){
   var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
   var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span></div>'+
     '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
-    (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+'</section>';
+    (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+
+    (S.book&&!S.bookOff?'':droppedStrip(day,"s",(function(){var m={};picks.forEach(function(c){m[c.p+"|"+c.side+"|"+c.line]=1});return m})()))+'</section>';
   view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span>'+
@@ -1163,6 +1169,39 @@ function vTeams(){
 }
 
 /* ================= Tracker ================= */
+/* ---- picks as first listed, and the closing line ---- */
+function seenOf(day,kind){var L=(D.locks||{})[day],o=L&&(kind==="s"?L.seenS:L.seenG);return o?Object.keys(o).map(function(k){return o[k]}).sort(function(a,b){return String(a.at0).localeCompare(String(b.at0))}):[]}
+function clvOf(e,kind){ // did the price move toward the pick after it was first listed? pts: points of break-even chance gained; null if no later price was seen
+  if(kind==="s"&&e.closeLine!=null&&e.closeLine!==e.line)return{moved:1,beat:(e.side==="o")===(e.closeLine>e.line)?1:-1,pts:null};
+  if(e.close==null)return null;var d=1/payout(e.close)-1/payout(e.price0);return{beat:d>1e-9?1:d<-1e-9?-1:0,pts:d}}
+function seenGrade(e,kind,by){var r=by[e.p];if(!r)return null; // 1 won, -1 lost, 0 push, null not settled (or he did not dress)
+  if(kind==="s")return shotGrade(e.side,e.line,shotAct(r));
+  if(!r.res)return null;return r.res[1]>0?1:(r.info.m.g||/OFF|FINAL/.test(r.info.m.st||""))?-1:null}
+function seenLabel(e,kind){return esc(e.n)+(kind==="s"?' <span class="o">'+(e.side==="o"?"over ":"under ")+f1(e.line)+'</span>':"")}
+function seenClose(e,kind){var c=clvOf(e,kind);if(!c)return '<span class="o">no later price</span>';
+  if(c.moved)return 'line moved to '+f1(e.closeLine)+' <span class="tag eg '+(c.beat>0?"p2":"n2")+'">'+(c.beat>0?"BEAT":"WORSE")+'</span>';
+  return fmtP(e.close)+' <span class="tag eg '+(c.beat>0?"p2":c.beat<0?"n2":"n1")+'">'+(c.beat>0?"BEAT":c.beat<0?"WORSE":"SAME")+'</span>'}
+function droppedStrip(day,kind,cur){ // picks listed earlier today that are no longer on the list
+  var l=seenOf(day,kind).filter(function(e){return !cur[kind==="s"?e.p+"|"+e.side+"|"+e.line:e.p]});if(!l.length)return "";
+  var by={};slate(day).forEach(function(r){by[r.p]=r});
+  return '<div class="dropped"><small>Listed earlier today, since dropped</small>'+l.map(function(e){var g=seenGrade(e,kind,by);
+    return '<span class="pick" data-player="'+e.p+'">'+seenLabel(e,kind)+' <b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+' · first listed '+esc(fmtClock(e.at0).replace(" ET",""))+' · last price</span> '+seenClose(e,kind)+
+      (g==null?'':' <span class="res '+(g>0?"m":"x")+'">'+(g>0?"WON":g<0?"LOST":"PUSH")+'</span>')+'</span>'}).join("")+'</div>'}
+function firstRecord(season,lab){ // every pick graded at the price it was first listed at, and how often the price then moved toward it
+  var rows=[["g","Nightly Picks (goals)"],["s","Shot Picks"]].map(function(k){var R={kind:k[0],lab:k[1],n:0,g:0,w:0,u:0,cn:0,cb:0,pts:0,pn:0,list:[]};
+    Object.keys(D.locks||{}).sort().forEach(function(d){var l=seenOf(d,k[0]);if(!l.length||!D.games.some(function(x){return x.d===d&&x.s===season})&&!(D.sched||[]).some(function(x){return x.d===d}))return;
+      var by={};slate(d).forEach(function(r){by[r.p]=r});
+      l.forEach(function(e){R.n++;var g=seenGrade(e,k[0],by),c=clvOf(e,k[0]);if(g!=null){R.g++;if(g>0){R.w++;R.u+=payout(e.price0)-1}else if(g<0)R.u-=1}
+        if(c){R.cn++;if(c.beat>0)R.cb++;if(c.pts!=null){R.pts+=c.pts;R.pn++}}R.list.push({d:d,e:e,g:g})})});return R});
+  var keepB=S.book;S.book="";S.book=keepB;
+  if(!rows[0].n&&!rows[1].n)return '<section class="panel"><div class="phead"><h2>Picks as first listed · '+lab+'</h2></div><p class="note">Nothing recorded yet. From the next refresh, every pick is saved with the price it first appeared at and the last price before its game started, including picks that drop off the list before they lock.</p></section>';
+  var all=rows[0].list.map(function(x){x.k="g";return x}).concat(rows[1].list.map(function(x){x.k="s";return x})).sort(function(a,b){return String(b.e.at0).localeCompare(String(a.e.at0))});
+  return '<section class="panel"><div class="phead"><h2>Picks as first listed · '+lab+'</h2></div>'+
+    '<p class="note">Every pick the page has shown, graded at the price it <b>first appeared</b> at, whether or not it was still on the list when its game started. <b>Beat the close</b> counts how often the price then shortened (or the line moved your way) by the last refresh before puck drop: if you bet when a pick appears and the market keeps moving toward it, the picks are finding value early. <b>Average move</b> is that shift in points of break-even chance. The record above, by contrast, grades only the picks that were still standing at puck drop, at their final price.</p>'+
+    '<div class="tw"><table><thead><tr><th>Picks</th><th class="n">Listed</th><th class="n">Settled</th><th class="n">Won</th><th class="n">Units</th><th class="n">ROI</th><th class="n">Beat the close</th><th class="n">Average move</th></tr></thead><tbody>'+
+    rows.map(function(R){return '<tr><td>'+R.lab+'</td><td class="n">'+R.n+'</td><td class="n">'+R.g+'</td><td class="n"><b>'+R.w+'</b>'+(R.g?' · '+pct(R.w,R.g):'')+'</td><td class="n">'+(R.g?pill2(R.u):"–")+'</td><td class="n">'+(R.g?pill(R.u/R.g):"–")+'</td><td class="n">'+(R.cn?'<b>'+R.cb+' of '+R.cn+'</b> · '+pct(R.cb,R.cn):"–")+'</td><td class="n">'+(R.pn?(R.pts/R.pn>=0?"+":"")+(100*R.pts/R.pn).toFixed(1)+' pts':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'+
+    '<div class="tw" style="margin-top:14px"><table><thead><tr><th>Day</th><th>Pick</th><th class="n">First price</th><th>First listed</th><th>Last price before the game</th><th>Result</th></tr></thead><tbody>'+
+    all.slice(0,S.trkN).map(function(x){var e=x.e;return '<tr class="pick" data-player="'+e.p+'"><td>'+fmtD(x.d)+'</td><td>'+seenLabel(e,x.k)+' <span class="o">'+(x.k==="s"?"shots":"goal")+'</span></td><td class="n"><b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+'</span></td><td>'+esc(fmtClock(e.at0).replace(" ET",""))+'</td><td>'+seenClose(e,x.k)+'</td><td>'+(x.g==null?'<span class="o">open</span>':'<span class="res '+(x.g>0?"m":"x")+'">'+(x.g>0?"WON":x.g<0?"LOST":"PUSH")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
 function ladderRecord(season,lab){ // every LADDER tag on a finished night: did he clear the line, the next rung, the rung after
   var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
   var keepB=S.book;S.book="";var R={n:0,c0:0,c1:0,c2:0,e0:0,e1:0,e2:0,days:[]};
@@ -1248,7 +1287,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+shotRecord(cur,lab)+ladderRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+shotRecord(cur,lab)+firstRecord(cur,lab)+ladderRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
