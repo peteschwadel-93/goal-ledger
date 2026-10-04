@@ -378,7 +378,8 @@ function f2(x){return x==null||isNaN(x)?"–":x.toFixed(2)}
 function mmss(s){s=Math.round(s);return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
 function fmtD(d){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return m[+d.slice(5,7)-1]+" "+(+d.slice(8))}
 function days(a,b){return Math.round((Date.parse(b+"T12:00:00Z")-Date.parse(a+"T12:00:00Z"))/864e5)}
-function todayET(){try{return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}catch(_){return new Date().toISOString().slice(0,10)}}
+function todayET(){ // the hockey day: it turns over at 6am Eastern, so a late game still belongs to the night it started
+  try{return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(Date.now()-6*36e5))}catch(_){return new Date().toISOString().slice(0,10)}}
 function opp(g,t){return g.h===t?g.a:g.h}
 function teams(){var s={};D.games.forEach(function(g){s[g.h]=1;s[g.a]=1});return Object.keys(s).sort()}
 function lg(t){return '<img class="tlogo" alt="" loading="lazy" src="https://assets.nhle.com/logos/nhl/svg/'+t+'_dark.svg" onerror="this.remove()">'}
@@ -526,7 +527,7 @@ function slate(day){
 function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} // one pick for every three games on the slate, five at most
 function ranked(rows,mode){var k=mode==="np"?"vsS":mode==="value"?"ev":mode==="blend"?"vs":"pr";
   return rows.slice().sort(function(a,b){var x=a[k],y=b[k];if(x==null&&y==null)return b.pr-a.pr;if(x==null)return 1;if(y==null)return -1;return y-x})}
-function dayList(){var sd={},pd={},today=todayET();(D.sched||[]).forEach(function(x){if(x.d>=today)sd[x.d]=1});D.games.forEach(function(g){pd[g.d]=1});
+function dayList(){var sd={},pd={},today=todayET();(D.sched||[]).forEach(function(x){if(x.d>=today)sd[x.d]=1;else pd[x.d]=1});D.games.forEach(function(g){pd[g.d]=1}); // a night still waiting on the archive stays in the list
   var up=Object.keys(sd).sort(),past=Object.keys(pd).sort().reverse().filter(function(d){return !sd[d]}),all=up.slice().reverse().concat(past);
   if(all.indexOf(S.day)<0)S.day=up.length?up[0]:all[0];return{all:all,sd:sd,today:today}}
 function dayPicker(dl){var day=S.day,at=dl.all.indexOf(day),mo={},opts="";

@@ -57,6 +57,7 @@ ESPN_ABBR = {"TB": "TBL", "SJ": "SJS", "NJ": "NJD", "LA": "LAK", "UTAH": "UTA", 
 UA = {"User-Agent": "Mozilla/5.0", "Accept": "*/*"}
 CACHE = "nhl_cache"
 ET = ZoneInfo("America/New_York")
+DAY_ROLLS = 6          # "today" turns over at 6am Eastern, so a late West Coast game still belongs to the night it started
 HD_XG = 0.15   # an unblocked attempt at or above this goal chance counts as high-danger
 
 # Fallback shot quality for the few attempts the archive leaves unrated: a logistic curve on distance,
@@ -334,7 +335,7 @@ def build_season(season, d):
 
 def upcoming(sched, days=7):
     """Games not yet final over the next week: [{d, t, ts, h, a, gid}], in Eastern time."""
-    today = datetime.now(ET).date()
+    today = (datetime.now(ET) - timedelta(hours=DAY_ROLLS)).date()   # the hockey day, which runs past midnight
     out = []
     for r in sched.itertuples():
         if str(r.game_state) in ("OFF", "FINAL") or str(r.game_type) not in ("R", "P"):
@@ -344,7 +345,7 @@ def upcoming(sched, days=7):
         except Exception:
             continue
         ahead = (when.date() - today).days
-        if 0 <= ahead <= days:
+        if -1 <= ahead <= days:   # last night's games stay listed until the archive has them
             hour = when.strftime("%I:%M %p ET").lstrip("0")
             out.append({"d": when.strftime("%Y-%m-%d"), "t": hour, "ts": when.isoformat(), "h": r.home_team_abbr,
                         "a": r.away_team_abbr, "gid": int(r.game_id)})
