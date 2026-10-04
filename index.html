@@ -270,6 +270,9 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .tag.eg.p2{background:var(--eg-p2);color:var(--eg-p2t)}
 .tag.eg.p3{background:var(--eg-p3);color:var(--eg-dark)}
 .tag.eg.p4{background:var(--eg-p4);color:var(--eg-dark);box-shadow:0 0 10px -2px var(--eg-p4)}
+
+.prow .pv4.pvl{grid-template-columns:56px 58px 58px 76px}
+@media(max-width:760px){.prow .pv4.pvl{grid-template-columns:auto auto}}
 </style>
 
 <div class="wrap">
@@ -605,7 +608,7 @@ function vLineups(){
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv2"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b><span>'+(r.px?edgeTag(r):'')+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><ol>';
       (src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){h+=li(p,"L"+(i+1))})});
       my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
