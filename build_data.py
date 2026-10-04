@@ -459,6 +459,68 @@ def load_daily_faceoff():
         return {}
 
 
+DF_LINES = "https://www.dailyfaceoff.com/teams/{}/line-combinations"
+DF_UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36", "Accept": "text/html"}
+
+
+def parse_df_lines(page):
+    """Forward lines and power-play units from one Daily Faceoff team page: {"f": [[names] x4], "pp": [[names] x2], "u": updated}."""
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+    found, stamp = [], [""]
+
+    def walk(x):
+        if isinstance(x, dict):
+            if x.get("groupIdentifier") and x.get("name"):
+                found.append(x)
+            if not stamp[0] and isinstance(x.get("updatedAt"), str) and "players" in x:
+                stamp[0] = x["updatedAt"]
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+    walk(json.loads(m.group(1)))
+    order = {"lw": 0, "c": 1, "rw": 2}
+    grp = {}
+    for x in found:
+        g = str(x["groupIdentifier"]).lower()
+        row = grp.setdefault(g, [])
+        if x["name"] not in [n for _, n in row]:
+            row.append((order.get(str(x.get("positionIdentifier") or "").lower(), 9), x["name"]))
+    names = lambda g: [n for _, n in sorted(grp.get(g, []), key=lambda z: z[0])]
+    f = [names(f"f{i}") for i in (1, 2, 3, 4)]
+    while f and not f[-1]:
+        f.pop()
+    if len(f) < 3 or any(len(l) < 2 for l in f):
+        return None
+    return {"f": f, "pp": [names("pp1"), names("pp2")], "u": stamp[0][:16]}
+
+
+def load_df_lines(sched):
+    """Projected line combinations for the teams playing on the next two game days, or {} if unreadable."""
+    days = sorted({u["d"] for u in sched})[:2]
+    teams = sorted({t for u in sched if u["d"] in days for t in (u["h"], u["a"])})
+    slug = {}
+    for full, ab in TEAM_NAMES.items():
+        slug.setdefault(ab, re.sub(r"[^a-z]+", "-", full.lower().replace("é", "e").replace(".", "")).strip("-"))
+    out, bad = {}, 0
+    for t in teams:
+        if bad >= 3 and not out:      # the site is refusing us; stop asking
+            break
+        try:
+            got = parse_df_lines(get(DF_LINES.format(slug[t]), timeout=30, headers=DF_UA)[0].decode("utf-8", "replace"))
+            if got:
+                out[t] = got
+            else:
+                bad += 1
+        except Exception as e:
+            bad += 1
+            print(f"Daily Faceoff lines unavailable for {t}: {e}", file=sys.stderr)
+        time.sleep(0.4)
+    print(f"Daily Faceoff lines: {len(out)} of {len(teams)} teams", file=sys.stderr)
+    return out
+
+
 # ---------- injuries ----------
 def load_injuries():
     """Current injury designations by team from ESPN, or None if the feed cannot be read."""
@@ -840,6 +902,9 @@ def make(seasons=3, season=None, html=None, live=True):
         dfg = load_daily_faceoff()
         if dfg:
             out["dfg"] = {"d": datetime.now(ET).strftime("%Y-%m-%d"), "t": dfg}
+        dfl = load_df_lines(sched)
+        if dfl:
+            out["dfl"] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "t": dfl}
         inj = load_injuries()
         if inj is not None:
             out["inj"] = inj

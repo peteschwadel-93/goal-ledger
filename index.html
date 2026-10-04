@@ -272,7 +272,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .tag.eg.p3{background:var(--eg-p3);color:var(--eg-dark)}
 .tag.eg.p4{background:var(--eg-p4);color:var(--eg-dark);box-shadow:0 0 10px -2px var(--eg-p4)}
 
-.prow .pv4.pvl,.phd .pv4.pvl{grid-template-columns:56px 92px 58px 46px 76px}
+.prow .pv4.pvl,.phd .pv4.pvl{grid-template-columns:56px 58px 92px 58px 46px 76px}
 .prow .vsc{font-weight:600;color:var(--ink)}
 @media(max-width:760px){.prow .pv4.pvl{grid-template-columns:auto auto auto}}
 @media(max-width:760px){.panel .bar label.f{flex-wrap:wrap}.panel .bar .seg{flex-wrap:wrap;border-radius:16px}}
@@ -468,6 +468,7 @@ function build(){
         st.team=t;st.last=g.d;st.log.push({g:g,t:t,r:r})});
       (g.l[t]||[]).forEach(function(tr){tr.forEach(function(p){if(IX.P[p])IX.P[p].mates=tr.filter(function(q){return q!==p&&IX.P[q]})})})})});
   IX.names={};Object.keys(D.players).forEach(function(p){var k=normName(D.players[p][0]);(IX.names[k]=IX.names[k]||[]).push(+p)});
+  Object.keys((D.dfl||{}).t||{}).forEach(function(t){(dfLines(t)||[]).forEach(function(tr){tr.forEach(function(p){if(IX.P[p])IX.P[p].mates=tr.filter(function(q){return q!==p&&IX.P[q]})})})}); // projected lines replace last game's for the linemate step
 }
 /* ---- market lines: an expected goal count for each side from the total and the moneyline ---- */
 function pois(k,mu){var p=Math.exp(-mu);for(var i=1;i<=k;i++)p*=mu/i;return p}
@@ -706,14 +707,20 @@ function vSlate(){
 }
 
 /* ================= Lineups ================= */
+function dfLines(t){ // Daily Faceoff's projected forward lines for a team, as player ids; null if not fetched or too few names match
+  var x=D.dfl&&D.dfl.t[t];if(!x)return null;var ok=0,tot=0,ros={};((D.rost||{})[t]||[]).forEach(function(p){ros[Array.isArray(p)?p[0]:p]=1});
+  var out=x.f.map(function(tr){return tr.map(function(n){tot++;var c=(IX.names[normName(n)]||[]).filter(function(p){return ppos(p)!=="G"});
+    var hit=c.filter(function(p){return ros[p]||(IX.P[p]&&IX.P[p].team===t)})[0]||(c.length===1?c[0]:null);if(hit)ok++;return hit}).filter(Boolean)}).filter(function(tr){return tr.length});
+  return ok>=9&&ok>=tot*.75?out:null}
 function recentLines(t){var T=IX.T[t];if(!T||!T.games.length)return null;var g=T.games[T.games.length-1];return{g:g,l:g.l[t]||[]}}
 function vLineups(){
   var dl=dayList(),day=S.day,rows=slate(day),ms=matchups(day);
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
-      var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
-      var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><div class="phd"><span></span><span class="hs'+(S.luSort==="lines"?" on":"")+'" tabindex="0" data-lus="lines">Player</span><span class="pv pv4 pvl">'+[["pr","Chance"],["px","Best price"],["ev","Edge"],["vs","Value"],["toi","Ice time"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===S.luSort?" on":"")+'" tabindex="0" data-lus="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div><ol>';
+      var dfl=m.g?null:dfLines(t),src=m.g?{g:m.g,l:m.g.l[t]||[]}:dfl?{df:1,l:dfl}:recentLines(t),used={};
+      if(src&&!src.df){var toi=function(tr){var s=0;tr.forEach(function(p){if(by[p])s+=by[p].b.tev+by[p].b.tpp});return s/tr.length};src={g:src.g,l:src.l.slice().sort(function(x,y){return toi(y)-toi(x)})}}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o" title="Fair price: the odds that match the model\'s chance">'+fairOdds(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">'+(src&&src.df?'projected lines · Daily Faceoff':'lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–"))+'</span></h3><div class="phd"><span></span><span class="hs'+(S.luSort==="lines"?" on":"")+'" tabindex="0" data-lus="lines">Player</span><span class="pv pv4 pvl">'+[["pr","Chance"],["","Fair"],["px","Best price"],["ev","Edge"],["vs","Value"],["toi","Ice time"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===S.luSort?" on":"")+'" tabindex="0" data-lus="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div><ol>';
       var lab={},ord=[];(src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){lab[p]="L"+(i+1);ord.push(p)})});
       if(S.luSort==="lines"){ord.forEach(function(p){h+=li(p,lab[p])});
         my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
@@ -727,8 +734,8 @@ function vLineups(){
     return '<section class="lcard"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
   view.innerHTML='<section class="panel"><div class="phead"><h2>Lineups</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-lu",[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label>'+bookPicker(day)+'</div>'+
-    '<p class="note">Each row reads: chance to score, best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. <b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. Forward lines are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
-    'For games still to be played the lineup is the team\'s last one, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+', so a coach\'s new combinations will not show until he has used them in a game. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
+    '<p class="note">Each row reads: chance to score, fair price (the odds that match that chance; a best price longer than it is a positive edge), best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. <b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. For games still to be played, forward lines are Daily Faceoff\'s projected combinations when the heading says so. Otherwise, and for finished games, they are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts and ordered by expected ice time. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
+    'Who is expected to dress is the team\'s last lineup, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+'. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
 }
 
