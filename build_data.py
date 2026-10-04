@@ -694,6 +694,22 @@ def parse_shots(doc):
     return [[who, books] for who, books in sorted(seen.items())]
 
 
+def parse_alt_shots(doc):
+    """Alternate shots-on-goal lines, overs only: [[player, {book: [[line, price], ...]}], ...], lines ascending."""
+    seen = {}
+    for bk in doc.get("bookmakers") or []:
+        book = bk.get("title") or bk.get("key") or ""
+        for mk in bk.get("markets") or []:
+            if mk.get("key") != "player_shots_on_goal_alternate":
+                continue
+            for o in mk.get("outcomes") or []:
+                who, side, price, line = o.get("description"), str(o.get("name") or "").lower(), o.get("price"), o.get("point")
+                if not who or side != "over" or not isinstance(price, (int, float)) or not isinstance(line, (int, float)):
+                    continue
+                seen.setdefault(who, {}).setdefault(book, {})[float(line)] = int(price)
+    return [[who, {b: [[l, p] for l, p in sorted(q.items())] for b, q in books.items()}] for who, books in sorted(seen.items())]
+
+
 def slim_shots(rows):
     """Once a game is a few days old, keep only the commonest line and the best price each way, to hold the file down."""
     out = []
@@ -785,7 +801,7 @@ def remember_odds(sched, old):
         k = f"{u['d']}|{u['a']}|{u['h']}"
         rec = store.get(k) or {}
         due = sum(1 for x in looks if hrs <= x)          # looks this game should have had by now
-        stale = bool(rec.get("p")) and (any(len(x) < 6 for x in rec["p"]) or "s" not in rec)   # stored before every book's price, or the shots market, was kept: fetch once more
+        stale = bool(rec.get("p")) and (any(len(x) < 6 for x in rec["p"]) or "s" not in rec or "sa" not in rec)   # stored before every book's price, the shots market or its alternate lines were kept: fetch once more
         if rec.get("n", 0) >= due and not stale:
             continue
         due = max(due, rec.get("n", 0), 1)
@@ -823,15 +839,15 @@ def remember_odds(sched, old):
                         rec["tried"] = stamp
                         store[k] = rec
                         continue
-                raw, hd = get(f"{ODDS_API}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime,player_shots_on_goal&oddsFormat=american",
+                raw, hd = get(f"{ODDS_API}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime,player_shots_on_goal,player_shots_on_goal_alternate&oddsFormat=american",
                               headers={"Accept": "application/json"})
                 doc = json.loads(raw)
-                prices, shots = parse_scorers(doc), parse_shots(doc)
+                prices, shots, alt = parse_scorers(doc), parse_shots(doc), parse_alt_shots(doc)
                 left = hd.get("x-requests-remaining")
                 if prices:
                     if rec.get("p") and not rec.get("open"):
                         rec["open"] = rec["p"]            # keep the first look so the page can show how prices moved
-                    rec.update({"p": prices, "s": shots, "n": due, "at": stamp, "eid": eid})   # a game first seen late skips the looks it missed
+                    rec.update({"p": prices, "s": shots, "sa": alt, "n": due, "at": stamp, "eid": eid})   # a game first seen late skips the looks it missed
                     rec.pop("tried", None)
                 else:
                     rec["tried"] = stamp
@@ -855,9 +871,14 @@ def remember_odds(sched, old):
     cutoff = (now - timedelta(days=120)).strftime("%Y-%m-%d")
     store = {k: v for k, v in store.items() if k == "left" or (k.split("|")[1] if k.startswith("lines|") else k[:10]) >= cutoff}
     old = (now - timedelta(days=10)).strftime("%Y-%m-%d")   # backfilled games keep every book: the Tracker replays them
+    gone = (now - timedelta(days=2)).strftime("%Y-%m-%d")
     for k, v in store.items():
-        if isinstance(v, dict) and v.get("s") and not v.get("slim") and not v.get("hs") and k[:10] < old and not k.startswith("lines|"):
+        if not isinstance(v, dict) or k.startswith("lines|"):
+            continue
+        if v.get("s") and not v.get("slim") and not v.get("hs") and k[:10] < old:
             v["s"], v["slim"] = slim_shots(v["s"]), 1
+        if v.get("sa") and not v.get("ha") and k[:10] < gone:    # a backfilled game keeps its alternate lines: nothing else holds them
+            v["sa"] = []      # alternate lines are bulky; the ladder candidates' own rung prices were saved by lock_picks.js
     if json.dumps(store, sort_keys=True) != before:
         with open(ODDS, "w", encoding="utf-8") as f:
             json.dump(store, f, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
@@ -887,27 +908,29 @@ def backfill_odds(games, starts, season):
         thin = bool(rec.get("p")) and any(len(x) < 6 for x in rec["p"]) and not rec.get("hp")   # only the best price was kept, not each book's
         need_p = (not rec.get("p") and not rec.get("hist")) or thin   # goalscorer prices never fetched, or fetched before every book was kept
         need_s = "s" not in rec and not rec.get("hs")              # shots lines never fetched
-        if g["s"] == season and (need_p or need_s) and g["id"] in starts:
-            todo.setdefault(g["d"], []).append((k, g, starts[g["id"]], need_p))
+        need_a = "sa" not in rec and not rec.get("ha")             # alternate shots lines never fetched
+        if g["s"] == season and (need_p or need_s or need_a) and g["id"] in starts:
+            todo.setdefault(g["d"], []).append((k, g, starts[g["id"]], need_p, need_s, need_a))
     cap = int(os.environ.get("ODDS_BACKFILL_MAX", "80"))
     done, hd = 0, {"Accept": "application/json"}
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     hist = ODDS_API.replace("/v4/sports/", "/v4/historical/sports/")
     try:
         for day in sorted(todo):
-            first = min(t for _, _, t, _ in todo[day])
+            first = min(x[2] for x in todo[day])
             raw, _ = get(f"{hist}/events?apiKey={key}&date={(first - timedelta(hours=1)).strftime(fmt)}", headers=hd)
             ids_ = {}
             for e in json.loads(raw).get("data") or []:
                 ids_[(TEAM_NAMES.get(e.get("away_team")), TEAM_NAMES.get(e.get("home_team")), (e.get("commence_time") or "")[:13])] = e["id"]
-            for k, g, t, need_p in todo[day]:
+            for k, g, t, need_p, need_s, need_a in todo[day]:
                 if done >= cap:
                     break
                 rec = store.get(k) or {}
-                rec["hist"] = rec["hs"] = 1
+                rec["hist"] = rec["hs"] = rec["ha"] = 1
                 if need_p:
                     rec["hp"] = 1
-                markets = "player_goal_scorer_anytime,player_shots_on_goal" if need_p else "player_shots_on_goal"   # 10 requests a market
+                markets = ",".join(m for m, on in (("player_goal_scorer_anytime", need_p), ("player_shots_on_goal", need_s),
+                                                   ("player_shots_on_goal_alternate", need_a)) if on)   # 10 requests a market, so only what is missing
                 eid = ids_.get((g["a"], g["h"], t.strftime(fmt)[:13]))
                 if not eid:
                     eid = next((v for (a, h, _), v in ids_.items() if (a, h) == (g["a"], g["h"])), None)
@@ -916,7 +939,8 @@ def backfill_odds(games, starts, season):
                                   f"&date={(t - timedelta(minutes=15)).strftime(fmt)}", headers=hd)
                     doc = json.loads(raw)
                     prices = parse_scorers(doc.get("data") or {}) if need_p else []
-                    shots = parse_shots(doc.get("data") or {})
+                    shots = parse_shots(doc.get("data") or {}) if need_s else []
+                    alt = parse_alt_shots(doc.get("data") or {}) if need_a else []
                     at = pd.to_datetime(doc.get("timestamp") or t, utc=True).tz_convert(ET).strftime("%Y-%m-%dT%H:%M")
                     if prices:
                         if rec.get("p") and not rec.get("open"):
@@ -924,6 +948,8 @@ def backfill_odds(games, starts, season):
                         rec.update({"p": prices, "n": max(1, rec.get("n", 0)), "at": at, "eid": eid})
                     if shots:
                         rec.update({"s": shots, "sat": at, "eid": eid})
+                    if alt:
+                        rec.update({"sa": alt, "eid": eid})
                     left = rh.get("x-requests-remaining")
                     if left is not None:
                         store["left"] = left

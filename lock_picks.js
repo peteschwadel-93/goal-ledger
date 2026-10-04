@@ -89,8 +89,19 @@ if (games.length) {
     const px = h.line === e.line ? (e.side === "o" ? h.o : h.u) : null;
     if (px) { e.close = px.price; e.closeBook = px.bk; }
   });
-  if (picks.length || shots.length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS };
+  /* Ladder candidates and the best alternate-line price on their next two rungs, as of the last run before each game
+     starts. The alternate lines themselves are dropped from the price store after a couple of days, so this is what
+     the Tracker's ladder record is graded on. */
+  const lad = {};
+  Object.entries(prevDay.lad || {}).forEach(([p, e]) => { if (e.ts && Date.parse(e.ts) <= now) lad[p] = e; });   // started: frozen
+  if (api.altOf) Object.values(byP).forEach(r => {
+    const h = r.sh, ts = r.info.m.ts;
+    if (!h || r.xs == null || !ts || Date.parse(ts) <= now || r.xs < h.line + (api.ladderGap || 1)) return;
+    const alt = api.altOf(r.info.o, r.name), a1 = alt[h.line + 1], a2 = alt[h.line + 2];
+    lad[r.p] = { n: r.name, t: r.t, ts, line: h.line, xs: +r.xs.toFixed(3), r1: a1 ? [a1.price, a1.bk] : null, r2: a2 ? [a2.price, a2.bk] : null, at: stamp };
+  });
+  if (picks.length || shots.length || Object.keys(lad).length || store[day]) {
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, lad };
   }
 }
 const keep = Object.keys(store).sort().slice(-250);
