@@ -284,6 +284,10 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .vst.p1{color:var(--vs-p1)}.vst.p2{color:var(--vs-p2)}.vst.p3{color:var(--vs-p3)}.vst.p4{color:var(--vs-p4);text-shadow:0 0 10px color-mix(in srgb,var(--vs-p4) 55%,transparent)}
 .prow .pv b.vst.n3{color:var(--vs-n3)}.prow .pv b.vst.n2{color:var(--vs-n2)}.prow .pv b.vst.n1{color:var(--vs-n1)}
 .prow .pv b.vst.p1{color:var(--vs-p1)}.prow .pv b.vst.p2{color:var(--vs-p2)}.prow .pv b.vst.p3{color:var(--vs-p3)}.prow .pv b.vst.p4{color:var(--vs-p4)}
+
+/* tonight's running tally beside the pick cards */
+.tag.nt{font-size:12.5px;padding:8px 14px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.tag.nt.l{border-color:var(--line);color:var(--miss)}
 </style>
 
 <div class="wrap">
@@ -568,7 +572,13 @@ function vPicks(){
     (hasLines?(S.mkt?' Each team\'s skaters are scaled so their goals add up to what the moneyline and total say the team will score.':' Team goals are the model\'s own; the market lines are being ignored.'):"")+
     (played?"":' Until a lineup is posted it is projected from each team\'s last game and the injury list. The goalie is the one who started once the puck drops; before that it is your pick, then Daily Faceoff\'s confirmed or likely starter, then the usual starter.')+'</p></section>';
   var cards=top.slice(0,S.topN).map(function(r,i){return pickCard(r,i+1,mode)}).join("");
-  var body='<section class="panel"><div class="phead"><h2>Top of the slate · '+({np:"tonight\'s picks",like:"most likely to score",value:"biggest edge over the price",blend:"best blend of chance and price"})[mode]+'</h2></div>'+
+  // tonight's running score for the cards on show: a goal settles a pick as a win at once, a miss only when his game is final
+  var shown=top.slice(0,S.topN),tk={n:shown.length,h:0,u:0,open:0,priced:0};
+  shown.forEach(function(r){var pay=mode==="np"||r.px?r.pay:null;if(pay)tk.priced++;
+    if(r.res&&r.res[1]>0){tk.h++;if(pay)tk.u+=pay-1}else if(r.res){if(pay)tk.u-=1}else tk.open++});
+  var started=shown.some(function(r){return r.res||/LIVE|CRIT|OFF|FINAL/.test(r.info.m.st||"")});
+  var tkHtml=shown.length&&started?'<span class="tag nt '+(tk.priced?(tk.u>0?"w":tk.u<0?"l":""):(tk.h?"w":""))+'" title="Goals settle a pick as a win straight away; a miss counts once his game is final. One unit on each pick at the best price.">'+tk.h+' OF '+tk.n+' SCORED'+(tk.priced?' · '+(tk.u>=0?"+":"−")+Math.abs(tk.u).toFixed(1)+'U'+(S.unit?' · '+(tk.u>=0?"+":"−")+'$'+Math.abs(tk.u*S.unit).toFixed(0):''):'')+(tk.open?' · '+tk.open+' STILL OPEN':'')+'</span>':'';
+  var body='<section class="panel"><div class="phead"><h2>Top of the slate · '+({np:"tonight\'s picks",like:"most likely to score",value:"biggest edge over the price",blend:"best blend of chance and price"})[mode]+'</h2>'+tkHtml+'</div>'+
     (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':'')+(S.minP==="np"&&!priced&&rows.length?'<p class="note">Nightly Picks need prices, and none are loaded for this day, so this is the likelihood ranking.</p>':''):'<p class="empty">'+(rows.length?(np?"No bet clears all four tests on this slate. That is a real answer: some nights the prices are fair. Choose another view in the Show list to browse anyway.":"Nobody clears these filters."):"No games on this day.")+'</p>')+'</section>';
   var gs=priced?S.gcSort:(S.gcSort==="toi"?"toi":"pr"),games=ms.map(function(m){return gameCard(m,rows,gs)}).join("");
   var gopt=priced?[["vs","Blend"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["toi","Ice time"]]:[["pr","Chance"],["toi","Ice time"]];
