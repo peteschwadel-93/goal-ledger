@@ -1354,7 +1354,9 @@ function render(){
   $("filters").hidden=["picks","slate","lineups","tracker"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["picks","slate","lineups","tracker"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
-  TABS[S.tab]();pinFix();
+  var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
+  TABS[S.tab]();pinFix();view._tab=S.tab;
+  [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
 function pinFix(){ // team, player and opponent stay put while the rest of a wide table scrolls sideways: each needs to know how wide the ones before it are
