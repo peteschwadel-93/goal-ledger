@@ -372,11 +372,12 @@ tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,va
 
 .sside{font:700 15px var(--display);letter-spacing:.06em;padding:5px 11px;border-radius:8px;border:1px solid var(--line);white-space:nowrap}
 .sside.o{color:var(--made,#4ade80);border-color:color-mix(in srgb,var(--made,#4ade80) 50%,var(--line))}
-.sside.u{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.sside.u{color:var(--goal-hot);border-color:color-mix(in srgb,var(--goal) 55%,var(--line))}
 /* a winning Shot Pick lights up in the dashboard's own blue; red is kept for goals */
 .rcard.swin{border-color:var(--accent);background:linear-gradient(180deg,var(--accent-soft),var(--bg) 60%);box-shadow:0 0 0 1px var(--accent),0 0 22px -6px var(--accent)}
 .rcard.swin .rname{color:var(--accent)}
-.rcard.swin .sside{color:var(--accent-ink,#06131c);border-color:var(--accent);background:var(--accent)}
+.rcard.swin .sside.o{color:#04130d;border-color:var(--made,#4ade80);background:var(--made,#4ade80)}
+.rcard.swin .sside.u{color:#fff;border-color:var(--goal);background:var(--goal)}
 .rcard.swin .res.m{background:var(--accent);color:var(--accent-ink,#06131c)}
 .tag.spkt{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#06131c)}
 tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
