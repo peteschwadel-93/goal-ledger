@@ -387,6 +387,16 @@ tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 /* shots table results: outlined green for over the line, outlined red for under */
 .res.so{color:var(--made,#4ade80);border-color:color-mix(in srgb,var(--made,#4ade80) 60%,var(--line))}
 .res.su{color:var(--goal-hot);border-color:color-mix(in srgb,var(--goal) 60%,var(--line))}
+
+/* player page: headshot card on the team's colour, beside the name and game log */
+.pprof{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+.pprof .pmain{min-width:0}
+.pphoto{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--tc) 55%,var(--accent));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 85%,#000) 0%,color-mix(in srgb,var(--tc) 45%,var(--bg)) 55%,var(--bg) 100%);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--tc) 35%,transparent),0 10px 30px -14px var(--tc)}
+.pphoto img{position:absolute;inset:auto 0 0 0;width:100%;height:auto;display:block}
+.pphoto .pini{position:absolute;inset:0;display:grid;place-items:center;font:700 64px var(--display);letter-spacing:.04em;color:color-mix(in srgb,#fff 28%,transparent)}
+@media(max-width:760px){.pprof{grid-template-columns:1fr}.pphoto{width:170px;margin:0 auto}}
 </style>
 
 <div class="wrap">
@@ -1043,6 +1053,10 @@ function gameLine(g){
     '<div class="kv"><span><b>'+g.a+'</b> '+sc(g.a)+'</span></div><div class="kv"><span><b>'+g.h+'</b> '+sc(g.h)+'</span></div></div>'}
 
 /* ================= Player ================= */
+var TCOL={ANA:"#F47A38",BOS:"#FFB81C",BUF:"#003087",CGY:"#C8102E",CAR:"#CE1126",CHI:"#CF0A2C",COL:"#6F263D",CBJ:"#002654",DAL:"#006847",DET:"#CE1126",EDM:"#FF4C00",FLA:"#C8102E",LAK:"#A2AAAD",MIN:"#154734",MTL:"#AF1E2D",NSH:"#FFB81C",NJD:"#CE1126",NYI:"#00539B",NYR:"#0038A8",OTT:"#C52032",PHI:"#F74902",PIT:"#FCB514",SJS:"#006D75",SEA:"#99D9D9",STL:"#002F87",TBL:"#002868",TOR:"#00205B",UTA:"#71AFE5",VAN:"#00205B",VGK:"#B4975A",WSH:"#C8102E",WPG:"#041E42"};
+function mugCard(p,t){ // the league's own headshot on the team's colour; falls back to the newest photo on file, then to initials
+  var ys=D.seasons||[],y=ys[ys.length-1]||new Date().getFullYear(),base="https://assets.nhle.com/mugs/nhl/",ini=pname(p).split(/\s+/).map(function(w){return w.charAt(0)}).slice(0,2).join("");
+  return '<div class="pphoto" style="--tc:'+(TCOL[t]||"#6cc4f5")+'"><span class="pini" aria-hidden="true">'+esc(ini)+'</span><img alt="'+nm(p)+'" loading="lazy" src="'+base+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'latest/'+p+'.png" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'}
 function vPlayer(){
   var q=normName(S.q),hits=[];
   if(q.length>=2)Object.keys(D.players).forEach(function(p){if(normName(D.players[p][0]).indexOf(q)>=0&&D.players[p][1]!=="G"&&IX.P[p])hits.push(+p)});
@@ -1084,7 +1098,7 @@ function vPlayer(){
   var rows=win.slice().reverse().slice(0,S.logN);
   var tbl='<div class="tw"><table><thead><tr><th>Game</th><th class="n">Model</th><th>Result</th><th class="n">Shots</th><th class="n">Attempts</th><th class="n">High-danger</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
     rows.map(function(e){var r=e.r,g=e.g,o=opp(g,e.t),gk=g.g[o].length?g.g[o][0][0]:null;return '<tr><td>'+fmtD(g.d)+" "+(g.h===e.t?"vs ":"at ")+o+'</td><td class="n">'+p1(1-Math.exp(-IX.PRE[g.id][p][0]))+'</td><td>'+(r[1]?'<span class="res m">'+(r[1]>1?r[1]+" GOALS":"GOAL")+(r[8]?" · PP":"")+(r[9]?" · EN":"")+'</span>':'<span class="res x">–</span>')+'</td><td class="n">'+r[2]+'</td><td class="n">'+r[3]+'</td><td class="n">'+r[11]+'</td><td class="n">'+f2((r[4]+r[5])/1000)+'</td><td class="n">'+mmss(r[6])+'</td><td class="n">'+mmss(r[7])+'</td><td>'+(gk?nm(gk):"–")+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML=hd+'<section class="panel"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+(win.length>S.logN?'<button class="more" id="logMore">Show 30 more</button>':'')+'</section>'+
+  view.innerHTML=hd+'<section class="panel pprof">'+mugCard(p,t)+'<div class="pmain"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+(win.length>S.logN?'<button class="more" id="logMore">Show 30 more</button>':'')+'</div></section>'+
     '<section class="panel"><div class="phead"><h2>How his number is built</h2></div>'+work+'</section>';
 }
 
