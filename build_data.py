@@ -668,6 +668,42 @@ def parse_scorers(doc):
     return sorted(out, key=lambda x: implied(x[1]), reverse=True)
 
 
+def parse_shots(doc):
+    """Shots-on-goal lines per player: [[player, {book: [line, over price, under price]}], ...]. A side a book does not post is None."""
+    seen = {}
+    for bk in doc.get("bookmakers") or []:
+        book = bk.get("title") or bk.get("key") or ""
+        for mk in bk.get("markets") or []:
+            if mk.get("key") != "player_shots_on_goal":
+                continue
+            for o in mk.get("outcomes") or []:
+                who, side, price, line = o.get("description"), str(o.get("name") or "").lower(), o.get("price"), o.get("point")
+                if not who or side not in ("over", "under") or not isinstance(price, (int, float)) or not isinstance(line, (int, float)):
+                    continue
+                q = seen.setdefault(who, {}).setdefault(book, [float(line), None, None])
+                if float(line) == q[0]:
+                    q[1 if side == "over" else 2] = int(price)
+    return [[who, books] for who, books in sorted(seen.items())]
+
+
+def slim_shots(rows):
+    """Once a game is a few days old, keep only the commonest line and the best price each way, to hold the file down."""
+    out = []
+    for who, books in rows:
+        lines = [q[0] for q in books.values()]
+        line = max(sorted(set(lines)), key=lines.count)
+        best = {}
+        for side in (1, 2):
+            quotes = [(q[side], b) for b, q in books.items() if q[0] == line and q[side] is not None]
+            if quotes:
+                price, book = min(quotes, key=lambda x: implied(x[0]))
+                q = best.setdefault(book, [line, None, None])
+                q[side] = price
+        if best:
+            out.append([who, best])
+    return out
+
+
 def parse_lines(events):
     """Moneyline and total per game from the slate call: {(away, home): {ml: [away, home], tot: [line, over, under], n}}."""
     out = {}
@@ -741,7 +777,7 @@ def remember_odds(sched, old):
         k = f"{u['d']}|{u['a']}|{u['h']}"
         rec = store.get(k) or {}
         due = sum(1 for x in looks if hrs <= x)          # looks this game should have had by now
-        stale = bool(rec.get("p")) and any(len(x) < 6 for x in rec["p"])   # stored before every book's price was kept: fetch once more
+        stale = bool(rec.get("p")) and (any(len(x) < 6 for x in rec["p"]) or "s" not in rec)   # stored before every book's price, or the shots market, was kept: fetch once more
         if rec.get("n", 0) >= due and not stale:
             continue
         due = max(due, rec.get("n", 0), 1)
@@ -779,14 +815,15 @@ def remember_odds(sched, old):
                         rec["tried"] = stamp
                         store[k] = rec
                         continue
-                raw, hd = get(f"{ODDS_API}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime&oddsFormat=american",
+                raw, hd = get(f"{ODDS_API}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime,player_shots_on_goal&oddsFormat=american",
                               headers={"Accept": "application/json"})
-                prices = parse_scorers(json.loads(raw))
+                doc = json.loads(raw)
+                prices, shots = parse_scorers(doc), parse_shots(doc)
                 left = hd.get("x-requests-remaining")
                 if prices:
                     if rec.get("p") and not rec.get("open"):
                         rec["open"] = rec["p"]            # keep the first look so the page can show how prices moved
-                    rec.update({"p": prices, "n": due, "at": stamp, "eid": eid})   # a game first seen late skips the looks it missed
+                    rec.update({"p": prices, "s": shots, "n": due, "at": stamp, "eid": eid})   # a game first seen late skips the looks it missed
                     rec.pop("tried", None)
                 else:
                     rec["tried"] = stamp
@@ -809,6 +846,10 @@ def remember_odds(sched, old):
             print(f"odds unavailable: {msg}", file=sys.stderr)
     cutoff = (now - timedelta(days=120)).strftime("%Y-%m-%d")
     store = {k: v for k, v in store.items() if k == "left" or (k.split("|")[1] if k.startswith("lines|") else k[:10]) >= cutoff}
+    old = (now - timedelta(days=3)).strftime("%Y-%m-%d")
+    for k, v in store.items():
+        if isinstance(v, dict) and v.get("s") and not v.get("slim") and k[:10] < old and not k.startswith("lines|"):
+            v["s"], v["slim"] = slim_shots(v["s"]), 1
     if json.dumps(store, sort_keys=True) != before:
         with open(ODDS, "w", encoding="utf-8") as f:
             json.dump(store, f, separators=(",", ":"), ensure_ascii=False, sort_keys=True)

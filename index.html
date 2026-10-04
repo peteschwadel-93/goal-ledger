@@ -362,6 +362,13 @@ tbody tr.fpick>td:first-child{box-shadow:inset 4px 0 0 var(--goal-hot)}
 @keyframes feedlight{0%,100%{background-color:color-mix(in srgb,var(--goal) 14%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 32%,var(--bg))}}
 @media(prefers-reduced-motion:reduce){tbody tr.fpick>td{animation:none}}
 td .bk{margin-left:6px}
+
+/* shots tab */
+:root{--lad:#f5b942}
+.tag.lad{background:var(--lad);border-color:var(--lad);color:#1a1204;font-weight:700}
+.tag.nt.ladc{border-color:color-mix(in srgb,var(--lad) 70%,var(--line));color:var(--lad)}
+tbody tr.ladr>td:first-child{box-shadow:inset 3px 0 0 var(--lad)}
+tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,var(--lad) 7%,var(--bg))}
 </style>
 
 <div class="wrap">
@@ -385,6 +392,7 @@ td .bk{margin-left:6px}
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="picks" id="tab-picks">Picks</button>
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
+      <button role="tab" data-tab="shots" id="tab-shots">Shots</button>
       <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
       <button role="tab" data-tab="lineups" id="tab-lineups">Lineups</button>
       <button role="tab" data-tab="matchup" id="tab-matchup">Matchup</button>
@@ -424,6 +432,7 @@ var $=function(id){return document.getElementById(id)};
 var view=$("view");
 /* ---- the model's constants. Fitted on 2024-25 and 2025-26 (every skater in every game, about 100,000 player-games),
    reading each game only from what had been played before it. See the Tracker tab for how it has done since. ---- */
+var SG={gm:.98,k:7200,w:.3,b:[-.1071,1.1363,.0398,1.0235],alpha:.06,ladder:1}; // shots on goal: fitted on 2024-25, checked on 2025-26
 var C={gm:.99,   // each older game counts 1% less than the one after it (half weight about 70 games back)
        gt:.92,   // ice time looks back much less far: half weight about 8 games back
        k1:600,   // seconds of league-average even-strength shooting mixed into every player's rate
@@ -478,20 +487,26 @@ function chev(lv,cls){var s='<svg class="chev lv'+lv+' '+(cls||"")+'" viewBox="0
    said about every skater who dressed (PRE), then adds the game to the running totals. What is left at the end is the
    state used for games still to be played. ---- */
 function league(gs){
-  var L={F:{ev:0,pp:0,en:0,fin:0,tev:0,tpp:0,n:0,evt:0,ppt:0,g:0,xe:0,xp:0},D:{ev:0,pp:0,en:0,fin:0,tev:0,tpp:0,n:0,evt:0,ppt:0,g:0,xe:0,xp:0}},xg=0,tn=0,ga=0,xga=0;
+  var L={F:{ev:0,pp:0,en:0,fin:0,tev:0,tpp:0,n:0,evt:0,ppt:0,g:0,xe:0,xp:0,sog:0},D:{ev:0,pp:0,en:0,fin:0,tev:0,tpp:0,n:0,evt:0,ppt:0,g:0,xe:0,xp:0,sog:0}},xg=0,tn=0,ga=0,xga=0,sog=0,fen=0,sa=0;
   gs.forEach(function(g){[g.h,g.a].forEach(function(t){
-    g.p[t].forEach(function(r){var l=L[isD(r[0])?"D":"F"];l.n++;l.evt+=r[6]-r[7];l.ppt+=r[7];l.xe+=r[4]/1000;l.xp+=r[5]/1000;l.g+=r[1]-r[9];l.en+=r[9]});
-    xg+=g.t[t][3]/100;tn++;g.g[t].forEach(function(k){ga+=k[2];xga+=k[3]/100})})});
-  ["F","D"].forEach(function(k){var l=L[k];l.ev=l.xe/l.evt;l.pp=l.xp/l.ppt;l.fin=l.g/(l.xe+l.xp);l.tev=l.evt/l.n;l.tpp=l.ppt/l.n;l.en=l.en/l.n});
-  L.xg=xg/tn;L.gk=ga/xga;return L}
+    g.p[t].forEach(function(r){var l=L[isD(r[0])?"D":"F"];l.n++;l.evt+=r[6]-r[7];l.ppt+=r[7];l.xe+=r[4]/1000;l.xp+=r[5]/1000;l.g+=r[1]-r[9];l.en+=r[9];l.sog+=r[2];sog+=r[2];fen+=r[3]});
+    xg+=g.t[t][3]/100;sa+=g.t[t][1];tn++;g.g[t].forEach(function(k){ga+=k[2];xga+=k[3]/100})})});
+  ["F","D"].forEach(function(k){var l=L[k];l.ev=l.xe/l.evt;l.pp=l.xp/l.ppt;l.fin=l.g/(l.xe+l.xp);l.tev=l.evt/l.n;l.tpp=l.ppt/l.n;l.en=l.en/l.n;l.sr=l.sog/(l.evt+l.ppt)});
+  L.sfen=sog/fen;L.sa=sa/tn;L.xg=xg/tn;L.gk=ga/xga;return L}
 function rate(st,d){ // a player's scoring rate before the opponent is considered
   var L=IX.L[d?"D":"F"],a=st.a,t=st.t;
   var tev=(t[0]+C.kt*L.tev)/(t[2]+C.kt),tpp=(t[1]+C.kt*L.tpp)/(t[2]+C.kt);
   var evr=(a[2]+C.k1*L.ev)/(a[0]+C.k1),ppr=(a[3]+C.k2*L.pp)/(a[1]+C.k2);
   var fin=(a[4]+C.m*L.fin)/(a[2]+a[3]+C.m),en=(a[5]+C.ke*L.en)/(a[6]+C.ke);
-  var toiF=Math.pow(Math.max(300,Math.min(1500,tev+tpp))/900,C.toi),mt=1;
+  var toiF=Math.pow(Math.max(300,Math.min(1500,tev+tpp))/900,C.toi),mt=1,q=st.s||[0,0,0];
+  // shots: his shots-on-goal rate, leaning mostly on unblocked attempts (steadier than shots that happened to reach the net), with two hours of league-average ice mixed in
+  var sr=SG.w*(q[0]+SG.k*L.sr)/(q[2]+SG.k)+(1-SG.w)*(q[1]*IX.L.sfen+SG.k*L.sr)/(q[2]+SG.k),sog0=sr*(tev+tpp);
   if(!d){var ms=st.mates||[],s=0;ms.forEach(function(q){var b=IX.P[q].a;s+=b[7]/(b[0]+b[1]+600)});mt=Math.max(.85,Math.min(1.2,Math.pow(((ms.length?s/ms.length:C.maNone)+1e-6)/C.ma,C.mates)))}
-  return{tev:tev,tpp:tpp,evr:evr,ppr:ppr,fin:fin,en:en,ev:fin*evr*tev,pp:fin*ppr*tpp,base:fin*(evr*tev+ppr*tpp)+en,finRel:fin/L.fin,toiF:toiF,mt:mt,role:toiF*mt}}
+  return{tev:tev,tpp:tpp,evr:evr,ppr:ppr,fin:fin,en:en,ev:fin*evr*tev,pp:fin*ppr*tpp,base:fin*(evr*tev+ppr*tpp)+en,finRel:fin/L.fin,toiF:toiF,mt:mt,role:toiF*mt,sr:sr,sog0:sog0}}
+function saF(t){var T=IX.T[t]||{sa:0,n:0};return ((T.sa||0)+C.KT*IX.L.sa)/(T.n+C.KT)/IX.L.sa} // shots the opponent allows against the league's
+function sogMu(sog0,home,opp){return Math.exp(SG.b[0]+SG.b[1]*Math.log(sog0)+SG.b[2]*(home?1:0)+SG.b[3]*Math.log(saF(opp)))}
+function nbOver(mu,line){ // chance of more than `line` shots: a count a little more spread out than Poisson, as shots are
+  var r=1/SG.alpha,p=r/(r+mu),k=Math.floor(line),pk=Math.pow(p,r),c=pk;for(var i=1;i<=k;i++){pk*=(r+i-1)/i*(1-p);c+=pk}return Math.max(0,1-c)}
 function defF(t){var T=IX.T[t]||{xga:0,n:0};return (T.xga+C.KT*IX.L.xg)/(T.n+C.KT)/IX.L.xg}
 function gkF(k){var K=IX.K[k]||{ga:0,xga:0};return (K.ga+C.KG*IX.L.gk)/(K.xga+C.KG)/IX.L.gk}
 function context(home,od,gk,ob2b,b2b){ // multipliers for where and against whom
@@ -499,20 +514,21 @@ function context(home,od,gk,ob2b,b2b){ // multipliers for where and against whom
   f.all=f.home*f.def*f.gk*f.ob2b*f.b2b*f.k;return f}
 function build(){
   IX={L:league(D.games),P:{},T:{},K:{},PRE:{},CTX:{}};
-  function pl(p){return IX.P[p]||(IX.P[p]={a:[0,0,0,0,0,0,0,0],t:[0,0,0],team:null,last:null,log:[]})}
-  function tm(t){return IX.T[t]||(IX.T[t]={xga:0,n:0,last:null,games:[]})}
+  function pl(p){return IX.P[p]||(IX.P[p]={a:[0,0,0,0,0,0,0,0],t:[0,0,0],s:[0,0,0],team:null,last:null,log:[]})}
+  function tm(t){return IX.T[t]||(IX.T[t]={xga:0,sa:0,n:0,last:null,games:[]})}
   D.games.forEach(function(g){
     var pre=IX.PRE[g.id]={},cx=IX.CTX[g.id]={};
     [[g.h,g.a],[g.a,g.h]].forEach(function(pr){var t=pr[0],o=pr[1],T=tm(t),O=tm(o);
       var sg=g.g[o].length?g.g[o][0][0]:null;
       var f=context(t===g.h,defF(o),sg?gkF(sg):1,O.last&&days(O.last,g.d)===1,T.last&&days(T.last,g.d)===1);
       f.goalie=sg;cx[t]=f;
-      g.p[t].forEach(function(r){var st=pl(r[0]),x=rate(st,isD(r[0]));pre[r[0]]=[x.base*x.role*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6],x.toiF,x.mt]})});
+      g.p[t].forEach(function(r){var st=pl(r[0]),x=rate(st,isD(r[0]));pre[r[0]]=[x.base*x.role*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6],x.toiF,x.mt,sogMu(x.sog0,t===g.h,o)]})});
     [[g.h,g.a],[g.a,g.h]].forEach(function(pr){var t=pr[0],o=pr[1],T=tm(t);
-      T.xga=T.xga*C.tDecay+g.t[o][3]/100;T.n=T.n*C.tDecay+1;T.last=g.d;T.games.push(g);
+      T.xga=T.xga*C.tDecay+g.t[o][3]/100;T.sa=T.sa*C.tDecay+g.t[o][1];T.n=T.n*C.tDecay+1;T.last=g.d;T.games.push(g);
       g.g[t].forEach(function(k){var K=IX.K[k[0]]||(IX.K[k[0]]={ga:0,xga:0,sa:0,team:t,gp:0});K.ga=K.ga*C.gDecay+k[2];K.xga=K.xga*C.gDecay+k[3]/100;K.team=t;K.gp++});
       g.p[t].forEach(function(r){var st=pl(r[0]),a=st.a,v=[r[6]-r[7],r[7],r[4]/1000,r[5]/1000,r[1]-r[9],r[9],1,r[10]];
         for(var i=0;i<8;i++)a[i]=a[i]*C.gm+v[i];
+        st.s[0]=st.s[0]*SG.gm+r[2];st.s[1]=st.s[1]*SG.gm+r[3];st.s[2]=st.s[2]*SG.gm+r[6];
         st.t[0]=st.t[0]*C.gt+r[6]-r[7];st.t[1]=st.t[1]*C.gt+r[7];st.t[2]=st.t[2]*C.gt+1;
         st.team=t;st.last=g.d;st.log.push({g:g,t:t,r:r})});
       (g.l[t]||[]).forEach(function(tr){tr.forEach(function(p){if(IX.P[p])IX.P[p].mates=tr.filter(function(q){return q!==p&&IX.P[q]})})})})});
@@ -598,11 +614,11 @@ function slate(day){
     var key=gameKey(m),o=oddsOf(m),mk=marketTotals(o&&o.ln),info={m:m,key:key,o:o,mk:mk,side:{}};
     [[m.a,m.h],[m.h,m.a]].forEach(function(pr){var t=pr[0],op=pr[1],rows=[],f,gk;
       if(m.g){f=IX.CTX[m.g.id][t];gk={p:f.goalie,list:[]};
-        m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r})})}
+        m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r,xs:x[10]})})}
       else{gk=projGoalie(op,day,key,m);var T=IX.T[t]||{},O=IX.T[op]||{};
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
         var fin=/OFF|FINAL/.test(m.st||"");
-        projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back};
+        projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back,xs:sogMu(x.sog0,t===m.h,op)};
           if(m.gl&&(n||fin))row.res=[e.p,n];rows.push(row)})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
       var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
@@ -611,7 +627,19 @@ function slate(day){
         var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
           var mid=1/payout(px.mid||px.price);r.mk=Math.min(.95,mid/C.np.vig);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
           r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books)}
+        r.sh=shotsOf(o,r.name);
         out.push(r)})})});
+  return out}
+function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line across books and the best price each way on it, or one book's own line
+  if(!o||!o.s)return null;var k=normName(name),q=null;for(var i=0;i<o.s.length;i++)if(normName(o.s[i][0])===k){q=o.s[i][1];break}
+  if(!q)return null;var bs=Object.keys(q);if(S.book&&!S.bookOff)bs=bs.filter(function(b){return b===S.book});if(!bs.length)return null;
+  var cnt={},line=null;bs.forEach(function(b){cnt[q[b][0]]=(cnt[q[b][0]]||0)+1});Object.keys(cnt).forEach(function(l){if(line==null||cnt[l]>cnt[line]||(cnt[l]===cnt[line]&&+l<+line))line=l});line=+line;
+  var out={line:line,n:bs.length,allO:{},allU:{}};
+  bs.forEach(function(b){var x=q[b],lab=b+" · "+x[0];
+    if(x[1]!=null){out.allO[lab]=x[1];if(x[0]===line&&(!out.o||payout(x[1])>payout(out.o.price)))out.o={price:x[1],book:lab,bk:b}}
+    if(x[2]!=null){out.allU[lab]=x[2];if(x[0]===line&&(!out.u||payout(x[2])>payout(out.u.price)))out.u={price:x[2],book:lab,bk:b}}});
+  if(out.o)out.o.all=out.allO;if(out.u)out.u.all=out.allU;
+  if(out.o&&out.u){var io=1/payout(out.o.price),iu=1/payout(out.u.price);out.fairO=io/(io+iu);out.hold=io+iu-1}
   return out}
 function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} // one pick for every three games on the slate, five at most
 /* Locked picks. The build saves each night's Nightly Picks and freezes each one when its own game starts, so the list you
@@ -749,6 +777,7 @@ function vSlate(){
     {k:"ev",l:"Edge",num:1,v:function(r){return r.ev},f:edgeTag},
     {k:"vs",l:"Value score",num:1,v:function(r){return r.vs},f:function(r){return vsTxt(r.vs)}},
     {k:"lam",l:"Exp. goals",num:1,v:function(r){return r.lam},f:function(r){return f2(r.lam)}},
+    {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return f2(r.xs)}},
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"pp",l:"PP time",num:1,v:function(r){return r.b.tpp},f:function(r){return mmss(r.b.tpp)}},
     {k:"xg",l:"xG / 60",num:1,v:function(r){return (r.b.evr*r.b.tev+r.b.ppr*r.b.tpp)/(r.b.tev+r.b.tpp)},f:function(r){return f2((r.b.evr*r.b.tev+r.b.ppr*r.b.tpp)/(r.b.tev+r.b.tpp)*3600)}},
@@ -795,6 +824,52 @@ function vLineups(){
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
 }
 
+
+
+/* ================= shots on goal: projection against the books' lines ================= */
+function vShots(){
+  var dl=dayList(),day=S.day,all=slate(day),at="";
+  all.forEach(function(r){if(r.info.o&&r.info.o.at&&r.info.o.at>at)at=r.info.o.at;
+    var h=r.sh;r.sv={};if(!h)return;var po=nbOver(r.xs,h.line);r.sv={po:po,pu:1-po,
+      eo:h.o?po*payout(h.o.price)-1:null,eu:h.u?(1-po)*payout(h.u.price)-1:null,
+      n1:nbOver(r.xs,h.line+1),n2:nbOver(r.xs,h.line+2),lad:r.xs>=h.line+SG.ladder};
+    r.sv.best=Math.max(r.sv.eo==null?-9:r.sv.eo,r.sv.eu==null?-9:r.sv.eu);r.sv.side=r.sv.best===-9?"":r.sv.eo===r.sv.best?"o":"u";
+    var lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<day}).slice(-10);r.sv.l10=lg.length;r.sv.h10=lg.filter(function(e){return e.r[2]>h.line}).length;
+    r.sv.act=r.info.m.g&&r.res?r.res[2]:null});
+  var priced=all.filter(function(r){return r.sh}),show=S.slateAll?all.filter(function(r){return r.xs>=1||r.sh}):priced,lads=priced.filter(function(r){return r.sv.lad});
+  function side(r,k){var h=r.sh,px=h&&h[k];return px?'<b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over":" under"))+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span>':'<span class="o">–</span>'}
+  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':'<span class="res x">'+a+' · UNDER</span>'}
+  var cols=[
+    {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
+    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
+    {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
+    {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return '<b>'+f2(r.xs)+'</b>'}},
+    {k:"line",l:"Line",num:1,v:function(r){return r.sh?r.sh.line:null},f:function(r){return r.sh?f1(r.sh.line):"–"}},
+    {k:"gap",l:"xSOG − line",num:1,v:function(r){return r.sh?r.xs-r.sh.line:null},f:function(r){if(!r.sh)return "";var d=r.xs-r.sh.line;return '<span class="'+(d>=1?"vst p3":d>0?"vst p1":"o")+'">'+(d>0?"+":"")+f2(d)+'</span>'}},
+    {k:"po",l:"Over",num:1,v:function(r){return r.sv.po},f:function(r){return r.sh?p1(r.sv.po)+' <span class="o">'+fairOdds(r.sv.po)+'</span>':""}},
+    {k:"opx",l:"Best over",num:1,v:function(r){return r.sh&&r.sh.o?payout(r.sh.o.price):null},f:function(r){return side(r,"o")}},
+    {k:"eo",l:"Edge",num:1,v:function(r){return r.sv.eo},f:function(r){return r.sv.eo==null?"":pill(r.sv.eo)}},
+    {k:"pu",l:"Under",num:1,v:function(r){return r.sv.pu},f:function(r){return r.sh?p1(r.sv.pu)+' <span class="o">'+fairOdds(r.sv.pu)+'</span>':""}},
+    {k:"upx",l:"Best under",num:1,v:function(r){return r.sh&&r.sh.u?payout(r.sh.u.price):null},f:function(r){return side(r,"u")}},
+    {k:"eu",l:"Edge",num:1,v:function(r){return r.sv.eu},f:function(r){return r.sv.eu==null?"":pill(r.sv.eu)}},
+    {k:"best",l:"Lean",num:1,v:function(r){return r.sh&&r.sv.best>-9?r.sv.best:null},f:function(r){return !r.sh||r.sv.best===-9?"":r.sv.best<=0?'<span class="o">pass</span>':'<b>'+(r.sv.side==="o"?"Over":"Under")+'</b>'}},
+    {k:"mk",l:"Book says",num:1,v:function(r){return r.sh?r.sh.fairO:null},f:function(r){return r.sh&&r.sh.fairO!=null?'<span title="The over chance the two prices imply once the book\'s margin is taken out">'+p1(r.sh.fairO)+'</span>':""}},
+    {k:"n1",l:"Next rung",num:1,v:function(r){return r.sv.n1},f:function(r){return r.sh?'<span class="o">'+Math.ceil(r.sh.line+1)+'+</span> '+p1(r.sv.n1)+' <span class="o">'+fairOdds(r.sv.n1)+'</span>':""}},
+    {k:"n2",l:"Rung after",num:1,v:function(r){return r.sv.n2},f:function(r){return r.sh?'<span class="o">'+Math.ceil(r.sh.line+2)+'+</span> '+p1(r.sv.n2)+' <span class="o">'+fairOdds(r.sv.n2)+'</span>':""}},
+    {k:"h10",l:"Last 10",num:1,v:function(r){return r.sh&&r.sv.l10?r.sv.h10/r.sv.l10:null},f:function(r){return r.sh&&r.sv.l10?r.sv.h10+' of '+r.sv.l10+' over':""}},
+    {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
+    {k:"sr",l:"Shots / 60",num:1,v:function(r){return r.b.sr},f:function(r){return r.b.sr?f1(r.b.sr*3600):"–"}}];
+  var graded=priced.filter(function(r){return r.sv.act!=null}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null});
+  view.innerHTML='<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+    '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
+      '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span>'+
+      (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+'</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates over: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+'</span>':'')+'</div>'+
+    '<p class="note"><b>xSOG</b> is the shots on goal the model expects: his shot rate, weighted to recent games and leaning on unblocked attempts, times his expected ice time, adjusted for home ice and how many shots '+
+    'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
+    '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance and fair price for one and two more shots, to hold against the alternate lines in your book. '+
+    '<b>Last 10</b> is how often he cleared this line in his last ten games. On 2025-26, games the model never saw, its over chances matched what happened to within a point or two at every line from 0.5 to 4.5, with the highest-volume shooters at the highest lines landing a few points under what it said, so treat the top rungs with some caution. That shows the projection is sound, not that it beats the books: no shots prices were stored before now.</p>'+
+    (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{row:function(r){return ' class="pick'+(r.sv.lad?" ladr":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
+}
 
 /* ================= goals feed: every goal of the day, newest first ================= */
 var KIND=["Even","Power play","Short-handed","Empty net"];
@@ -1084,7 +1159,7 @@ function table(id,cols,rows,def,opts){
   if(!rows.length)h+='<tr><td colspan="'+cols.length+'" class="empty">Nothing matches these filters.</td></tr>';
   return h+'</tbody></table></div>'}
 
-var TABS={picks:vPicks,slate:vSlate,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,games:vGames};
+var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,games:vGames};
 function render(){
   if(!D)return;
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
@@ -1228,7 +1303,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
