@@ -348,6 +348,19 @@ tbody tr.glit .res.m{background:var(--goal);color:#fff}
 .jumps button span{color:var(--muted);font:500 12.5px var(--mono);margin-left:6px}
 .jumps button:hover{background:var(--raise);border-color:var(--accent)}
 .lcard{scroll-margin-top:12px}
+
+/* goals feed */
+.fwhen{font:500 13px var(--mono);color:var(--ink)}
+.lposi{font:500 11.5px var(--mono)}
+.tag.fg{border-color:color-mix(in srgb,var(--goal) 60%,var(--line));color:var(--goal-hot)}
+.tag.pk{background:var(--goal);border-color:var(--goal);color:#fff}
+.tag.nt.pkc{border-color:var(--goal);color:var(--goal-hot)}
+tbody tr.ffirst>td:first-child{box-shadow:inset 3px 0 0 var(--goal)}
+tbody tr.fpick>td,tbody tr.fpick:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 20%,var(--bg));animation:feedlight 1.6s ease-in-out infinite}
+tbody tr.fpick>td:first-child{box-shadow:inset 4px 0 0 var(--goal-hot)}
+@keyframes feedlight{0%,100%{background-color:color-mix(in srgb,var(--goal) 14%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 32%,var(--bg))}}
+@media(prefers-reduced-motion:reduce){tbody tr.fpick>td{animation:none}}
+td .bk{margin-left:6px}
 </style>
 
 <div class="wrap">
@@ -371,6 +384,7 @@ tbody tr.glit .res.m{background:var(--goal);color:#fff}
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="picks" id="tab-picks">Picks</button>
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
+      <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
       <button role="tab" data-tab="lineups" id="tab-lineups">Lineups</button>
       <button role="tab" data-tab="matchup" id="tab-matchup">Matchup</button>
       <button role="tab" data-tab="player" id="tab-player">Player</button>
@@ -779,6 +793,53 @@ function vLineups(){
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
 }
 
+
+/* ================= goals feed: every goal of the day, newest first ================= */
+var KIND=["Even","Power play","Short-handed","Empty net"];
+function clockOf(sec){var per=Math.min(Math.floor(sec/1200),sec>=3600?3:2)+1,x=sec-(per-1)*1200;if(sec>=3600){per=4;x=sec-3600}
+  return{per:per,txt:(per>3?"OT":"P"+per)+" "+Math.floor(x/60)+":"+("0"+x%60).slice(-2)}}
+function goalEvents(day){ // one entry per goal: the archive's or the NHL feed's list, or ESPN's while a game is live, or bare counts if neither has the detail yet
+  var out=[];matchups(day).forEach(function(m){var key=gameKey(m),L=LIVE[key]||{},base=m.g?m.g.ge:m.ge,ev=[];
+    if(base&&base.length)ev=base.map(function(e,i){var c=clockOf(e[2]);return{p:e[0],t:e[1]?m.h:m.a,sec:e[2],per:c.per,clk:c.txt,kind:e[3],a:[e[4],e[5]].filter(Boolean).map(pname),i:i}});
+    if(!m.g&&L.ge&&L.ge.length>ev.length)ev=L.ge.map(function(e,i){return{p:e.p,t:e.t,sec:e.sec,per:e.per,clk:e.clk,kind:e.kind,a:e.a,wall:e.wall,i:i}});
+    var gl=m.g?null:m.gl;if(gl){var seen={};ev.forEach(function(e){seen[e.p]=(seen[e.p]||0)+1}); // a goal the counts know about but the play list does not yet
+      Object.keys(gl).forEach(function(p){for(var k=seen[p]||0;k<gl[p];k++)ev.push({p:+p,t:IX.P[p]&&(IX.P[p].team===m.h||IX.P[p].team===m.a)?IX.P[p].team:"",sec:null,per:null,clk:"",kind:null,a:[],i:ev.length})})}
+    var t0=m.ts?Date.parse(m.ts):0;
+    ev.forEach(function(e){e.m=m;e.opp=e.t===m.h?m.a:e.t===m.a?m.h:"";e.home=e.t===m.h;e.first=0;
+      e.ord=e.wall||(t0+(e.sec==null?9e6:e.sec*2500))+e.i}); // clock time where known, else an estimate good enough to put games in order
+    var c=ev.filter(function(e){return e.sec!=null}).sort(function(x,y){return x.sec-y.sec||x.i-y.i})[0];if(c)c.first=1;
+    out=out.concat(ev)});
+  var n={};out.slice().sort(function(x,y){return x.ord-y.ord}).forEach(function(e){e.nth=n[e.p]=(n[e.p]||0)+1});
+  return out}
+function vFeed(){
+  var dl=dayList(),day=S.day,rows=slate(day),by={};rows.forEach(function(r){by[r.p]=r});
+  var lk=lockedRows(day,rows),pk=lk?lk.filter(function(r){return !r.isVoid}):rows.filter(function(r){return r.np}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,npCap(matchups(day).length)),isPk={};pk.forEach(function(r){isPk[r.p]=1});
+  var ev=goalEvents(day);ev.forEach(function(e){e.r=by[e.p]||null;e.pick=isPk[e.p]?1:0});
+  var scorers={},pkHit={},edgeHit={};ev.forEach(function(e){scorers[e.p]=1;if(e.pick)pkHit[e.p]=1;if(e.r&&e.r.ev>0)edgeHit[e.p]=1});
+  var ms=matchups(day),live=ms.filter(function(m){return !m.g&&/LIVE|CRIT/.test(m.st||"")}).length,started=ms.filter(function(m){return m.g||m.gl}).length;
+  var cols=[
+    {k:"ord",l:"When",v:function(e){return e.ord},f:function(e){return '<span class="fwhen">'+(e.clk?esc(e.clk):'<span class="o">just in</span>')+'</span>'+(e.wall?' <span class="o">'+esc(fmtClock(new Date(e.wall).toISOString()).replace(" ET",""))+'</span>':'')}},
+    {k:"t",l:"Team",v:function(e){return e.t},f:function(e){return e.t?tmL(e.t):"–"}},
+    {k:"name",l:"Player",v:function(e){return pname(e.p)},f:function(e){return '<span class="o lposi">'+esc(ppos(e.p))+'</span> <b>'+nm(e.p)+'</b>'+(e.first?' <span class="tag fg">FIRST GOAL</span>':'')+(e.pick?' <span class="tag pk">PICK</span>':'')}},
+    {k:"opp",l:"Opponent",v:function(e){return e.opp},f:function(e){return e.opp?'<span class="o">'+(e.home?"vs ":"@ ")+'</span>'+e.opp:"–"}},
+    {k:"kind",l:"Type",v:function(e){return e.kind==null?9:e.kind},f:function(e){return e.kind==null?'<span class="o">–</span>':KIND[e.kind]}},
+    {k:"nth",l:"Goal #",num:1,v:function(e){return e.nth}},
+    {k:"a",l:"Assists",v:function(e){return e.a.join(", ")},f:function(e){return e.a.length?'<span class="o">'+e.a.map(esc).join(", ")+'</span>':'<span class="o">'+(e.sec==null?"–":"unassisted")+'</span>'}},
+    {k:"pr",l:"Chance",num:1,v:function(e){return e.r?e.r.pr:null},f:function(e){return e.r?'<span class="px c'+level(e.r.pr)+'">'+p1(e.r.pr)+'</span>':"–"}},
+    {k:"fair",l:"Fair",num:1,v:function(e){return e.r?-e.r.pr:null},f:function(e){return e.r?fairOdds(e.r.pr):"–"}},
+    {k:"price",l:"Price",num:1,v:function(e){return e.r&&e.r.px?e.r.pay:null},f:function(e){return e.r&&e.r.px?'<b>'+pxH(e.r.px,e.r.name)+'</b>'+bkTag(e.r.px):"–"}},
+    {k:"ev",l:"Edge",num:1,v:function(e){return e.r&&e.r.px?e.r.ev:null},f:function(e){return e.r&&e.r.px?pill(e.r.ev):""}},
+    {k:"vs",l:"Value",num:1,v:function(e){return e.r&&e.r.px?e.r.vs:null},f:function(e){return e.r&&e.r.px&&e.r.vs!=null?vsTxt(e.r.vs):""}},
+    {k:"u",l:"Units",num:1,v:function(e){return e.nth===1&&e.r&&e.r.px?e.r.pay-1:null},f:function(e){return e.nth===1&&e.r&&e.r.px?"+"+(e.r.pay-1).toFixed(2):"–"}}];
+  view.innerHTML='<section class="panel"><div class="phead"><h2>Goals feed</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+    '<div class="bar"><span class="tag nt">'+ev.length+(ev.length===1?" goal":" goals")+' · '+Object.keys(scorers).length+' scorers</span>'+
+      (pk.length?'<span class="tag nt pkc">Nightly Picks: '+Object.keys(pkHit).length+' of '+pk.length+'</span>':'')+
+      '<span class="tag nt">Scorers with a positive edge: '+Object.keys(edgeHit).length+'</span>'+bookPicker(day)+'</div>'+
+    '<p class="note">Every goal on '+fmtD(day)+', newest first: '+started+' of '+ms.length+' games started'+(live?', '+live+' in progress':'')+'. Click a heading to sort. Rows that glow red are your Nightly Picks; rows with a red edge are the first goal of a game. Shootout goals are not counted, as the books do not count them. <b>Units</b> is what one unit on him at the price shown returned, on his first goal only. Chance, price and edge are the numbers the other tabs show for that day'+(dl.today===day?'; games in progress are checked every minute while this page is open':'')+'.</p>'+
+    table("feed",cols,ev,{k:"ord",dir:-1},{row:function(e){return ' class="pick'+(e.pick?" fpick":"")+(e.first?" ffirst":"")+'" data-player="'+e.p+'"'}})+
+    (ev.length?'':'<p class="empty">'+(started?"No goals yet.":"No game on this day has started.")+'</p>')+'</section>';
+}
+
 /* ================= shared aggregation for the research tabs ================= */
 function lastN(a){return S.n?a.slice(-S.n):a}
 function playerAgg(){ // per-player totals over the filtered games, honouring the Window switch per player
@@ -1014,7 +1075,7 @@ function table(id,cols,rows,def,opts){
   if(!rows.length)h+='<tr><td colspan="'+cols.length+'" class="empty">Nothing matches these filters.</td></tr>';
   return h+'</tbody></table></div>'}
 
-var TABS={picks:vPicks,slate:vSlate,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,games:vGames};
+var TABS={picks:vPicks,slate:vSlate,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,games:vGames};
 function render(){
   if(!D)return;
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
@@ -1119,13 +1180,27 @@ if(served){
 var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
 function eab(x){return EAB[x]||x}
 function applyLive(){var ch=0;(D.sched||[]).forEach(function(m){var L=LIVE[gameKey(m)];if(!L)return;
-  var sig=JSON.stringify([L.gl,L.sc,L.st]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;ch=1}});return ch}
+  var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;ch=1}});return ch}
 function liveBox(doc,t){ // goals by player id for one team, from ESPN's box score (shootout goals are a separate column and are left out)
   var out={};((doc.boxscore||{}).players||[]).forEach(function(tm){if(eab((tm.team||{}).abbreviation)!==t)return;
     (tm.statistics||[]).forEach(function(grp){var gi=(grp.keys||[]).indexOf("goals");if(gi<0)return;
       (grp.athletes||[]).forEach(function(a){var n=+((a.stats||[])[gi])||0;if(!n)return;var k=normName((a.athlete||{}).displayName),hit=null;
         (IX.names[k]||[]).forEach(function(p){if(ppos(p)!=="G"&&(!hit||(IX.P[p]&&IX.P[p].team===t)))hit=p});
         if(hit)out[hit]=n})})});return out}
+function livePlays(doc,m){ // ESPN's scoring plays as goal events; anything unexpected gives an empty list and the feed falls back to counts
+  try{var tid={},ath={};(((doc.header||{}).competitions||[])[0]||{competitors:[]}).competitors.forEach(function(c){tid[(c.team||{}).id]=eab((c.team||{}).abbreviation)});
+    ((doc.boxscore||{}).players||[]).forEach(function(tm){var t=eab((tm.team||{}).abbreviation);tid[(tm.team||{}).id]=t;(tm.statistics||[]).forEach(function(g){(g.athletes||[]).forEach(function(a){var x=a.athlete||{};ath[x.id]=[x.displayName,t]})})});
+    var out=[];(doc.plays||[]).forEach(function(p){if(!p.scoringPlay)return;var ty=String((p.type||{}).text||""),per=+((p.period||{}).number)||0;
+      if(/shootout/i.test(ty+" "+(p.text||""))||((p.period||{}).type||"")==="shootout"||(per>4&&m.gid&&String(m.gid).slice(4,6)!=="03"))return;
+      var ps=p.participants||[],sc=ps.filter(function(x){return /scor/i.test(x.type||"")})[0]||ps[0];if(!sc)return;
+      var id=(sc.athlete||{}).id,info=ath[id]||[(sc.athlete||{}).displayName,tid[(p.team||{}).id]];if(!info[0])return;
+      var t=tid[(p.team||{}).id]||info[1],hit=null;(IX.names[normName(info[0])]||[]).forEach(function(q){if(ppos(q)!=="G"&&(!hit||(IX.P[q]&&IX.P[q].team===t)))hit=q});if(!hit)return;
+      var st=String((p.strength||{}).text||ty),clk=String((p.clock||{}).displayValue||""),mm=clk.split(":"),inP=mm.length===2?(+mm[0])*60+(+mm[1]):0;
+      out.push({p:hit,t:t,per:per,clk:(per>3?"OT":"P"+per)+(clk?" "+clk:""),sec:(Math.max(per,1)-1)*1200+inP,
+        kind:/empty/i.test(st+(p.text||""))?3:/power/i.test(st)?1:/short/i.test(st)?2:0,
+        a:ps.filter(function(x){return x!==sc&&/assist/i.test(x.type||"")}).map(function(x){return (ath[(x.athlete||{}).id]||[])[0]||(x.athlete||{}).displayName||""}).filter(Boolean),
+        wall:p.wallclock?Date.parse(p.wallclock):null})});
+    return out}catch(_){return []}}
 function liveTick(){
   if(!D||document.hidden)return;var day=todayET(),ms=(D.sched||[]).filter(function(m){return m.d===day&&Date.parse(m.ts)<Date.now()+6e5});
   var yday=new Date(Date.now()-864e5*.5);ms=ms.concat((D.sched||[]).filter(function(m){return m.d<day&&!/FINAL/.test((LIVE[gameKey(m)]||{}).st||"")&&Date.parse(m.ts)>Date.now()-864e5*.4}));
@@ -1138,13 +1213,13 @@ function liveTick(){
       var key=gameKey(m),L=LIVE[key];if(L&&L.st==="FINAL")return;
       jobs.push(fetch(ESPN+"summary?event="+e.id,{cache:"no-store"}).then(function(r){return r.json()}).then(function(doc){
         var gl=liveBox(doc,a),g2=liveBox(doc,h);Object.keys(g2).forEach(function(p){gl[p]=g2[p]});
-        LIVE[key]={gl:gl,sc:[as,hs],st:st==="post"?"FINAL":"LIVE"}}).catch(function(){}))})});
+        LIVE[key]={gl:gl,sc:[as,hs],st:st==="post"?"FINAL":"LIVE",ge:livePlays(doc,m)}}).catch(function(){}))})});
     return Promise.all(jobs)}).then(function(){
       var now=new Date(),hh=now.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});$("liveMsg").hidden=false;$("liveMsg").textContent="Live goals checked "+hh;
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
-      if(applyLive()&&!typing&&["picks","slate","lineups"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
+      if(applyLive()&&!typing&&["picks","slate","lineups","feed"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);

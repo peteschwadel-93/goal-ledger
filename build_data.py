@@ -249,6 +249,7 @@ def build_season(season, d):
         P = {}   # player -> [fen, ixg_other, ixg_pp, eng, a1, hd]
         T = {t: {"fen": 0, "xg": 0.0, "ppxg": 0.0, "eng": 0} for t in (home, away)}
         GK = {}  # goalie -> [shots on goal faced, goals, xg faced]
+        GE = []  # every goal in order: [scorer, 1 if home, game seconds, 0 even / 1 power play / 2 short-handed / 3 empty net, first assist or 0, second assist or 0]
         ev = g[g.event_type.isin(["SHOT", "MISSED_SHOT", "GOAL"])]
         for r in ev.itertuples():
             t = side.get(r.event_team_type)
@@ -262,6 +263,11 @@ def build_season(season, d):
             en = en or opp_g == 0
             goal = r.event_type == "GOAL"
             rec = P.setdefault(p, [0, 0.0, 0.0, 0, 0, 0])
+            if goal:
+                a1 = int(r.event_player_2_id) if pd.notna(r.event_player_2_id) and r.event_player_2_type == "Assist" else 0
+                a2 = int(r.event_player_3_id) if a1 and pd.notna(r.event_player_3_id) else 0
+                GE.append([p, 1 if r.event_team_type == "home" else 0, int(r.game_seconds) if pd.notna(r.game_seconds) else 0,
+                           3 if en else 1 if own > opp else 2 if own < opp else 0, a1, a2])
             if goal and pd.notna(r.event_player_2_id) and r.event_player_2_type == "Assist":
                 P.setdefault(int(r.event_player_2_id), [0, 0.0, 0.0, 0, 0, 0])[4] += 1
             if en:   # shooting at an empty net says nothing about shot quality; only the goal is kept
@@ -329,7 +335,7 @@ def build_season(season, d):
         hg = int((fin.event_team_type == "home").sum())
         ag = int((fin.event_team_type == "away").sum())
         games.append({"id": int(gid), "d": str(g.game_date.iloc[0])[:10], "s": season, "po": 1 if str(gid)[4:6] == "03" else 0,
-                      "h": home, "a": away, "sc": [ag, hg], "ot": 1 if end > 3600 else 0, "p": rows, "t": tm, "g": gks, "l": ln, "bk": bk})
+                      "h": home, "a": away, "sc": [ag, hg], "ot": 1 if end > 3600 else 0, "p": rows, "t": tm, "g": gks, "l": ln, "bk": bk, "ge": GE})
     return games, names, pos
 
 
@@ -397,15 +403,29 @@ def parse_lineup(pbp, box):
             if g.get("starter") and t in lu:
                 lu[t]["st"] = int(g["playerId"])
     goals = {}   # goals so far by scorer; shootout attempts are not goals
+    events = []  # the same goals one by one, in the shape build_season stores them
+    home_id = (pbp.get("homeTeam") or {}).get("id")
     for p in pbp.get("plays") or []:
         if p.get("typeDescKey") == "goal" and (p.get("periodDescriptor") or {}).get("periodType") != "SO":
-            pid = (p.get("details") or {}).get("scoringPlayerId")
+            det = p.get("details") or {}
+            pid = det.get("scoringPlayerId")
             if pid:
                 goals[str(int(pid))] = goals.get(str(int(pid)), 0) + 1
+                try:
+                    is_home = 1 if det.get("eventOwnerTeamId") == home_id else 0
+                    mm, ss = str(p.get("timeInPeriod") or "0:00").split(":")
+                    sec = (int((p.get("periodDescriptor") or {}).get("number") or 1) - 1) * 1200 + int(mm) * 60 + int(ss)
+                    code = str(p.get("situationCode") or "1551").zfill(4)   # away goalie, away skaters, home skaters, home goalie
+                    ag_in, a_sk, h_sk, hg_in = (int(c) for c in code)
+                    own, opp, opp_goalie = (h_sk, a_sk, ag_in) if is_home else (a_sk, h_sk, hg_in)
+                    kind = 3 if not opp_goalie else 1 if own > opp else 2 if own < opp else 0
+                    events.append([int(pid), is_home, sec, kind, int(det.get("assist1PlayerId") or 0), int(det.get("assist2PlayerId") or 0)])
+                except Exception:
+                    pass
     score = [pbp["awayTeam"].get("score"), pbp["homeTeam"].get("score")]
     # a posted game roster is 18 skaters and 2 goalies a side; anything bigger is the full roster, not a lineup
     ok = all(15 <= len(v["sk"]) <= 19 and 1 <= len(v["g"]) <= 3 for v in lu.values())
-    return (lu if ok else None), who, pbp.get("gameState"), goals, score
+    return (lu if ok else None), who, pbp.get("gameState"), goals, score, events
 
 
 def load_lineups(sched):
@@ -420,7 +440,7 @@ def load_lineups(sched):
             box = None
             if pbp.get("gameState") in ("LIVE", "CRIT", "OFF", "FINAL"):
                 box = json.loads(get(NHL_GAME.format(gid=u["gid"], what="boxscore"), timeout=30)[0])
-            lu, names, state, goals, score = parse_lineup(pbp, box)
+            lu, names, state, goals, score, events = parse_lineup(pbp, box)
             if lu:
                 u["lu"] = lu
                 who.update(names)
@@ -428,6 +448,8 @@ def load_lineups(sched):
                 u["st"] = state
             if state in ("LIVE", "CRIT", "OFF", "FINAL"):
                 u["gl"], u["sc"] = goals, score
+                if len(events) == sum(goals.values()):
+                    u["ge"] = events
         except Exception as e:
             print(f"lineup for {u['a']}@{u['h']} unavailable: {e}", file=sys.stderr)
     return who
