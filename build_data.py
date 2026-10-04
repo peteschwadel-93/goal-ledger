@@ -854,9 +854,9 @@ def remember_odds(sched, old):
             print(f"odds unavailable: {msg}", file=sys.stderr)
     cutoff = (now - timedelta(days=120)).strftime("%Y-%m-%d")
     store = {k: v for k, v in store.items() if k == "left" or (k.split("|")[1] if k.startswith("lines|") else k[:10]) >= cutoff}
-    old = (now - timedelta(days=3)).strftime("%Y-%m-%d")
+    old = (now - timedelta(days=10)).strftime("%Y-%m-%d")   # backfilled games keep every book: the Tracker replays them
     for k, v in store.items():
-        if isinstance(v, dict) and v.get("s") and not v.get("slim") and k[:10] < old and not k.startswith("lines|"):
+        if isinstance(v, dict) and v.get("s") and not v.get("slim") and not v.get("hs") and k[:10] < old and not k.startswith("lines|"):
             v["s"], v["slim"] = slim_shots(v["s"]), 1
     if json.dumps(store, sort_keys=True) != before:
         with open(ODDS, "w", encoding="utf-8") as f:
@@ -865,9 +865,10 @@ def remember_odds(sched, old):
 
 
 def backfill_odds(games, starts, season):
-    """Closing anytime-goalscorer prices for finished games of one season, from The Odds API's historical snapshots.
+    """Closing anytime-goalscorer prices and shots-on-goal lines for finished games of one season, from The Odds API's
+    historical snapshots.
 
-    Runs only when ODDS_BACKFILL=1. Historical data needs a paid plan and costs 10 requests a game (plus one a day
+    Runs only when ODDS_BACKFILL=1. Historical data needs a paid plan and costs 10 requests a game for each market (plus one a day
     to find the games), so each game is asked for once, about 15 minutes before its puck drop, and the answer is
     kept in odds.json. Stops when fewer than 50 requests remain or after ODDS_BACKFILL_MAX games (default 80).
     """
@@ -883,35 +884,41 @@ def backfill_odds(games, starts, season):
     for g in games:
         k = f"{g['d']}|{g['a']}|{g['h']}"
         rec = store.get(k) or {}
-        if g["s"] == season and not rec.get("p") and not rec.get("hist") and g["id"] in starts:
-            todo.setdefault(g["d"], []).append((k, g, starts[g["id"]]))
+        need_p = not rec.get("p") and not rec.get("hist")          # goalscorer prices never fetched
+        need_s = "s" not in rec and not rec.get("hs")              # shots lines never fetched
+        if g["s"] == season and (need_p or need_s) and g["id"] in starts:
+            todo.setdefault(g["d"], []).append((k, g, starts[g["id"]], need_p))
     cap = int(os.environ.get("ODDS_BACKFILL_MAX", "80"))
     done, hd = 0, {"Accept": "application/json"}
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     hist = ODDS_API.replace("/v4/sports/", "/v4/historical/sports/")
     try:
         for day in sorted(todo):
-            first = min(t for _, _, t in todo[day])
+            first = min(t for _, _, t, _ in todo[day])
             raw, _ = get(f"{hist}/events?apiKey={key}&date={(first - timedelta(hours=1)).strftime(fmt)}", headers=hd)
             ids_ = {}
             for e in json.loads(raw).get("data") or []:
                 ids_[(TEAM_NAMES.get(e.get("away_team")), TEAM_NAMES.get(e.get("home_team")), (e.get("commence_time") or "")[:13])] = e["id"]
-            for k, g, t in todo[day]:
+            for k, g, t, need_p in todo[day]:
                 if done >= cap:
                     break
                 rec = store.get(k) or {}
-                rec["hist"] = 1
+                rec["hist"] = rec["hs"] = 1
+                markets = "player_goal_scorer_anytime,player_shots_on_goal" if need_p else "player_shots_on_goal"   # 10 requests a market
                 eid = ids_.get((g["a"], g["h"], t.strftime(fmt)[:13]))
                 if not eid:
                     eid = next((v for (a, h, _), v in ids_.items() if (a, h) == (g["a"], g["h"])), None)
                 if eid:
-                    raw, rh = get(f"{hist}/events/{eid}/odds?apiKey={key}&regions=us&markets=player_goal_scorer_anytime&oddsFormat=american"
+                    raw, rh = get(f"{hist}/events/{eid}/odds?apiKey={key}&regions=us&markets={markets}&oddsFormat=american"
                                   f"&date={(t - timedelta(minutes=15)).strftime(fmt)}", headers=hd)
                     doc = json.loads(raw)
-                    prices = parse_scorers(doc.get("data") or {})
+                    prices = parse_scorers(doc.get("data") or {}) if need_p else []
+                    shots = parse_shots(doc.get("data") or {})
+                    at = pd.to_datetime(doc.get("timestamp") or t, utc=True).tz_convert(ET).strftime("%Y-%m-%dT%H:%M")
                     if prices:
-                        at = pd.to_datetime(doc.get("timestamp") or t, utc=True).tz_convert(ET).strftime("%Y-%m-%dT%H:%M")
                         rec.update({"p": prices, "n": 1, "at": at, "eid": eid})
+                    if shots:
+                        rec.update({"s": shots, "sat": at, "eid": eid})
                     left = rh.get("x-requests-remaining")
                     if left is not None:
                         store["left"] = left
