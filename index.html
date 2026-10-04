@@ -482,7 +482,8 @@ function priceOf(o,name,day,pid){var man=S.px[day+"|"+pid];if(man)return{price:m
 function booksOn(day){ // every book that has posted a price on this day's games
   var b={};matchups(day).forEach(function(m){var o=oddsOf(m);((o&&o.p)||[]).forEach(function(x){Object.keys(x[5]||{}).forEach(function(k){b[k]=(b[k]||0)+1})})});
   return Object.keys(b).sort(function(x,y){return b[y]-b[x]})}
-function bookPicker(day){var l=booksOn(day);if(S.book&&l.indexOf(S.book)<0)l.push(S.book);if(!l.length)return "";
+function bookPicker(day){var l=booksOn(day);if(S.book&&l.indexOf(S.book)<0)l.push(S.book);
+  if(!l.length)return '<label class="f">Book <select id="selBook" disabled title="This day\'s prices were stored before per-book prices were kept, so only the best price is known."><option>Best of all books</option></select><span class="o" style="text-transform:none;letter-spacing:0">single-book prices arrive with the next price fetch</span></label>';
   return '<label class="f">Book <select id="selBook"><option value="">Best of all books</option>'+l.map(function(b){return '<option value="'+esc(b)+'"'+(b===S.book?" selected":"")+'>'+esc(b)+'</option>'}).join("")+'</select></label>'}
 function onRoster(t,p){var r=(D.rost||{})[t];return !r||r.indexOf(p)>=0}
 function goaliesOf(t){ // the team's goalies now: on its roster if that is known, otherwise whoever played or dressed in its last five games this season

@@ -607,8 +607,10 @@ def remember_odds(sched, old):
         k = f"{u['d']}|{u['a']}|{u['h']}"
         rec = store.get(k) or {}
         due = sum(1 for x in looks if hrs <= x)          # looks this game should have had by now
-        if rec.get("n", 0) >= due:
+        stale = bool(rec.get("p")) and any(len(x) < 6 for x in rec["p"])   # stored before every book's price was kept: fetch once more
+        if rec.get("n", 0) >= due and not stale:
             continue
+        due = max(due, rec.get("n", 0), 1)
         if rec.get("tried") and (now - datetime.fromisoformat(rec["tried"]).replace(tzinfo=ET)).total_seconds() < 2 * 3600:
             continue
         want.append((k, u, due))
