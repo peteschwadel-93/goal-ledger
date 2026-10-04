@@ -373,8 +373,13 @@ tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,va
 .sside{font:700 15px var(--display);letter-spacing:.06em;padding:5px 11px;border-radius:8px;border:1px solid var(--line);white-space:nowrap}
 .sside.o{color:var(--made,#4ade80);border-color:color-mix(in srgb,var(--made,#4ade80) 50%,var(--line))}
 .sside.u{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.rcard.win .sside{color:#fff;border-color:var(--goal);background:var(--goal)}
-tbody tr.spk>td:nth-child(2) b{color:var(--goal-hot)}
+/* a winning Shot Pick lights up in the dashboard's own blue; red is kept for goals */
+.rcard.swin{border-color:var(--accent);background:linear-gradient(180deg,var(--accent-soft),var(--bg) 60%);box-shadow:0 0 0 1px var(--accent),0 0 22px -6px var(--accent)}
+.rcard.swin .rname{color:var(--accent)}
+.rcard.swin .sside{color:var(--accent-ink,#06131c);border-color:var(--accent);background:var(--accent)}
+.rcard.swin .res.m{background:var(--accent);color:var(--accent-ink,#06131c)}
+.tag.spkt{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#06131c)}
+tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 
 .res.live{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--accent)}
 </style>
@@ -676,7 +681,7 @@ function shotPicks(day,rows){ // tonight's list: the saved one where the build h
   list.forEach(function(c){var act=shotAct(c.r);c.act=act?act[0]:null;c.live=act&&!act[1]?1:0;c.win=shotGrade(c.side,c.line,act);c.u=c.win==null?null:c.win>0?payout(c.price)-1:c.win<0?-1:0});
   return list}
 function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
-  return '<div class="rcard'+(c.win>0?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
+  return '<div class="rcard'+(c.win>0?" swin":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
     '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+
       (c.act==null?'':c.win==null?'<span class="res live">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · LIVE</span>':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+(c.live?" · LIVE":"")+'</span>')+
       (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g&&c.act==null&&Date.parse(c.ts)>Date.now()?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
@@ -893,7 +898,7 @@ function vShots(){
   function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':r.sv.fin?'<span class="res x">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
-    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag pk" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
+    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag spkt" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
     {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
     {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return '<b>'+f2(r.xs)+'</b>'}},
     {k:"act",l:"Shots",num:1,v:function(r){return r.sv.act},f:function(r){return r.sv.act==null?'<span class="o">–</span>':'<b>'+r.sv.act+'</b>'}},
