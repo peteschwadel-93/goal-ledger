@@ -310,6 +310,10 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .phd{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:0 12px;padding:0 12px 4px;font:500 10.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
 .phd .pv{display:grid;gap:0 12px;justify-items:end;white-space:nowrap}
 @media(max-width:760px){.phd{display:none}.prow .pv4.pvg{grid-template-columns:auto auto auto}}
+
+.phd .hs{cursor:pointer;border-radius:4px}.phd .hs:hover{color:var(--ink)}
+.phd .hs.on{color:var(--accent)}.phd .hs.on:after{content:" ▾"}
+.phd .hs:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 
 <div class="wrap">
@@ -618,11 +622,11 @@ function vPicks(){
   var tkHtml=shown.length&&started?'<span class="tag nt '+(tk.priced?(tk.u>0?"w":tk.u<0?"l":""):(tk.h?"w":""))+'" title="Goals settle a pick as a win straight away; a miss counts once his game is final. One unit on each pick at the best price.">'+tk.h+' OF '+tk.n+' SCORED'+(tk.priced?' · '+(tk.u>=0?"+":"−")+Math.abs(tk.u).toFixed(1)+'U'+(S.unit?' · '+(tk.u>=0?"+":"−")+'$'+Math.abs(tk.u*S.unit).toFixed(0):''):'')+(tk.open?' · '+tk.open+' STILL OPEN':'')+'</span>':'';
   var body='<section class="panel"><div class="phead"><h2>Top of the slate · '+({np:"tonight\'s picks",like:"most likely to score",value:"biggest edge over the price",blend:"best blend of chance and price"})[mode]+'</h2>'+tkHtml+'</div>'+
     (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':'')+(S.minP==="np"&&!priced&&rows.length?'<p class="note">Nightly Picks need prices, and none are loaded for this day, so this is the likelihood ranking.</p>':''):'<p class="empty">'+(rows.length?(np?"No bet clears all four tests on this slate. That is a real answer: some nights the prices are fair. Choose another view in the Show list to browse anyway.":"Nobody clears these filters."):"No games on this day.")+'</p>')+'</section>';
-  var gs=priced?S.gcSort:(S.gcSort==="toi"?"toi":"pr"),games=ms.map(function(m){return gameCard(m,rows,gs)}).join("");
-  var gopt=priced?[["vs","Blend"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["toi","Ice time"]]:[["pr","Chance"],["toi","Ice time"]];
+  var gs=priced?(S.gcSort==="toi"?"vs":S.gcSort):"pr",games=ms.map(function(m){return gameCard(m,rows,gs)}).join("");
+  var gopt=priced?[["vs","Value"],["pr","Chance"],["px","Shortest price"],["ev","Edge"]]:[["pr","Chance"]];
   view.innerHTML=hd+body+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-gc",gopt,gs)+'</label><label class="f">Show '+seg("seg-gcn",[[6,"Top six"],[0,"All skaters"]],S.gcN)+'</label></div>'+
-    '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score on the model\'s chance (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'.</p></section><div class="lgrid">'+games+'</div>':'');
+    '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'. Clicking a column heading on any card sorts every card by that column.</p></section><div class="lgrid">'+games+'</div>':'');
 }
 function pickCard(r,i,mode){
   var lv=level(r.pr),s=r.info.side[r.t],b=r.b,hit=r.res&&r.res[1]>0;
@@ -653,7 +657,7 @@ function gameCard(m,rows,mode){
     return '<div class="lteam"><h3>'+tmL(t)+(s.conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">model '+f2(s.model)+(s.scale!==1?" → "+f2(s.model*s.scale)+" goals":" goals")+'</span></h3>'+
       '<div class="kv f3"><span>Faces '+gkLine(info,t,op)+'</span></div>'+
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
-      '<div class="phd"><span></span><span>Player</span><span class="pv pv4 pvg"><span>Chance</span><span>Best price</span><span>Fair</span><span>Edge</span><span>Value</span></span></div>'+
+      '<div class="phd"><span></span><span>Player</span><span class="pv pv4 pvg">'+[["pr","Chance"],["px","Best price"],["","Fair"],["ev","Edge"],["vs","Value"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===mode?" on":"")+'" tabindex="0" data-gcs="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div>'+
       '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
         '<span class="pv pv4 pvg"><span class="px c'+lv+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span class="o">'+fairOdds(r.pr)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc">'+(r.vs==null?'':vsTxt(r.vs))+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
@@ -694,7 +698,7 @@ function vLineups(){
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var src=m.g?{g:m.g,l:m.g.l[t]||[]}:recentLines(t),used={};
       function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
-      var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><div class="phd"><span></span><span>Player</span><span class="pv pv4 pvl"><span>Chance</span><span>Best price</span><span>Edge</span><span>Value</span><span>Ice time</span></span></div><ol>';
+      var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–")+'</span></h3><div class="phd"><span></span><span class="hs'+(S.luSort==="lines"?" on":"")+'" tabindex="0" data-lus="lines">Player</span><span class="pv pv4 pvl">'+[["pr","Chance"],["px","Best price"],["ev","Edge"],["vs","Value"],["toi","Ice time"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===S.luSort?" on":"")+'" tabindex="0" data-lus="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div><ol>';
       var lab={},ord=[];(src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){lab[p]="L"+(i+1);ord.push(p)})});
       if(S.luSort==="lines"){ord.forEach(function(p){h+=li(p,lab[p])});
         my.filter(function(r){return !used[r.p]&&r.pos!=="D"}).forEach(function(r){h+=li(r.p,"F")});
@@ -974,12 +978,14 @@ document.addEventListener("click",function(e){
   if(id2==="topMore"){S.topN+=12;return render()}
   if(id2==="trkMore"){S.trkN+=30;return render()}
   if(id2==="gamesMore"||id2==="logMore"){S.logN+=30;return render()}
+  var hs=e.target.closest(".hs");if(hs){if(hs.dataset.gcs)S.gcSort=hs.dataset.gcs;else S.luSort=hs.dataset.lus;return render()}
   var pb=e.target.closest("[data-pl]");if(pb){S.player=+pb.dataset.pl;S.logN=30;return render()}
   var th=e.target.closest("th[data-sort]");if(th)return sortBy(th);
   var r=e.target.closest("[data-player]");if(r){S.player=+r.dataset.player;S.q="";S.logN=30;return go("player")}
 });
 document.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;
   var th=e.target.closest("th[data-sort]");if(th){e.preventDefault();return sortBy(th)}
+  var hs=e.target.closest&&e.target.closest(".hs");if(hs){e.preventDefault();if(hs.dataset.gcs)S.gcSort=hs.dataset.gcs;else S.luSort=hs.dataset.lus;return render()}
   var r=e.target.matches&&e.target.matches("[data-player]")?e.target:null;if(r){e.preventDefault();S.player=+r.dataset.player;S.q="";go("player")}});
 function sortBy(th){var p=th.dataset.sort.split("|"),cur=S.sort[p[0]];
   if(cur&&cur.k===p[1])cur.dir=-cur.dir;else if(!cur&&th.getAttribute("aria-sort"))S.sort[p[0]]={k:p[1],dir:th.getAttribute("aria-sort")==="descending"?1:-1};
