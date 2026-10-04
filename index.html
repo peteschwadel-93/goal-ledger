@@ -314,6 +314,14 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .phd .hs{cursor:pointer;border-radius:4px}.phd .hs:hover{color:var(--ink)}
 .phd .hs.on{color:var(--accent)}.phd .hs.on:after{content:" ▾"}
 .phd .hs:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* goal light on the player rows too: a scorer's row on the game cards and Lineups glows red */
+.lteam li.prow.win{background:linear-gradient(90deg,color-mix(in srgb,var(--goal) 34%,var(--bg)),var(--goal-soft) 55%,color-mix(in srgb,var(--goal) 12%,var(--bg)));box-shadow:inset 3px 0 0 var(--goal),inset 0 0 0 1px color-mix(in srgb,var(--goal) 55%,transparent),0 0 14px -6px var(--goal);animation:rowlight 1.6s ease-in-out infinite}
+@keyframes rowlight{0%,100%{box-shadow:inset 3px 0 0 var(--goal),inset 0 0 0 1px color-mix(in srgb,var(--goal) 45%,transparent),0 0 8px -6px var(--goal)}50%{box-shadow:inset 3px 0 0 var(--goal-hot),inset 0 0 0 1px var(--goal),0 0 20px -2px var(--goal)}}
+.lteam li.prow.win .pname{color:#fff;text-shadow:0 0 14px color-mix(in srgb,var(--goal) 70%,transparent)}
+.lteam li.prow.win .lpos{color:var(--goal-hot)}
+.lteam li.prow.win .res.m{background:var(--goal);color:#fff;box-shadow:0 0 10px var(--goal)}
+@media(prefers-reduced-motion:reduce){.lteam li.prow.win,.rcard.win{animation:none}}
 </style>
 
 <div class="wrap">
@@ -674,7 +682,7 @@ function gameCard(m,rows,mode){
       '<div class="kv f3"><span>Faces '+gkLine(info,t,op)+'</span></div>'+
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
       '<div class="phd"><span></span><span>Player</span><span class="pv pv4 pvg">'+[["pr","Chance"],["px","Best price"],["","Fair"],["ev","Edge"],["vs","Value"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===mode?" on":"")+'" tabindex="0" data-gcs="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div>'+
-      '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
+      '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow'+(r.res&&r.res[1]>0?' win':'')+'" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
         '<span class="pv pv4 pvg"><span class="px c'+lv+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span class="o">'+fairOdds(r.pr)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc">'+(r.vs==null?'':vsTxt(r.vs))+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
 
@@ -719,7 +727,7 @@ function vLineups(){
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var dfl=m.g?null:dfLines(t),src=m.g?{g:m.g,l:m.g.l[t]||[]}:dfl?{df:1,l:dfl}:recentLines(t),used={};
       if(src&&!src.df){var toi=function(tr){var s=0;tr.forEach(function(p){if(by[p])s+=by[p].b.tev+by[p].b.tpp});return s/tr.length};src={g:src.g,l:src.l.slice().sort(function(x,y){return toi(y)-toi(x)})}}
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o" title="Fair price: the odds that match the model\'s chance">'+fairOdds(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow'+(r&&r.res&&r.res[1]>0?' win':'')+'" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o" title="Fair price: the odds that match the model\'s chance">'+fairOdds(r.pr)+'</span><span class="pxb"><b>'+(r.px?fmtP(r.px.price):'<span class="o">–</span>')+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">'+(src&&src.df?'projected lines · Daily Faceoff':'lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–"))+'</span></h3><div class="phd"><span></span><span class="hs'+(S.luSort==="lines"?" on":"")+'" tabindex="0" data-lus="lines">Player</span><span class="pv pv4 pvl">'+[["pr","Chance"],["","Fair"],["px","Best price"],["ev","Edge"],["vs","Value"],["toi","Ice time"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===S.luSort?" on":"")+'" tabindex="0" data-lus="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div><ol>';
       var lab={},ord=[];(src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){lab[p]="L"+(i+1);ord.push(p)})});
       if(S.luSort==="lines"){ord.forEach(function(p){h+=li(p,lab[p])});
