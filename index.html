@@ -518,6 +518,7 @@ function slate(day){
           r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books)}
         out.push(r)})})});
   return out}
+function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} // one pick for every three games on the slate, five at most
 function ranked(rows,mode){var k=mode==="np"?"vsS":mode==="value"?"ev":mode==="blend"?"vs":"pr";
   return rows.slice().sort(function(a,b){var x=a[k],y=b[k];if(x==null&&y==null)return b.pr-a.pr;if(x==null)return 1;if(y==null)return -1;return y-x})}
 function dayList(){var sd={},pd={},today=todayET();(D.sched||[]).forEach(function(x){if(x.d>=today)sd[x.d]=1});D.games.forEach(function(g){pd[g.d]=1});
@@ -550,7 +551,7 @@ function vPicks(){
   var pool=rows.filter(function(r){return (S.pos==="all"||(S.pos==="D")===(r.pos==="D"))&&(np?r.np:r.pr>=(+S.minP||0))});
   var mode=np?"np":priced?S.rank:"like",top=ranked(pool,mode);
   if(mode!=="like")top=top.filter(function(r){return r.px});
-  var npAll=top.length;if(np)top=top.slice(0,C.np.cap);
+  var npAll=top.length,cap=npCap(ms.length),capW=["","one","two","three","four","five"][cap];if(np)top=top.slice(0,cap);
   var hasLines=rows.some(function(r){return r.info.mk});
   var played=rows.some(function(r){return r.res&&r.info.m.g});
   var hd='<section class="panel"><div class="phead"><h2>Picks</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
@@ -559,7 +560,7 @@ function vPicks(){
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
     (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">'+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
-    (np?'<b>Nightly Picks</b> are the five strongest bets that survive four tests, best first'+(npAll>C.np.cap?" ("+npAll+" skaters passed tonight; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and only the top five are kept, so a night never turns into a list of everyone with a sliver of edge. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
+    (np?'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
     (np?'':'<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. ')+
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
@@ -850,14 +851,14 @@ function vTracker(){
     '<p class="note">No prices are stored for '+lab+'. Prices are kept from the day the site started fetching them; earlier games in the current season can be loaded once from Actions → Run workflow with the past-prices box ticked.</p>';
   // Nightly Picks, graded: every finished day replayed through the same four tests the Picks page applies
   var NP={n:0,h:0,u:0,exp:0,days:[]},T3={n:0,h:0,u:0};
-  Object.keys(byDay).sort().reverse().forEach(function(d){var pk=slate(d).filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,C.np.cap);if(!pk.length)return;
+  Object.keys(byDay).sort().reverse().forEach(function(d){var pk=slate(d).filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,npCap(byDay[d].games));if(!pk.length)return;
     var x={d:d,pk:pk,h:0,u:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
     NP.n+=pk.length;NP.h+=x.h;NP.u+=x.u;NP.days.push(x)});
   var run=0;NP.days.slice().reverse().forEach(function(x){run+=x.u;x.run=run});
   function un(u){return (u>=0?"+":"")+f1(u)}
   function usd(u){var v=u*S.unit;return (v<0?"−":"+")+"$"+Math.abs(v).toFixed(2)}
   var npHtml=NP.n?'<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2><label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label></div>'+
-    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the five strongest by value score. One unit on each, at the best price. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
+    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the strongest by value score: one pick for every three games that day, five at most. One unit on each, at the best price. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
     '<div class="kv"><span>All picks <b>'+NP.h+" of "+NP.n+'</b> · '+pct(NP.h,NP.n)+' <span class="o">(expected '+pct(NP.exp,NP.n)+')</span></span><span>Units <b>'+un(NP.u)+'</b></span><span>Staked <b>$'+(NP.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(NP.u>=0?"made":"miss")+')">'+usd(NP.u)+'</b></span><span>ROI (return per bet) '+pill(NP.u/NP.n)+'</span><span>Days <b>'+NP.days.length+'</b></span></div>'+
     '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th class="n">Profit</th><th class="n">Running</th><th>The picks, best first</th></tr></thead><tbody>'+
     NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
