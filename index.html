@@ -383,6 +383,10 @@ tbody tr.ladr>td,tbody tr.ladr:nth-child(odd)>td{background:color-mix(in srgb,va
 tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 
 .res.live{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--accent)}
+
+/* shots table results: outlined green for over the line, outlined red for under */
+.res.so{color:var(--made,#4ade80);border-color:color-mix(in srgb,var(--made,#4ade80) 60%,var(--line))}
+.res.su{color:var(--goal-hot);border-color:color-mix(in srgb,var(--goal) 60%,var(--line))}
 </style>
 
 <div class="wrap">
@@ -896,7 +900,7 @@ function vShots(){
   var gr=picks.filter(function(c){return c.win!=null}),won=gr.filter(function(c){return c.win>0}).length,un=0;gr.forEach(function(c){un+=c.u});
   var priced=all.filter(function(r){return r.sh}),show=S.slateAll?all.filter(function(r){return r.xs>=1||r.sh}):priced,lads=priced.filter(function(r){return r.sv.lad});
   function side(r,k){var h=r.sh,px=h&&h[k];return px?'<b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over":" under"))+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span>':'<span class="o">–</span>'}
-  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER'+(r.sv.lad&&a>r.sh.line+1?(a>r.sh.line+2?" · +2 RUNGS":" · +1 RUNG"):"")+'</span>':r.sv.fin?'<span class="res x">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
+  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res so">'+a+' · OVER'+(r.sv.lad&&a>r.sh.line+1?(a>r.sh.line+2?" · +2 RUNGS":" · +1 RUNG"):"")+'</span>':r.sv.fin?'<span class="res su">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
     {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag spkt" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
