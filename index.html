@@ -350,7 +350,7 @@ var C={gm:.99,   // each older game counts 1% less than the one after it (half w
           things the model does not. The market's chance is the middle price across books with the bookmaker margin taken out:
           over the first 21 games of 2026-27 the middle price implied 1.16 goals for every one scored. Both numbers should be
           re-measured once a few hundred games of prices are stored. */
-       np:{w:.5,vig:1.15,minP:.15,books:3,out:.85}};
+       np:{w:.5,vig:1.15,minP:.15,books:3,out:.85,cap:5}};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function pname(p){var x=D.players[p];return x?x[0]:"#"+p}
 function ppos(p){var x=D.players[p];return x?x[1]:""}
@@ -522,6 +522,7 @@ function unitTag(u){return u===1?'<span class="tag q">PP1</span>':u===2?'<span c
 function injTag(r){var s="";if(r.inj)s+='<span class="tag l" title="'+esc(r.inj.c||r.inj.ty||"")+'">'+esc(r.inj.st.toUpperCase())+'</span>';if(r.back)s+='<span class="tag" title="Did not dress in the team\'s last game; pencilled in for a player who is out.">NOT IN LAST LINEUP</span>';return s}
 function grade(v){return v>=.5?"p4":v>=.25?"p3":v>=.1?"p2":v>0?"p1":v>-.1?"n1":v>-.25?"n2":"n3"} // seven steps from deep red through neutral to bright green
 function pill(v){return '<span class="tag eg '+grade(v)+'">'+(v>0?"+":"")+Math.round(v*100)+'%</span>'}
+function pill2(u){return '<span class="tag eg '+(u>=3?"p3":u>=1?"p2":u>0?"p1":u>-1?"n1":u>-3?"n2":"n3")+'">'+(u>=0?"+":"")+f1(u)+'</span>'}
 function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':pill(r.ev)}
 function resTag(r){if(!r.res)return "";return r.res[1]>0?'<span class="res m">'+(r.res[1]>1?r.res[1]+" GOALS":"GOAL")+'</span>':'<span class="res x">NO GOAL</span>'}
 function gkLine(info,t,op){var s=info.side[t],g=s.gk;if(!g.p)return '<span class="o">no goalie on record</span>';
@@ -537,6 +538,7 @@ function vPicks(){
   var pool=rows.filter(function(r){return (S.pos==="all"||(S.pos==="D")===(r.pos==="D"))&&(np?r.np:r.pr>=(+S.minP||0))});
   var mode=np?"np":priced?S.rank:"like",top=ranked(pool,mode);
   if(mode!=="like")top=top.filter(function(r){return r.px});
+  var npAll=top.length;if(np)top=top.slice(0,C.np.cap);
   var hasLines=rows.some(function(r){return r.info.mk});
   var played=rows.some(function(r){return r.res&&r.info.m.g});
   var hd='<section class="panel"><div class="phead"><h2>Picks</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
@@ -545,7 +547,7 @@ function vPicks(){
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
     (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">'+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
-    (np?'<b>Nightly Picks</b> are the bets that survive four tests, best first. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
+    (np?'<b>Nightly Picks</b> are the five strongest bets that survive four tests, best first'+(npAll>C.np.cap?" ("+npAll+" skaters passed tonight; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and only the top five are kept, so a night never turns into a list of everyone with a sliver of edge. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
     (np?'':'<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. ')+
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
@@ -834,6 +836,20 @@ function vTracker(){
     '<div>'+band("Model's chance","pr",[[0,.1],[.1,.2],[.2,.3],[.3,.4],[.4,9]],pc)+'</div></div>'+
     '<p class="note">This is where a betting threshold comes from: look for the edge and chance rows that stay green as games pile up. A few dozen games is far too few to trust; a row needs a few hundred bets before its return means much. The best price across books flatters the result a little if you only bet at one book.</p>':
     '<p class="note">No prices are stored for '+lab+'. Prices are kept from the day the site started fetching them; earlier games in the current season can be loaded once from Actions → Run workflow with the past-prices box ticked.</p>';
+  // Nightly Picks, graded: every finished day replayed through the same four tests the Picks page applies
+  var NP={n:0,h:0,u:0,exp:0,days:[]},T3={n:0,h:0,u:0};
+  Object.keys(byDay).sort().reverse().forEach(function(d){var pk=slate(d).filter(function(r){return r.np&&r.res&&r.info.m.g}).sort(function(a,b){return b.vsS-a.vsS}).slice(0,C.np.cap);if(!pk.length)return;
+    var x={d:d,pk:pk,h:0,u:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
+    NP.n+=pk.length;NP.h+=x.h;NP.u+=x.u;NP.days.push(x)});
+  function un(u){return (u>=0?"+":"")+f1(u)}
+  var npHtml=NP.n?'<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div>'+
+    '<p class="note">Every finished day with stored prices, replayed exactly as the Picks page does it: the model averaged with the market, 15% or better, a positive edge at the best price, three or more books, and then only the five strongest by value score. One unit on each. Past days use the skaters who actually dressed, the goalie who actually started and the last price fetched before puck drop, so this is slightly kinder than what you would have seen that afternoon.</p>'+
+    '<div class="kv"><span>All picks <b>'+NP.h+" of "+NP.n+'</b> · '+pct(NP.h,NP.n)+' <span class="o">(expected '+pct(NP.exp,NP.n)+')</span></span><span>Units <b>'+un(NP.u)+'</b></span><span>Return a bet '+pill(NP.u/NP.n)+'</span>'+
+    '<span>Top three each day <b>'+T3.h+" of "+T3.n+'</b> · <b>'+un(T3.u)+'</b> units '+pill(T3.u/T3.n)+'</span><span>Days <b>'+NP.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th>The picks, best first</th></tr></thead><tbody>'+
+    NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="cell" style="white-space:normal">'+
+      x.pk.map(function(r){return '<span class="pick" data-player="'+r.p+'" style="white-space:nowrap">'+esc(r.name)+' <span class="o">'+fmtP(r.px.price)+'</span> <span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>':
+    '<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div><p class="note">No finished day in '+lab+' has stored prices yet, so there are no graded picks.</p></section>';
   var more=dayRows.length>S.trkN;
   var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th></tr></thead><tbody>'+
     dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td></tr>'}).join("")+'</tbody></table></div>';
@@ -841,7 +857,7 @@ function vTracker(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    '<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
