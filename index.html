@@ -322,6 +322,14 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .lteam li.prow.win .lpos{color:var(--goal-hot)}
 .lteam li.prow.win .res.m{background:var(--goal);color:#fff;box-shadow:0 0 10px var(--goal)}
 @media(prefers-reduced-motion:reduce){.lteam li.prow.win,.rcard.win{animation:none}}
+
+/* and on the Slate table */
+tbody tr.glit>td,tbody tr.glit:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 16%,var(--bg));border-top:1px solid color-mix(in srgb,var(--goal) 55%,transparent);border-bottom:1px solid color-mix(in srgb,var(--goal) 55%,transparent);animation:celllight 1.6s ease-in-out infinite}
+tbody tr.glit>td:first-child{box-shadow:inset 3px 0 0 var(--goal);background:color-mix(in srgb,var(--goal) 30%,var(--bg))}
+@keyframes celllight{0%,100%{background-color:color-mix(in srgb,var(--goal) 13%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 27%,var(--bg))}}
+tbody tr.glit>td:first-child b,tbody tr.glit>td:first-child{color:#fff;text-shadow:0 0 14px color-mix(in srgb,var(--goal) 70%,transparent)}
+tbody tr.glit .res.m{background:var(--goal);color:#fff;box-shadow:0 0 10px var(--goal)}
+@media(prefers-reduced-motion:reduce){tbody tr.glit>td{animation:none}}
 </style>
 
 <div class="wrap">
@@ -711,7 +719,7 @@ function vSlate(){
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">Every skater on the slate against '+(S.book?'the anytime-goalscorer price at <b>'+esc(S.book)+'</b>':'the best anytime-goalscorer price across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
     'The price box takes American odds: type one to override the feed or to fill a gap, clear it to go back. <b>Matchup</b> is everything outside the player himself multiplied together: home ice, the defense and goalie he faces, rest, and the market scaling. Click a name for the full working.</p>'+
-    table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" near":"")+'" data-player="'+r.p+'"'}})+'</section>';
+    table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" glit":"")+'" data-player="'+r.p+'"'}})+'</section>';
 }
 
 /* ================= Lineups ================= */
