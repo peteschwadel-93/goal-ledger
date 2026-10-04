@@ -315,21 +315,20 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .phd .hs.on{color:var(--accent)}.phd .hs.on:after{content:" ▾"}
 .phd .hs:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* goal light on the player rows too: a scorer's row on the game cards and Lineups glows red */
-.lteam li.prow.win{background:linear-gradient(90deg,color-mix(in srgb,var(--goal) 34%,var(--bg)),var(--goal-soft) 55%,color-mix(in srgb,var(--goal) 12%,var(--bg)));box-shadow:inset 3px 0 0 var(--goal),inset 0 0 0 1px color-mix(in srgb,var(--goal) 55%,transparent),0 0 14px -6px var(--goal);animation:rowlight 1.6s ease-in-out infinite}
-@keyframes rowlight{0%,100%{box-shadow:inset 3px 0 0 var(--goal),inset 0 0 0 1px color-mix(in srgb,var(--goal) 45%,transparent),0 0 8px -6px var(--goal)}50%{box-shadow:inset 3px 0 0 var(--goal-hot),inset 0 0 0 1px var(--goal),0 0 20px -2px var(--goal)}}
-.lteam li.prow.win .pname{color:#fff;text-shadow:0 0 14px color-mix(in srgb,var(--goal) 70%,transparent)}
+/* goal light on the player rows too: a scorer's row on the game cards and Lineups glows red.
+   The pulse fades one overlay's opacity, which the browser can do without repainting the row. */
+.lteam li.prow.win{position:relative;background:linear-gradient(90deg,color-mix(in srgb,var(--goal) 34%,var(--bg)),var(--goal-soft) 55%,color-mix(in srgb,var(--goal) 12%,var(--bg)));box-shadow:inset 3px 0 0 var(--goal),inset 0 0 0 1px color-mix(in srgb,var(--goal) 55%,transparent)}
+.lteam li.prow.win::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:color-mix(in srgb,var(--goal) 22%,transparent);box-shadow:0 0 16px -2px var(--goal);opacity:0;animation:rowlight 1.6s ease-in-out infinite;will-change:opacity}
+@keyframes rowlight{0%,100%{opacity:0}50%{opacity:1}}
+.lteam li.prow.win .pname{color:#fff}
 .lteam li.prow.win .lpos{color:var(--goal-hot)}
-.lteam li.prow.win .res.m{background:var(--goal);color:#fff;box-shadow:0 0 10px var(--goal)}
-@media(prefers-reduced-motion:reduce){.lteam li.prow.win,.rcard.win{animation:none}}
+.lteam li.prow.win .res.m{background:var(--goal);color:#fff}
+@media(prefers-reduced-motion:reduce){.lteam li.prow.win::after{animation:none}}
 
-/* and on the Slate table */
-tbody tr.glit>td,tbody tr.glit:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 16%,var(--bg));border-top:1px solid color-mix(in srgb,var(--goal) 55%,transparent);border-bottom:1px solid color-mix(in srgb,var(--goal) 55%,transparent);animation:celllight 1.6s ease-in-out infinite}
-tbody tr.glit>td:first-child{box-shadow:inset 3px 0 0 var(--goal);background:color-mix(in srgb,var(--goal) 30%,var(--bg))}
-@keyframes celllight{0%,100%{background-color:color-mix(in srgb,var(--goal) 13%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 27%,var(--bg))}}
-tbody tr.glit>td:first-child b,tbody tr.glit>td:first-child{color:#fff;text-shadow:0 0 14px color-mix(in srgb,var(--goal) 70%,transparent)}
-tbody tr.glit .res.m{background:var(--goal);color:#fff;box-shadow:0 0 10px var(--goal)}
-@media(prefers-reduced-motion:reduce){tbody tr.glit>td{animation:none}}
+/* and on the Slate table: steady red, no animation, because a full slate can have dozens of scorers and hundreds of cells */
+tbody tr.glit>td,tbody tr.glit:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 18%,var(--bg))}
+tbody tr.glit>td:first-child{box-shadow:inset 3px 0 0 var(--goal);background:color-mix(in srgb,var(--goal) 30%,var(--bg));color:#fff}
+tbody tr.glit .res.m{background:var(--goal);color:#fff}
 </style>
 
 <div class="wrap">
