@@ -86,7 +86,7 @@ table{border-collapse:collapse;width:100%;font-size:14.5px}
 th,td{padding:11px 16px;text-align:left;white-space:nowrap}
 th{font:500 11px/1.2 var(--body);text-transform:uppercase;letter-spacing:.11em;color:var(--muted);vertical-align:bottom;border-bottom:1px solid var(--line);padding-block:12px}
 tbody tr+tr td{border-top:1px solid var(--line)}
-tbody tr:nth-child(odd) td{background:color-mix(in srgb,var(--surface) 55%,transparent)}
+tbody tr:nth-child(odd) td{background:color-mix(in srgb,var(--surface) 55%,var(--bg))}
 th[tabindex]{cursor:pointer}
 th[tabindex]:hover{color:var(--ink)}
 th[aria-sort]{color:var(--accent)}
@@ -407,6 +407,15 @@ tbody tr.spk>td:nth-child(2) b{color:var(--accent)}
 .dropped{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:13.5px}
 .dropped small{flex-basis:100%;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
 .dropped .pick{cursor:pointer;white-space:nowrap}
+
+/* wide tables: the first three columns stay anchored while the rest scrolls sideways */
+table.pin3 th:nth-child(-n+3),table.pin3 td:nth-child(-n+3){position:sticky;z-index:2}
+table.pin3 th:nth-child(1),table.pin3 td:nth-child(1){left:0}
+table.pin3 th:nth-child(2),table.pin3 td:nth-child(2){left:var(--p1,0px)}
+table.pin3 th:nth-child(3),table.pin3 td:nth-child(3){left:var(--p2,0px)}
+:where(table.pin3) td:nth-child(-n+3){background:var(--bg)}
+table.pin3 thead th:nth-child(-n+3){z-index:3;background:var(--pinhead,var(--bg))}
+table.pin3 th:nth-child(3)::after,table.pin3 td:nth-child(3)::after{content:"";position:absolute;top:0;bottom:0;right:-1px;width:1px;background:var(--line);box-shadow:6px 0 10px -2px rgba(0,0,0,.55)}
 </style>
 
 <div class="wrap">
@@ -874,7 +883,7 @@ function vSlate(){
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">Every skater on the slate against '+(S.book?'the anytime-goalscorer price at <b>'+esc(S.book)+'</b>':'the best anytime-goalscorer price across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
     'Hover over a price, or tap it, to see every book\'s price for that player. <b>Matchup</b> is everything outside the player himself multiplied together: home ice, the defense and goalie he faces, rest, and the market scaling. Click a name for the full working.</p>'+
-    table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" glit":"")+'" data-player="'+r.p+'"'}})+'</section>';
+    table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{pin:1,row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" glit":"")+'" data-player="'+r.p+'"'}})+'</section>';
 }
 
 /* ================= Lineups ================= */
@@ -971,7 +980,7 @@ function vShots(){
     'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
     '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance of one and two more shots; the three columns after each are its fair price, the best price a book posts on that rung, and the edge. Hover over the price for every book. Not every book posts alternate lines, so a rung can have a price from one or two books or none. Remember the model runs a few points hot on the top rungs, so a thin edge there is probably not an edge. '+
     '<b>Last 10</b> is how often he cleared this line in his last ten games. On 2025-26, games the model never saw, its over chances matched what happened to within a point or two at every line from 0.5 to 4.5, with the highest-volume shooters at the highest lines landing a few points under what it said, so treat the top rungs with some caution. That shows the projection is sound, not that it beats the books: no shots prices were stored before now.</p>'+
-    (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{row:function(r){return ' class="pick'+(r.sv.lad?" ladr":"")+(isPk[r.p]?" spk":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
+    (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{pin:1,row:function(r){return ' class="pick'+(r.sv.lad?" ladr":"")+(isPk[r.p]?" spk":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
 }
 
 /* ================= goals feed: every goal of the day, newest first ================= */
@@ -1330,7 +1339,7 @@ function table(id,cols,rows,def,opts){
   rows=rows.slice().sort(function(a,b){var x=c.v(a),y=c.v(b),nx=x==null||x!==x,ny=y==null||y!==y;if(nx&&ny)return 0;if(nx)return 1;if(ny)return -1;
     var d=typeof x==="string"?x.localeCompare(y):x-y;return st.dir*d||0});
   if(opts.limit)rows=rows.slice(0,opts.limit);
-  var h='<div class="tw"><table><thead><tr>'+cols.map(function(x){
+  var h='<div class="tw"><table'+(opts.pin?' class="pin3"':'')+'><thead><tr>'+cols.map(function(x){
     return '<th tabindex="0" data-sort="'+id+'|'+x.k+'"'+(x.num?' class="n"':'')+(x.k===st.k?' aria-sort="'+(st.dir<0?"descending":"ascending")+'"':'')+'>'+x.l+'</th>'}).join("")+'</tr></thead><tbody>';
   h+=rows.map(function(r){var a=opts.row?opts.row(r):"";return '<tr'+a+'>'+cols.map(function(x){return '<td'+(x.num?' class="n"':'')+'>'+(x.f?x.f(r):esc(x.v(r)))+'</td>'}).join("")+'</tr>'}).join("");
   if(!rows.length)h+='<tr><td colspan="'+cols.length+'" class="empty">Nothing matches these filters.</td></tr>';
@@ -1345,9 +1354,14 @@ function render(){
   $("filters").hidden=["picks","slate","lineups","tracker"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["picks","slate","lineups","tracker"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
-  TABS[S.tab]();
+  TABS[S.tab]();pinFix();
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
+function pinFix(){ // team, player and opponent stay put while the rest of a wide table scrolls sideways: each needs to know how wide the ones before it are
+  [].forEach.call(document.querySelectorAll("table.pin3"),function(t){var th=t.querySelectorAll("thead th");if(th.length<3)return;
+    function fit(){var a=th[0].getBoundingClientRect().width,b=th[1].getBoundingClientRect().width;t.style.setProperty("--p1",a+"px");t.style.setProperty("--p2",(a+b)+"px")}
+    fit();if(!t._ro&&typeof ResizeObserver!=="undefined"){t._ro=new ResizeObserver(fit);t._ro.observe(th[0]);t._ro.observe(th[1])}})} // logos and fonts arrive after the first draw and change the widths
+if(typeof window!=="undefined"&&window.addEventListener)window.addEventListener("resize",pinFix);
 function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank,unit:S.unit,book:S.book}))}catch(_){}}
 function go(tab){S.tab=tab;try{history.replaceState(null,"","#"+tab)}catch(_){}render();window.scrollTo(0,0)}
 
