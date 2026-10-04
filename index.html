@@ -785,7 +785,7 @@ function gameWhen(m){return m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||"")}
 function pickCard(r,i,mode){
   var lv=level(r.pr),s=r.info.side[r.t],b=r.b,hit=r.res&&r.res[1]>0;
   return '<div class="rcard'+(hit?" win":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span>'+chev(lv,"sm")+'</div>'+
-    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.isVoid?'<span class="tag l" title="He was a locked pick but is not in the lineup. Books void the bet.">DID NOT DRESS · VOID</span>':'')+(r.locked?'<span class="tag">LOCKED</span>':r.openTs?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(r.openTs).replace(" ET",""))+'</span>':'')+(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g||r.locked?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+resTag(r)+(mode==="np"?(r.isVoid?'<span class="tag l" title="He was a locked pick but is not in the lineup. Books void the bet.">DID NOT DRESS · VOID</span>':'')+(r.locked?'<span class="tag">LOCKED</span>':(r.openTs||(!r.info.m.g&&r.info.m.ts&&Date.parse(r.info.m.ts)>Date.now()))?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(r.openTs||r.info.m.ts).replace(" ET",""))+'</span>':'')+(r.outl?'<span class="tag q" title="The best price is well out of line with the other books.">CHECK PRICE</span>':'')+(r.info.m.g||r.locked?'':s.conf?'<span class="tag w">LINEUP POSTED</span>':'<span class="tag">PROJECTED LINEUP</span>'):'')+'</div></div>'+
     (mode==="np"?'<div class="rq"><span>Best price</span><span class="px" style="font-size:20px;color:var(--ink)">'+pxH(r.px,r.name)+' <span class="o" style="font-size:12.5px;font-weight:400">'+esc(r.px.book)+(r.px.one?"":(r.px.n>1?" of "+r.px.n:""))+'</span></span>'+
       '<span>Edge</span><span>'+pill(r.evS)+'</span>'+
       '<span>Value score</span><span>'+vsTxt(r.vsS)+'</span>'+
@@ -896,7 +896,7 @@ function vShots(){
   var gr=picks.filter(function(c){return c.win!=null}),won=gr.filter(function(c){return c.win>0}).length,un=0;gr.forEach(function(c){un+=c.u});
   var priced=all.filter(function(r){return r.sh}),show=S.slateAll?all.filter(function(r){return r.xs>=1||r.sh}):priced,lads=priced.filter(function(r){return r.sv.lad});
   function side(r,k){var h=r.sh,px=h&&h[k];return px?'<b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over":" under"))+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span>':'<span class="o">–</span>'}
-  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER</span>':r.sv.fin?'<span class="res x">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
+  function resT(r){var a=r.sv.act;if(a==null||!r.sh)return "";return a>r.sh.line?'<span class="res m">'+a+' · OVER'+(r.sv.lad&&a>r.sh.line+1?(a>r.sh.line+2?" · +2 RUNGS":" · +1 RUNG"):"")+'</span>':r.sv.fin?'<span class="res x">'+a+' · UNDER</span>':'<span class="res live">'+a+' · LIVE</span>'}
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
     {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+(isPk[r.p]?'<span class="tag spkt" title="One of tonight\'s Shot Picks">PICK · '+(isPk[r.p]==="o"?"OVER":"UNDER")+'</span>':'')+(r.spx?'<span class="tag q" title="The model sees an edge here, but it is more than 12 points away from the market, which more often means the model is missing news than that the book is wrong.">CHECK</span>':'')+(r.sv.lad?'<span class="tag lad" title="His projection is a full shot or more above the line, so the next line up is in play.">LADDER</span>':'')+resT(r)}},
@@ -925,7 +925,7 @@ function vShots(){
   view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span>'+
-      (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+' finished</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates over: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+'</span>':'')+'</div>'+
+      (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+' finished</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+' over the line · '+ladG.filter(function(r){return r.sv.act>r.sh.line+1}).length+' hit the next rung</span>':'')+'</div>'+
     '<p class="note"><b>xSOG</b> is the shots on goal the model expects: his shot rate, weighted to recent games and leaning on unblocked attempts, times his expected ice time, adjusted for home ice and how many shots '+
     'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
     '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance and fair price for one and two more shots, to hold against the alternate lines in your book. '+
@@ -1145,6 +1145,23 @@ function vTeams(){
 }
 
 /* ================= Tracker ================= */
+function ladderRecord(season,lab){ // every LADDER tag on a finished night: did he clear the line, the next rung, the rung after
+  var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
+  var keepB=S.book;S.book="";var R={n:0,c0:0,c1:0,c2:0,e0:0,e1:0,e2:0,days:[]};
+  Object.keys(days).sort().forEach(function(d){if(!D.games.some(function(g){return g.d===d&&g.s===season}))return;
+    var l=slate(d).filter(function(r){return r.sh&&r.info.m.g&&r.res&&r.xs>=r.sh.line+SG.ladder}).map(function(r){var a=r.res[2],L=r.sh.line;
+      return{r:r,line:L,a:a,c0:a>L?1:0,c1:a>L+1?1:0,c2:a>L+2?1:0,e0:nbOver(r.xs,L),e1:nbOver(r.xs,L+1),e2:nbOver(r.xs,L+2)}});
+    if(!l.length)return;var x={d:d,l:l.sort(function(p,q){return (q.r.xs-q.line)-(p.r.xs-p.line)}),c0:0,c1:0,c2:0};
+    l.forEach(function(c){["c0","c1","c2"].forEach(function(k){x[k]+=c[k];R[k]+=c[k]});R.e0+=c.e0;R.e1+=c.e1;R.e2+=c.e2;R.n++});R.days.push(x)});
+  S.book=keepB;R.days.reverse();
+  if(!R.n)return '<section class="panel"><div class="phead"><h2>Ladder record · '+lab+'</h2></div><p class="note">No finished night with stored shots lines has had a ladder candidate yet.</p></section>';
+  function cell(h,n,e){return '<b>'+h+' of '+n+'</b> · '+pct(h,n)+' <span class="o">(model said '+pct(e,n)+')</span>'}
+  return '<section class="panel"><div class="phead"><h2>Ladder record · '+lab+'</h2></div>'+
+    '<p class="note">Every player who carried the LADDER tag on a finished night (xSOG a full shot or more above the commonest line), and how far he got: over his line, over the next rung (one more shot), and over the rung after (two more). Beside each is what the model expected. There is no profit figure because alternate-line prices are not fetched; hold the hit rates against the prices your book offers on those rungs.</p>'+
+    '<div class="kv"><span>Candidates <b>'+R.n+'</b></span><span>Cleared the line '+cell(R.c0,R.n,R.e0)+'</span><span>Next rung '+cell(R.c1,R.n,R.e1)+'</span><span>Rung after '+cell(R.c2,R.n,R.e2)+'</span><span>Nights <b>'+R.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Candidates</th><th class="n">Line</th><th class="n">Next rung</th><th class="n">Rung after</th><th>Who, biggest gap first</th></tr></thead><tbody>'+
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.c0+'</b></td><td class="n"><b>'+x.c1+'</b></td><td class="n"><b>'+x.c2+'</b></td><td class="cell" style="white-space:normal">'+
+      x.l.map(function(c){return '<span class="pick" data-player="'+c.r.p+'" style="white-space:nowrap">'+esc(c.r.name)+' <span class="o">line '+f1(c.line)+', xSOG '+f2(c.r.xs)+'</span> <span class="res '+(c.c1?"m":"x")+'">'+c.a+(c.c2?" · +2 RUNGS":c.c1?" · +1 RUNG":c.c0?" · LINE ONLY":" · MISSED")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
 function shotRecord(season,lab){ // Shot Picks graded at one unit: the saved list where there is one, otherwise the rule replayed on the stored lines
   var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
   var keepB=S.book;S.book="";var R={n:0,w:0,u:0,days:[]};
@@ -1213,7 +1230,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+shotRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+shotRecord(cur,lab)+ladderRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
