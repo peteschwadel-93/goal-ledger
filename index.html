@@ -297,6 +297,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
       <div class="fresh" id="fresh">Loading games…</div>
       <button id="refreshBtn" hidden>Refresh</button>
       <div class="fresh" id="refreshMsg" role="status" hidden></div>
+      <div class="fresh" id="liveMsg" role="status" hidden></div>
     </div>
     <svg class="logo" role="img" aria-label="PFG logo" viewBox="0 0 2000 2000" width="72" height="72"><path fill="currentColor" d="M1326.71,614.69c0-52.08-42.18-94.42-94.27-94.42h-224.08v188.74h224.08c52.08,0,94.27-42.24,94.27-94.32Z"/><path fill="currentColor" d="M1000.2,0C447.86,0,.1,447.76.1,1000.1s447.76,1000.1,1000.1,1000.1,1000.1-447.76,1000.1-1000.1S1552.53,0,1000.2,0ZM767.94,905.73h0c-29.3-.01-55.53,13.33-72.87,34.28-13.44,16.29-21.51,37.18-21.51,59.98,0,52.13,42.25,94.38,94.38,94.38v.11h464.5c160.7,0,290.96,130.26,290.96,290.81s-130.24,291.1-290.96,291.1h-465.33c-127.67,0-236.07-82.28-275.26-196.68h740.58c52.08,0,94.27-42.32,94.27-94.42s-42.18-94.32-94.27-94.32h-224.07v95.21h-196.62v-95.21h-43.8c-160.69,0-290.96-130.26-290.96-290.96,0-71.88,26.13-137.63,69.33-188.4.32-.37.64-.73.94-1.11,3.37-3.93,6.83-7.73,10.4-11.45.48-.51.95-1.01,1.44-1.51,7.92-8.19,16.3-15.91,25.14-23.12.19-.15.39-.3.59-.47,4-3.22,8.09-6.35,12.24-9.39,1.05-.76,2.12-1.51,3.17-2.25,3.47-2.45,6.97-4.81,10.54-7.11,1.2-.77,2.38-1.56,3.59-2.31,4.05-2.53,8.17-4.95,12.36-7.29.61-.35,1.2-.71,1.81-1.02,4.78-2.61,9.65-5.1,14.6-7.45,1.24-.58,2.53-1.13,3.8-1.71,3.68-1.69,7.4-3.3,11.16-4.84,1.73-.71,3.47-1.38,5.21-2.06,3.5-1.35,7.02-2.63,10.56-3.84,1.74-.59,3.46-1.19,5.21-1.76,4.44-1.42,8.92-2.74,13.45-3.95.8-.22,1.58-.47,2.39-.68,5.3-1.37,10.66-2.57,16.07-3.64,1.66-.35,3.33-.59,5.02-.9,3.87-.69,7.77-1.34,11.7-1.88,1.95-.26,3.9-.51,5.88-.75,3.91-.47,7.85-.83,11.82-1.13,1.77-.14,3.54-.3,5.31-.4,5.7-.35,11.42-.55,17.21-.55h43.8v-188.54h-42.53c-.72-.01-1.42-.1-2.14-.1v-.12h-275.19c39.23-114.29,147.57-196.46,275.19-196.46h465.41c160.7,0,290.96,130.24,290.96,290.88s-130.24,291.03-290.96,291.03h-224.07v94.27h-196.64v-94.27h-43.8Z"/></svg>
     </div>
@@ -956,7 +957,7 @@ function start(d){
   $("seg-ssn").innerHTML='<button data-v="all">All</button>'+ss.map(function(y){return '<button data-v="'+y+'">'+y+"-"+String(y+1).slice(2)+'</button>'}).join("");
   if(!S.booted){var cur=ss[ss.length-1],nCur=d.games.filter(function(g){return g.s===cur}).length;S.ssn=String(cur);
     var h=(location.hash||"").slice(1);if(TABS[h])S.tab=h}
-  S.booted=1;
+  S.booted=1;applyLive();
   $("subline").textContent=d.season+" · who scores tonight, from NHL play-by-play, shift charts and the prices on offer.";
   $("fresh").innerHTML=d.games.length+" games through "+fmtD(d.through)+", "+d.through.slice(0,4)+"<br>data built "+esc(d.built.replace("T"," ").replace("Z"," UTC"))+(d.odds&&d.odds.left!=null?"<br>"+esc(d.odds.left)+" price requests left":"")+(d.oddsNote?"<br>"+esc(d.oddsNote):"");
   render();
@@ -979,6 +980,36 @@ if(served){
 }else if(/^https?:$/.test(location.protocol)){ // hosted copy: a scheduled job rebuilds data.json, so pick up the new one without a reload
   setInterval(function(){if(!D||document.hidden)return;fetch("data.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(d){if(d&&d.built!==D.built)start(d)}).catch(function(){})},600000);
 }else if(location.protocol==="file:"){say("This copy does not update itself. Run python3 build_data.py --install once, then use http://localhost:8766")}
+/* ---- live goals: while games are on, the page itself asks ESPN's public scoreboard once a minute, so a goal shows up without
+   waiting for the half-hourly rebuild. Nothing is stored; the overnight archive remains the record. ---- */
+var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
+function eab(x){return EAB[x]||x}
+function applyLive(){var ch=0;(D.sched||[]).forEach(function(m){var L=LIVE[gameKey(m)];if(!L)return;
+  var sig=JSON.stringify([L.gl,L.sc,L.st]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;ch=1}});return ch}
+function liveBox(doc,t){ // goals by player id for one team, from ESPN's box score (shootout goals are a separate column and are left out)
+  var out={};((doc.boxscore||{}).players||[]).forEach(function(tm){if(eab((tm.team||{}).abbreviation)!==t)return;
+    (tm.statistics||[]).forEach(function(grp){var gi=(grp.keys||[]).indexOf("goals");if(gi<0)return;
+      (grp.athletes||[]).forEach(function(a){var n=+((a.stats||[])[gi])||0;if(!n)return;var k=normName((a.athlete||{}).displayName),hit=null;
+        (IX.names[k]||[]).forEach(function(p){if(ppos(p)!=="G"&&(!hit||(IX.P[p]&&IX.P[p].team===t)))hit=p});
+        if(hit)out[hit]=n})})});return out}
+function liveTick(){
+  if(!D||document.hidden)return;var day=todayET(),ms=(D.sched||[]).filter(function(m){return m.d===day&&Date.parse(m.ts)<Date.now()+6e5});
+  var yday=new Date(Date.now()-864e5*.5);ms=ms.concat((D.sched||[]).filter(function(m){return m.d<day&&!/FINAL/.test((LIVE[gameKey(m)]||{}).st||"")&&Date.parse(m.ts)>Date.now()-864e5*.4}));
+  if(!ms.length)return;
+  var dates={};ms.forEach(function(m){dates[m.d.replace(/-/g,"")]=1});
+  Promise.all(Object.keys(dates).map(function(d){return fetch(ESPN+"scoreboard?dates="+d,{cache:"no-store"}).then(function(r){return r.json()})})).then(function(boards){
+    var jobs=[];boards.forEach(function(b){(b.events||[]).forEach(function(e){var c=(e.competitions||[])[0]||{},st=((c.status||e.status||{}).type||{}).state,h=null,a=null,hs=0,as=0;
+      (c.competitors||[]).forEach(function(x){var ab=eab((x.team||{}).abbreviation);if(x.homeAway==="home"){h=ab;hs=+x.score||0}else{a=ab;as=+x.score||0}});
+      var m=ms.filter(function(x){return x.h===h&&x.a===a})[0];if(!m||(st!=="in"&&st!=="post"))return;
+      var key=gameKey(m),L=LIVE[key];if(L&&L.st==="FINAL")return;
+      jobs.push(fetch(ESPN+"summary?event="+e.id,{cache:"no-store"}).then(function(r){return r.json()}).then(function(doc){
+        var gl=liveBox(doc,a),g2=liveBox(doc,h);Object.keys(g2).forEach(function(p){gl[p]=g2[p]});
+        LIVE[key]={gl:gl,sc:[as,hs],st:st==="post"?"FINAL":"LIVE"}}).catch(function(){}))})});
+    return Promise.all(jobs)}).then(function(){
+      var now=new Date(),hh=now.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});$("liveMsg").hidden=false;$("liveMsg").textContent="Live goals checked "+hh;
+      var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
+      if(applyLive()&&!typing&&["picks","slate","lineups"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
+if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
