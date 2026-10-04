@@ -328,6 +328,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 /* and on the Slate table: steady red, no animation, because a full slate can have dozens of scorers and hundreds of cells */
 tbody tr.glit>td,tbody tr.glit:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 18%,var(--bg))}
 tbody tr.glit>td:first-child{box-shadow:inset 3px 0 0 var(--goal);background:color-mix(in srgb,var(--goal) 30%,var(--bg));color:#fff}
+tbody tr.glit>td:nth-child(2){background:color-mix(in srgb,var(--goal) 26%,var(--bg))}
 tbody tr.glit .res.m{background:var(--goal);color:#fff}
 
 /* every book's price for one player, shown on hover, focus or tap of a price */
@@ -737,8 +738,9 @@ function vSlate(){
   rows.forEach(function(r){if(r.info.o&&r.info.o.at&&r.info.o.at>at)at=r.info.o.at});
   var show=S.slateAll?rows:rows.filter(function(r){return r.px||r.pr>=.12});
   var cols=[
-    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<b>'+esc(r.name)+'</b> <span class="o">'+esc(r.pos)+'</span> '+unitTag(r.unit)+injTag(r)+resTag(r)}},
-    {k:"t",l:"Game",v:function(r){return r.t},f:function(r){return tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp}},
+    {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
+    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+resTag(r)}},
+    {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
     {k:"pr",l:"Chance",num:1,v:function(r){return r.pr},f:function(r){return '<span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span>'}},
     {k:"fair",l:"Fair price",num:1,v:function(r){return r.pr},f:function(r){return fairOdds(r.pr)}},
     {k:"price",l:"Best price",num:1,v:function(r){return r.px?r.pay:null},f:function(r){return '<b>'+pxH(r.px,r.name)+'</b>'}},
