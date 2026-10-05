@@ -100,8 +100,15 @@ if (games.length) {
     const alt = api.altOf(r.info.o, r.name), a1 = alt[h.line + 1], a2 = alt[h.line + 2];
     lad[r.p] = { n: r.name, t: r.t, ts, line: h.line, xs: +r.xs.toFixed(3), r1: a1 ? [a1.price, a1.bk] : null, r2: a2 ? [a2.price, a2.bk] : null, at: stamp };
   });
-  if (picks.length || shots.length || Object.keys(lad).length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, lad };
+  /* Rungs carrying the RUNG VALUE tag, as of the last run before each game starts, with the price they had. */
+  let rv = (prevDay.rv || []).filter(e => e.ts && Date.parse(e.ts) <= now);      // started: frozen
+  if (api.rungValues) Object.values(byP).forEach(r => {
+    const ts = r.info.m.ts;
+    if (!ts || Date.parse(ts) <= now) return;
+    api.rungValues(r).forEach(v => rv.push({ p: r.p, n: r.name, t: r.t, ts, line: v.line, price: v.price, book: v.bk, pa: +v.pa.toFixed(4), pts: +v.pts.toFixed(4), at: stamp }));
+  });
+  if (picks.length || shots.length || Object.keys(lad).length || rv.length || store[day]) {
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, lad, rv };
   }
 }
 const keep = Object.keys(store).sort().slice(-250);
