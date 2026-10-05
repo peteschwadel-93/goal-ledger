@@ -456,6 +456,23 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .pm-more{display:block;margin:18px 0 0;width:100%;box-sizing:border-box;padding:11px 14px}
 .pm-work{margin-top:14px}
 @media(max-width:760px){.pm-back{padding:0}.pm{max-height:100vh;border-radius:0;border:0}.pm-head{height:132px;padding:0 16px;gap:12px;border-radius:0}.pm-mug{width:120px;height:132px}.pm-id h2{font-size:23px}.pm-wm{display:none}.pm-body{padding:16px 14px 22px}}
+
+/* trend arrows: last 10 games against the 20 before */
+.trd{font:600 11.5px var(--mono);margin-left:4px;white-space:nowrap}
+.trd.up{color:var(--made,#4ade80)}.trd.dn{color:var(--goal-hot)}.trd.fl{color:var(--muted)}
+
+/* ladder watch */
+.lwt td{vertical-align:middle}
+.lwt .lwline{color:var(--lad);font-weight:700}
+.lwt td.lwbar{box-shadow:inset 3px 0 0 var(--lad)}
+.lwc{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:74px;padding:7px 10px;border-radius:10px;border:1.5px solid transparent;font-variant-numeric:tabular-nums;line-height:1.25}
+.lwc b{font:600 14.5px var(--mono);color:var(--ink)}
+.lwc .lwp{color:var(--made,#4ade80);font-size:12.5px}.lwc .lwn{color:var(--muted);font-size:12.5px}
+.lwc .lwu{color:var(--lad);font:600 11.5px var(--mono)}
+.lwc.none{align-items:flex-end;font-size:13px}
+.lwc.bet{background:color-mix(in srgb,var(--made,#4ade80) 9%,var(--bg));border-color:color-mix(in srgb,var(--made,#4ade80) 32%,var(--line))}
+.lwc.hit{border-color:var(--made,#4ade80);box-shadow:0 0 0 1px var(--made,#4ade80),0 0 14px -2px var(--made,#4ade80)}
+.lwc.bet.hit{background:color-mix(in srgb,var(--made,#4ade80) 16%,var(--bg))}
 </style>
 
 <div class="wrap">
@@ -748,6 +765,30 @@ function rungValues(r){ // the rungs one and two above his line that pass: [{i, 
     if(pa>=RV.minP&&pts>=RV.minPts)out.push({i:i,line:h.line+i,need:Math.ceil(h.line+i),price:a.price,bk:a.bk,book:a.book,all:a.all,p:p,pa:pa,pts:pts,ev:pa*payout(a.price)-1})});
   return out}
 function rungGrade(line,act){if(!act)return null;return act[0]>line?1:act[1]?-1:null} // won as soon as he clears it, lost only at the final whistle
+/* ---- Ladder Watch: players with two or more rungs that each beat their price ---- */
+var LW={lo:2,hi:5,ref:6,minEdge:.02,minTop:3,step:.05};
+function rungChance(r,need){ // the chance a rung is judged on: blended with the market on his main line, the model as it stands below it, trimmed above it
+  var h=r.sh,p=nbOver(r.xs,need-.5),main=Math.ceil(h.line);
+  if(need===main&&h.fairO!=null)return SP.w*p+(1-SP.w)*h.fairO;
+  return need>main?p*RV.hair:p}
+function ladderOf(r,saved){ // every rung from 2+ to 6+ with its price and edge, which ones to bet and how to split one unit; saved = the list locked before his game
+  var h=r.sh;if(!h||r.xs==null)return null;var alt=saved?null:altOf(r.info.o,r.name),cells=[],bet=[];
+  for(var k=LW.lo;k<=LW.ref;k++){var a=saved?(saved.c[k]?{price:saved.c[k][0],bk:saved.c[k][1],book:saved.c[k][1],all:null}:null):alt[k-.5]||null,pa=rungChance(r,k),c={need:k,p:nbOver(r.xs,k-.5),pa:pa,a:a,ev:a?pa*payout(a.price)-1:null,w:0};
+    if(saved)c.w=saved.c[k]&&saved.c[k][2]?saved.c[k][2]:0;else if(k<=LW.hi&&c.ev!=null&&c.ev>=LW.minEdge)bet.push(c);cells.push(c)}
+  if(saved)bet=cells.filter(function(c){return c.w>0});
+  else{if(bet.length<2||bet[bet.length-1].need<LW.minTop)return null;
+    // split one unit in proportion to each rung's edge over its payout, so the likelier rungs carry most of it; rounded to 0.05
+    var tot=0;bet.forEach(function(c){c.k=c.ev/(payout(c.a.price)-1);tot+=c.k});var left=1;
+    bet.forEach(function(c,i){c.w=i===bet.length-1?Math.max(LW.step,Math.round(left/LW.step)*LW.step):Math.max(LW.step,Math.round(c.k/tot/LW.step)*LW.step);left-=c.w});
+    var sum=0;bet.forEach(function(c){sum+=c.w});bet.forEach(function(c){c.w=+(c.w/sum).toFixed(2)})}
+  if(!bet.length)return null;var edge=0;bet.forEach(function(c){edge+=c.w*c.ev});
+  var act=shotAct(r),u=0,open=0;bet.forEach(function(c){if(act&&act[0]>=c.need)u+=c.w*(payout(c.a.price)-1);else if(act&&act[1])u-=c.w;else open++});
+  return{r:r,line:h.line,main:Math.ceil(h.line),cells:cells,bet:bet,edge:edge,act:act,u:act?u:null,open:open,
+    chk:h.fairO!=null&&Math.abs(nbOver(r.xs,h.line)-h.fairO)>RV.gap}}
+function ladderWatch(day,rows){var sv=(!S.book||S.bookOff)?((D.locks||{})[day]||{}).lw:null,out=[];
+  if(sv&&sv.length){var by={};rows.forEach(function(r){by[r.p]=r});sv.forEach(function(k){var r=by[k.p];if(!r||!r.sh)return;var L=ladderOf(r,k);if(L){L.line=k.line;L.main=Math.ceil(k.line);L.saved=1;out.push(L)}})}
+  else rows.forEach(function(r){var L=ladderOf(r);if(L)out.push(L)});
+  return out.sort(function(a,b){return b.edge-a.edge})}
 /* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
 var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
 function shotAct(r){return r.info.m.g&&r.res?[r.res[2],1]:r.sgl||null} // [his shots so far, 1 once the game is over], or null before it starts
@@ -973,10 +1014,16 @@ function vLineups(){
 
 
 /* ================= shots on goal: projection against the books' lines ================= */
+function trendOf(p,day){ // his last 10 games before this day against the 20 before those: shots a game and ice time
+  var lg=(IX.P[p]?IX.P[p].log:[]).filter(function(e){return e.g.d<day}),a=lg.slice(-10),b=lg.slice(-30,-10);if(a.length<5)return null;
+  function avg(l,i){var s=0;l.forEach(function(e){s+=e.r[i]});return s/l.length}
+  var t={n:a.length,s:avg(a,2),toi:avg(a,6)};if(b.length>=8){t.ds=t.s-avg(b,2);t.dt=t.toi-avg(b,6)}return t}
+function trendCell(v,d,flat,fmt,dfmt){if(d==null)return fmt(v);var up=d>=flat,dn=d<=-flat;
+  return fmt(v)+' <span class="trd '+(up?"up":dn?"dn":"fl")+'" title="Against his 20 games before those">'+(up?"▲":dn?"▼":"•")+(up||dn?" "+dfmt(Math.abs(d)):"")+'</span>'}
 function vShots(){
   var dl=dayList(),day=S.day,all=slate(day),at="";
   all.forEach(function(r){if(r.info.o&&r.info.o.at&&r.info.o.at>at)at=r.info.o.at;
-    var h=r.sh;r.sv={};if(!h)return;var po=nbOver(r.xs,h.line);r.sv={po:po,pu:1-po,
+    var h=r.sh;r.sv={};r.tr=trendOf(r.p,day);if(!h)return;var po=nbOver(r.xs,h.line);r.sv={po:po,pu:1-po,
       eo:h.o?po*payout(h.o.price)-1:null,eu:h.u?(1-po)*payout(h.u.price)-1:null,
       n1:nbOver(r.xs,h.line+1),n2:nbOver(r.xs,h.line+2),lad:r.xs>=h.line+SG.ladder};
     var alt=altOf(r.info.o,r.name);r.sv.a1=alt[h.line+1]||null;r.sv.a2=alt[h.line+2]||null;
@@ -1016,6 +1063,8 @@ function vShots(){
     {k:"a2",l:"Price",num:1,v:function(r){return r.sv.a2?payout(r.sv.a2.price):null},f:function(r){var a=r.sv.a2;return a?'<b>'+pxH({price:a.price,book:a.book,all:a.all},r.name+" "+Math.ceil(r.sh.line+2)+"+ shots")+'</b><span class="bk" title="'+esc(a.bk)+'">'+esc(bkAb(a.bk))+'</span>':r.sh?'<span class="o">–</span>':""}},
     {k:"e2",l:"Edge",num:1,v:function(r){return r.sv.e2},f:function(r){return r.sv.e2==null?"":pill(r.sv.e2)}},
     {k:"h10",l:"Last 10",num:1,v:function(r){return r.sh&&r.sv.l10?r.sv.h10/r.sv.l10:null},f:function(r){return r.sh&&r.sv.l10?r.sv.h10+' of '+r.sv.l10+' over':""}},
+    {k:"ts",l:"L10 shots",num:1,v:function(r){return r.tr?(r.tr.ds==null?0:r.tr.ds):null},f:function(r){return r.tr?trendCell(r.tr.s,r.tr.ds,.3,f1,f1):'<span class="o">–</span>'}},
+    {k:"tt",l:"L10 ice",num:1,v:function(r){return r.tr?(r.tr.dt==null?0:r.tr.dt):null},f:function(r){return r.tr?trendCell(r.tr.toi,r.tr.dt,45,mmss,mmss):'<span class="o">–</span>'}},
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"sr",l:"Shots / 60",num:1,v:function(r){return r.b.sr},f:function(r){return r.b.sr?f1(r.b.sr*3600):"–"}}];
   var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
@@ -1023,14 +1072,26 @@ function vShots(){
     '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
     (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+
     (S.book&&!S.bookOff?'':droppedStrip(day,"s",(function(){var m={};picks.forEach(function(c){m[c.p+"|"+c.side+"|"+c.line]=1});return m})()))+'</section>';
-  view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2></div>'+
+  var lw=ladderWatch(day,all);
+  function lwCell(L,c){var hit=L.act&&L.act[0]>=c.need,cls="lwc"+(c.w?" bet":"")+(hit?" hit":""),bar=c.need===L.main?' lwbar':'';
+    if(!c.a)return '<td class="n'+bar+'"><div class="'+cls+' none"><span class="o">'+Math.round(c.p*100)+'%</span><span class="o">'+fairOdds(c.pa)+'</span></div></td>';
+    return '<td class="n'+bar+'"><div class="'+cls+'"><b>'+pxH({price:c.a.price,book:c.a.book,all:c.a.all},L.r.name+" "+c.need+"+ shots")+'</b><span class="'+(c.ev>0?"lwp":"lwn")+'">'+(c.ev>0?"+":"")+Math.round(c.ev*100)+'%</span>'+(c.w?'<span class="lwu">'+c.w.toFixed(2)+'u</span>':'')+'</div></td>'}
+  var lwHtml='<section class="panel"><div class="phead"><h2>Ladder watch</h2><span class="tag nt ladc">'+lw.length+(lw.length===1?" candidate":" candidates")+' · best total edge first</span></div>'+
+    '<p class="note">Players with two or more rungs between 2+ and 5+ shots that each beat their price by 2% or more, reaching 3+ or higher. Each cell is the best price on that rung and its edge; shaded rungs are the ones to ladder, with a suggested split of one unit underneath (more on the likelier rungs, less on the long ones). The amber bar marks his main over/under line, where the ladder starts. The chance behind each edge is the model\'s, averaged with the market on his main line and trimmed by 8% above it, where the model runs a little high. Plain cells have no price on record and show the model\'s chance and fair odds. Once the game is on, every rung he reaches glows. The 6+ column is for reference only. A CHECK tag means the model is more than 12 points from the market on his main line, which more often means missing news than a slow book.</p>'+
+    (lw.length?'<div class="tw"><table class="lwt"><thead><tr><th>Team</th><th>Player</th><th>Opp</th><th class="n">xSOG</th><th class="n">Ice time</th><th class="n">O/U line</th>'+[2,3,4,5,6].map(function(k){return '<th class="n">'+k+'+</th>'}).join("")+'<th class="n">Ladder edge</th><th class="n">Shots</th></tr></thead><tbody>'+
+      lw.map(function(L){var r=L.r;return '<tr class="pick" data-player="'+r.p+'"><td>'+tmL(r.t)+'</td><td><b>'+esc(r.name)+'</b> '+(isPk[r.p]?'<span class="tag spkt">PICK</span>':'')+(L.chk?'<span class="tag q">CHECK</span>':'')+'</td><td><span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp+'</td><td class="n"><b>'+f2(r.xs)+'</b></td><td class="n">'+mmss(r.b.tev+r.b.tpp)+'</td><td class="n lwline">'+f1(L.line)+'</td>'+
+        L.cells.map(function(c){return lwCell(L,c)}).join("")+
+        '<td class="n">'+pill(L.edge)+' <span class="o">'+L.bet.length+' rungs</span>'+(L.u==null?'':' <span class="tag eg '+(L.u>0?"p2":L.u<0?"n2":"n1")+'">'+(L.u>=0?"+":"")+L.u.toFixed(2)+'u'+(L.open?" · live":"")+'</span>')+'</td>'+
+        '<td class="n">'+(L.act?'<b>'+L.act[0]+'</b>'+(L.act[1]?"":' <span class="o">live</span>'):'<span class="o">–</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':
+      '<p class="empty">'+(priced.length?"No player has two rungs that beat their price on this slate.":"No shots lines are stored for this day.")+'</p>')+'</section>';
+  view.innerHTML=pkHtml+lwHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span><span class="tag nt rvc">Rung value: '+priced.filter(function(r){return r.sv.rv&&r.sv.rv.length}).length+'</span>'+
       (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+' finished</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+' over the line · '+ladG.filter(function(r){return r.sv.act>r.sh.line+1}).length+' hit the next rung</span>':'')+'</div>'+
     '<p class="note"><b>xSOG</b> is the shots on goal the model expects: his shot rate, weighted to recent games and leaning on unblocked attempts, times his expected ice time, adjusted for home ice and how many shots '+
     'the opponent allows. <b>Line</b> is '+(S.book?'the line at <b>'+esc(S.book)+'</b>':'the commonest line across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'; <b>Over</b> and <b>Under</b> are the model\'s chance of each with the fair price beside it, and the best price on that line with its edge. Hover over a price to see every book and the line each one is using. '+
     '<b>Book says</b> is the over chance the two prices imply with the margin removed, so you can see how far the model is from the market. <b>LADDER</b> marks a player whose xSOG is a full shot or more above the line; <b>Next rung</b> and <b>Rung after</b> give the model\'s chance of one and two more shots; the three columns after each are its fair price, the best price a book posts on that rung, and the edge. Hover over the price for every book. Not every book posts alternate lines, so a rung can have a price from one or two books or none. Remember the model runs a few points hot on the top rungs, so a thin edge there is probably not an edge. <b>RUNG VALUE</b> marks a rung priced too long on a player the model and the market otherwise agree about: the model within 12 points of the market on his main line, and the rung at least 4 points above break-even after the model\'s chance is trimmed by 8%, with at least a 15% chance. It is a different signal from LADDER, which marks a disagreement about the player himself. '+
-    '<b>Last 10</b> is how often he cleared this line in his last ten games. On 2025-26, games the model never saw, its over chances matched what happened to within a point or two at every line from 0.5 to 4.5, with the highest-volume shooters at the highest lines landing a few points under what it said, so treat the top rungs with some caution. That shows the projection is sound, not that it beats the books: no shots prices were stored before now.</p>'+
+    '<b>Last 10</b> is how often he cleared this line in his last ten games. <b>L10 shots</b> and <b>L10 ice</b> are his averages over those ten, with an arrow when they differ from the twenty games before by 0.3 shots or 45 seconds: ice time rising usually means a real change of role that the projection is still catching up to, while shots rising on flat ice time is more often a hot stretch that fades. They are context only and do not change the projection. On 2025-26, games the model never saw, its over chances matched what happened to within a point or two at every line from 0.5 to 4.5, with the highest-volume shooters at the highest lines landing a few points under what it said, so treat the top rungs with some caution. That shows the projection is sound, not that it beats the books: no shots prices were stored before now.</p>'+
     (priced.length||S.slateAll?table("shots",cols,show,{k:"best",dir:-1},{pin:1,row:function(r){return ' class="pick'+(r.sv.lad?" ladr":r.sv.rv&&r.sv.rv.length?" rvr":"")+(isPk[r.p]?" spk":"")+'" data-player="'+r.p+'"'}}):'<p class="empty">'+(D.hasKey?"No shots-on-goal lines are stored for this day. They arrive with the next price fetch for games still to be played.":"No prices in this copy.")+' Switch Rows to Everyone to see the projections.</p>')+'</section>';
 }
 
@@ -1319,6 +1380,22 @@ function firstRecord(season,lab){ // every pick graded at the price it was first
     rows.map(function(R){return '<tr><td>'+R.lab+'</td><td class="n">'+R.n+'</td><td class="n">'+R.g+'</td><td class="n"><b>'+R.w+'</b>'+(R.g?' · '+pct(R.w,R.g):'')+'</td><td class="n">'+(R.g?pill2(R.u):"–")+'</td><td class="n">'+(R.g?pill(R.u/R.g):"–")+'</td><td class="n">'+(R.cn?'<b>'+R.cb+' of '+R.cn+'</b> · '+pct(R.cb,R.cn):"–")+'</td><td class="n">'+(R.pn?(R.pts/R.pn>=0?"+":"")+(100*R.pts/R.pn).toFixed(1)+' pts':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'+
     '<div class="tw" style="margin-top:14px"><table><thead><tr><th>Day</th><th>Pick</th><th class="n">First price</th><th>First listed</th><th>Last price before the game</th><th>Result</th></tr></thead><tbody>'+
     all.slice(0,S.trkN).map(function(x){var e=x.e;return '<tr class="pick" data-player="'+e.p+'"><td>'+fmtD(x.d)+'</td><td>'+seenLabel(e,x.k)+' <span class="o">'+(x.k==="s"?"shots":"goal")+'</span></td><td class="n"><b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+'</span></td><td>'+esc(fmtClock(e.at0).replace(" ET",""))+'</td><td>'+seenClose(e,x.k)+'</td><td>'+(x.g==null?'<span class="o">open</span>':'<span class="res '+(x.g>0?"m":"x")+'">'+(x.g>0?"WON":x.g<0?"LOST":"PUSH")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+function watchRecord(season,lab){ // Ladder Watch graded: one unit a player, split across his shaded rungs
+  var days={};Object.keys(D.locks||{}).forEach(function(d){if(((D.locks[d]||{}).lw||[]).length)days[d]=1});
+  Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.sa&&o.sa.length)days[k.slice(0,10)]=1});
+  var keepB=S.book;S.book="";var R={n:0,w:0,u:0,rn:0,rh:0,days:[]};
+  Object.keys(days).sort().forEach(function(d){if(!D.games.some(function(g){return g.d===d&&g.s===season}))return;
+    var l=ladderWatch(d,slate(d)).filter(function(L){return L.act&&L.act[1]});if(!l.length)return;
+    var x={d:d,l:l,u:0,w:0};l.forEach(function(L){R.n++;x.u+=L.u;if(L.u>0){R.w++;x.w++}L.bet.forEach(function(c){R.rn++;if(L.act[0]>=c.need)R.rh++})});R.u+=x.u;x.run=R.u;R.days.push(x)});
+  S.book=keepB;R.days.reverse();
+  if(!R.n)return '<section class="panel"><div class="phead"><h2>Ladder Watch record · '+lab+'</h2></div><p class="note">No finished night has had a Ladder Watch candidate yet. It needs alternate-line prices, which started being fetched on Oct 4.</p></section>';
+  function usd(u){return (u<0?"−$":"$")+Math.abs(u*S.unit).toFixed(2)}
+  return '<section class="panel"><div class="phead"><h2>Ladder Watch record · '+lab+'</h2></div>'+
+    '<p class="note">Every Ladder Watch candidate on a finished night, one unit a player split across his shaded rungs as the page suggested, at the prices saved before his game. A ladder is in profit when the rungs he reached pay more than the ones he missed cost.</p>'+
+    '<div class="kv"><span>Ladders in profit <b>'+R.w+" of "+R.n+'</b> · '+pct(R.w,R.n)+'</span><span>Rungs hit <b>'+R.rh+' of '+R.rn+'</b> · '+pct(R.rh,R.rn)+'</span><span>Units <b>'+(R.u>=0?"+":"")+R.u.toFixed(2)+'</b></span><span>Staked <b>$'+(R.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(R.u>=0?"made":"miss")+')">'+usd(R.u)+'</b></span><span>ROI (return per ladder) '+pill(R.u/R.n)+'</span><span>Nights <b>'+R.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Ladders</th><th class="n">In profit</th><th class="n">Units</th><th class="n">Running</th><th>The ladders</th></tr></thead><tbody>'+
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
+      x.l.map(function(L){return '<span class="pick" data-player="'+L.r.p+'" style="white-space:nowrap">'+esc(L.r.name)+' <span class="o">'+L.bet.map(function(c){return c.need+"+ "+fmtP(c.a.price)}).join(", ")+'</span> <span class="res '+(L.u>0?"m":"x")+'">'+L.act[0]+' · '+(L.u>=0?"+":"")+L.u.toFixed(2)+'u</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
 function rungRecord(season,lab){ // every RUNG VALUE tag on a finished night, one unit at the price it had before the game
   var days={};Object.keys(D.locks||{}).forEach(function(d){if(((D.locks[d]||{}).rv||[]).length)days[d]=1});
   Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.sa&&o.sa.length)days[k.slice(0,10)]=1});
@@ -1428,7 +1505,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+shotRecord(cur,lab)+firstRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+shotRecord(cur,lab)+firstRecord(cur,lab)+watchRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
@@ -1616,7 +1693,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
