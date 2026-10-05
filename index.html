@@ -1151,7 +1151,7 @@ function vShots(){
         L.cells.map(function(c){return lwCell(L,c)}).join("")+
         '<td class="n">'+pill(L.edge)+' <span class="o">'+L.bet.length+' rungs</span>'+(L.u==null?'':' <span class="tag eg '+(L.u>0?"p2":L.u<0?"n2":"n1")+'">'+(L.u>=0?"+":"")+L.u.toFixed(2)+'u'+(L.open?" · live":"")+'</span>')+'</td>'+
         '<td class="n">'+(L.act?'<b>'+L.act[0]+'</b>'+(L.act[1]?"":' <span class="o">live</span>'):'<span class="o">–</span>')+'</td></tr>'}).join("")+'</tbody></table></div>':
-      '<p class="empty">'+(priced.length?"No player has two rungs that beat their price on this slate.":"No shots lines are stored for this day.")+'</p>')+'</section>';
+      '<p class="empty">'+(priced.length?"No player has two rungs that beat their price on this slate.":"No shots lines are stored for this day.")+'</p>')+(S.book&&!S.bookOff?'':droppedLadders(day,all,lw))+'</section>';
   view.innerHTML=pkHtml+lwHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span><span class="tag nt rvc">Rung value: '+priced.filter(function(r){return r.sv.rv&&r.sv.rv.length}).length+'</span>'+
@@ -1433,6 +1433,14 @@ function droppedStrip(day,kind,cur){ // picks listed earlier today that are no l
   return '<div class="dropped"><small>Listed earlier today, since dropped</small>'+l.map(function(e){var g=seenGrade(e,kind,by);
     return '<span class="pick" data-player="'+e.p+'">'+seenLabel(e,kind)+' <b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+' · first listed '+esc(fmtClock(e.at0).replace(" ET",""))+' · last price</span> '+seenClose(e,kind)+
       (g==null?'':' <span class="res '+(g>0?"m":"x")+'">'+(g>0?"WON":g<0?"LOST":"PUSH")+'</span>')+'</span>'}).join("")+'</div>'}
+function droppedLadders(day,rows,lw){ // ladders listed earlier today that have since left Ladder Watch, as they stood when first listed
+  var o=((D.locks||{})[day]||{}).seenL;if(!o)return "";var cur={};lw.forEach(function(L){cur[L.r.p]=1});
+  var l=Object.keys(o).map(function(k){return o[k]}).filter(function(e){return !cur[e.p]}).sort(function(a,b){return String(a.at0).localeCompare(String(b.at0))});if(!l.length)return "";
+  var by={};rows.forEach(function(r){by[r.p]=r});
+  return '<div class="dropped"><small>Listed earlier today, since dropped</small>'+l.map(function(e){var r=by[e.p],act=r?shotAct(r):null,u=0,open=0,ks=Object.keys(e.c).filter(function(k){return e.c[k][2]>0});
+    ks.forEach(function(k){var c=e.c[k];if(act&&act[0]>=+k)u+=c[2]*(payout(c[0])-1);else if(act&&act[1])u-=c[2];else open++});
+    return '<span class="pick" data-player="'+e.p+'">'+esc(e.n)+' <span class="o">line '+f1(e.line)+' ·</span> '+ks.map(function(k){var c=e.c[k];return '<b>'+k+'+ '+fmtP(c[0])+'</b> <span class="o">'+esc(bkAb(c[1]))+' '+c[2].toFixed(2)+'u</span>'}).join(' <span class="o">·</span> ')+
+      ' <span class="o">· first listed '+esc(fmtClock(e.at0).replace(" ET",""))+'</span>'+(act?' <span class="tag eg '+(u>0?"p2":u<0?"n2":"n1")+'">'+act[0]+(act[0]===1?" shot":" shots")+' · '+(u>=0?"+":"")+u.toFixed(2)+'u'+(open?" · live":"")+'</span>':'')+'</span>'}).join("")+'</div>'}
 function firstRecord(season,lab){ // every pick graded at the price it was first listed at, and how often the price then moved toward it
   var rows=[["g","Nightly Picks (goals)"],["s","Shot Picks"]].map(function(k){var R={kind:k[0],lab:k[1],n:0,g:0,w:0,u:0,cn:0,cb:0,pts:0,pn:0,list:[]};
     Object.keys(D.locks||{}).sort().forEach(function(d){var l=seenOf(d,k[0]);if(!l.length||!D.games.some(function(x){return x.d===d&&x.s===season})&&!(D.sched||[]).some(function(x){return x.d===d}))return;

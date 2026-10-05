@@ -108,6 +108,7 @@ if (games.length) {
     api.rungValues(r).forEach(v => rv.push({ p: r.p, n: r.name, t: r.t, ts, line: v.line, price: v.price, book: v.bk, pa: +v.pa.toFixed(4), pts: +v.pts.toFixed(4), at: stamp }));
   });
   /* Ladder Watch: each candidate's rungs, prices and stake split as of the last run before his game starts. */
+  const seenL = prevDay.seenL || {};
   let lw = (prevDay.lw || []).filter(e => e.ts && Date.parse(e.ts) <= now);      // started: frozen
   if (api.ladderOf) {
     const open = [];
@@ -120,11 +121,14 @@ if (games.length) {
     open.sort((x, y) => y.edge - x.edge).slice(0, Math.max(0, cap - lw.length)).forEach(L => {   // the nightly cap, after the places already frozen
       const r = L.r, c = {};
       L.cells.forEach(x => { if (x.a) c[x.need] = [x.a.price, x.a.bk, x.w || 0]; });
-      lw.push({ p: r.p, n: r.name, t: r.t, ts: r.info.m.ts, line: L.line, xs: +r.xs.toFixed(3), c, at: stamp });
+      const e = { p: r.p, n: r.name, t: r.t, ts: r.info.m.ts, line: L.line, xs: +r.xs.toFixed(3), c, at: stamp };
+      lw.push(e);
+      if (!seenL[r.p]) seenL[r.p] = Object.assign({}, e, { at0: stamp });   // the ladder as first listed, kept even if he later drops off
+      seenL[r.p].last = stamp;
     });
   }
   if (picks.length || shots.length || Object.keys(lad).length || rv.length || lw.length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, lad, rv, lw };
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, seenL, lad, rv, lw };
   }
 }
 const keep = Object.keys(store).sort().slice(-250);
