@@ -427,8 +427,8 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .pm-back{position:fixed;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;padding:36px 16px;background:rgba(4,7,10,.78);backdrop-filter:blur(3px);overflow:hidden}
 .pm{width:min(1100px,100%);max-height:calc(100vh - 72px);max-height:calc(100dvh - 72px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px -20px #000;scrollbar-width:thin}
 .pm-head{position:relative;display:flex;align-items:flex-end;gap:22px;height:176px;padding:0 28px;overflow:hidden;border-radius:17px 17px 0 0;
-  background:linear-gradient(100deg,color-mix(in srgb,var(--tc) 92%,#000) 0%,color-mix(in srgb,var(--tc) 68%,#000) 100%)}
-.pm-wm{position:absolute;right:-24px;top:50%;height:150%;transform:translateY(-50%);opacity:.22;filter:grayscale(1) brightness(1.7) contrast(1.05);pointer-events:none}
+  background:linear-gradient(90deg,color-mix(in srgb,var(--tc2) 42%,transparent) 0%,color-mix(in srgb,var(--tc2) 14%,transparent) 20%,transparent 38%),linear-gradient(100deg,color-mix(in srgb,var(--tc) 92%,#000) 0%,color-mix(in srgb,var(--tc) 68%,#000) 100%)}
+.pm-wm{position:absolute;right:-60px;top:50%;height:230%;transform:translateY(-50%);opacity:.3;pointer-events:none}
 .pm-mug{position:relative;flex:none;width:176px;height:176px;align-self:flex-end}
 .pm-mug img{position:absolute;left:50%;bottom:0;width:112%;max-width:none;transform:translateX(-50%);filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
 .pm-mug span{position:absolute;inset:0;display:grid;place-items:center;font:700 20px var(--display);letter-spacing:.06em;color:rgba(255,255,255,.3)}
@@ -1019,11 +1019,11 @@ function vShots(){
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
     {k:"sr",l:"Shots / 60",num:1,v:function(r){return r.b.sr},f:function(r){return r.b.sr?f1(r.b.sr*3600):"–"}}];
   var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
-  var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span></div>'+
+  var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><div class="pickers"><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span>'+dayPicker(dl)+'</div></div>'+
     '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
     (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+
     (S.book&&!S.bookOff?'':droppedStrip(day,"s",(function(){var m={};picks.forEach(function(c){m[c.p+"|"+c.side+"|"+c.line]=1});return m})()))+'</section>';
-  view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+  view.innerHTML=pkHtml+'<section class="panel"><div class="phead"><h2>Shots on goal</h2></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"With a line"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+
       '<span class="tag nt">'+priced.length+' lines</span><span class="tag nt ladc">Ladder candidates: '+lads.length+'</span><span class="tag nt rvc">Rung value: '+priced.filter(function(r){return r.sv.rv&&r.sv.rv.length}).length+'</span>'+
       (graded.length?'<span class="tag nt">Went over: '+ov+' of '+graded.length+' finished</span>':'')+(ladG.length?'<span class="tag nt ladc">Ladder candidates: '+ladG.filter(function(r){return r.sv.act>r.sh.line}).length+' of '+ladG.length+' over the line · '+ladG.filter(function(r){return r.sv.act>r.sh.line+1}).length+' hit the next rung</span>':'')+'</div>'+
@@ -1141,6 +1141,7 @@ function gameLine(g){
 
 /* ================= Player ================= */
 var TCOL={ANA:"#F47A38",BOS:"#FFB81C",BUF:"#003087",CGY:"#C8102E",CAR:"#CE1126",CHI:"#CF0A2C",COL:"#6F263D",CBJ:"#002654",DAL:"#006847",DET:"#CE1126",EDM:"#FF4C00",FLA:"#C8102E",LAK:"#A2AAAD",MIN:"#154734",MTL:"#AF1E2D",NSH:"#FFB81C",NJD:"#CE1126",NYI:"#00539B",NYR:"#0038A8",OTT:"#C52032",PHI:"#F74902",PIT:"#FCB514",SJS:"#006D75",SEA:"#99D9D9",STL:"#002F87",TBL:"#002868",TOR:"#00205B",UTA:"#71AFE5",VAN:"#00205B",VGK:"#B4975A",WSH:"#C8102E",WPG:"#041E42"};
+var TCOL2={ANA:"#B9975B",BOS:"#111111",BUF:"#FFB81C",CGY:"#F1BE48",CAR:"#A2AAAD",CHI:"#111111",COL:"#236192",CBJ:"#CE1126",DAL:"#8F8F8C",DET:"#FFFFFF",EDM:"#041E42",FLA:"#041E42",LAK:"#111111",MIN:"#A6192E",MTL:"#192168",NSH:"#041E42",NJD:"#111111",NYI:"#F47D30",NYR:"#CE1126",OTT:"#C2912C",PHI:"#111111",PIT:"#111111",SJS:"#EA7200",SEA:"#001628",STL:"#FCB514",TBL:"#FFFFFF",TOR:"#FFFFFF",UTA:"#111111",VAN:"#00843D",VGK:"#333F42",WSH:"#041E42",WPG:"#004C97"};
 function mugCard(p,t){ // the league's own headshot on the team's colour; falls back to the newest photo on file, then to initials
   var ys=D.seasons||[],y=ys[ys.length-1]||new Date().getFullYear(),base="https://assets.nhle.com/mugs/nhl/",ini=pname(p).split(/\s+/).map(function(w){return w.charAt(0)}).slice(0,2).join("");
   return '<div class="pphoto" style="--tc:'+(TCOL[t]||"#6cc4f5")+'"><span class="pini" aria-hidden="true">'+esc(ini)+'</span><img alt="'+nm(p)+'" loading="lazy" src="'+base+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'latest/'+p+'.png" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'}
@@ -1209,7 +1210,7 @@ function playerModal(p){ // the player card that opens over the page
     (rows.length?'':'<tr><td colspan="11" class="empty">No games in this season.</td></tr>')+'</tbody></table></div>';
   var base="https://assets.nhle.com/",y=ys[ys.length-1]||new Date().getFullYear(),ini=pname(p).split(/\s+/).map(function(w){return w.charAt(0)}).slice(0,2).join("");
   var seasons=ys.filter(function(yy){return cnt[yy]}).reverse().map(function(yy){return[yy,yy+"-"+String(yy+1).slice(2)]});if(seasons.length>1)seasons.push(["all","All"]);
-  return '<div class="pm" role="dialog" aria-modal="true" aria-label="'+nm(p)+'" style="--tc:'+(TCOL[t]||"#2b6b99")+'">'+
+  return '<div class="pm" role="dialog" aria-modal="true" aria-label="'+nm(p)+'" style="--tc:'+(TCOL[t]||"#2b6b99")+';--tc2:'+(TCOL2[t]||TCOL[t]||"#2b6b99")+'">'+
     '<div class="pm-head"><img class="pm-wm" alt="" src="'+base+'logos/nhl/svg/'+t+'_dark.svg" onerror="this.remove()">'+
       '<div class="pm-mug"><span aria-hidden="true">'+esc(ini)+'</span><img alt="" src="'+base+'mugs/nhl/'+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'mugs/nhl/latest/'+p+'.png" onload="this.parentNode.classList.add(\'has\')" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'+
       '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
@@ -1456,9 +1457,9 @@ function render(){
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
   [["#seg-ssn",S.ssn],["#seg-po",S.po],["#seg-n",S.n]].forEach(function(x){[].forEach.call(document.querySelectorAll(x[0]+" button"),function(b){b.setAttribute("aria-pressed",b.dataset.v===String(x[1]))})});
   [].forEach.call(document.querySelectorAll("#tabs button"),function(b){b.setAttribute("aria-selected",b.dataset.tab===S.tab)});
-  $("filters").hidden=["picks","slate","lineups","tracker"].indexOf(S.tab)>=0;
+  $("filters").hidden=["picks","slate","shots","feed","lineups","tracker","player"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
-  if(!G.length&&["picks","slate","lineups","tracker"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
+  if(!G.length&&["picks","slate","shots","feed","lineups","tracker","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
   TABS[S.tab]();pinFix();view._tab=S.tab;
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
