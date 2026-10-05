@@ -531,6 +531,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .bets tbody tr.glit>td:not(:last-child)::after{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--goal) 36%,transparent);box-shadow:inset 0 2px 0 -1px var(--goal-hot),inset 0 -2px 0 -1px var(--goal-hot);opacity:0;animation:rowlight 1.6s ease-in-out infinite;will-change:opacity}
 .bets tbody tr.glit .bty{color:#fff}
 @media(prefers-reduced-motion:reduce){.bets tbody tr.glit>td::after{animation:none}}
+.bets tbody tr.glit>td:last-child,.bets tbody tr.glit:nth-child(odd)>td:last-child{background:color-mix(in srgb,var(--surface) 55%,var(--bg))}
 </style>
 
 <div class="wrap">
