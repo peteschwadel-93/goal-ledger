@@ -1319,8 +1319,8 @@ function vLeaders(){
   var rows=playerAgg().filter(function(x){return x.pos!=="G"&&x.gp>=S.ldMin&&(!S.ldTeam||x.team===S.ldTeam)&&(S.ldPos==="all"||(S.ldPos==="D")===(x.pos==="D"))});
   var ts=teams();
   var cols=[
-    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<b>'+esc(r.name)+'</b> <span class="o">'+esc(r.pos)+'</span>'}},
     {k:"team",l:"Team",v:function(r){return r.team},f:function(r){return tmL(r.team)}},
+    {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b>'}},
     {k:"gp",l:"GP",num:1,v:function(r){return r.gp}},
     {k:"g",l:"Goals",num:1,v:function(r){return r.g}},
     {k:"sc",l:"Scored in",num:1,v:function(r){return r.sc/r.gp},f:function(r){return pct(r.sc,r.gp)}},
@@ -1360,8 +1360,8 @@ function vTeams(){
     {k:"ppg",l:"PP goals",num:1,v:function(r){return r.ppg/r.gp},f:function(r){return f2(r.ppg/r.gp)}},
     {k:"ena",l:"Empty-netters against",num:1,v:function(r){return r.ena}}];
   var gc=[
-    {k:"name",l:"Goalie",v:function(r){return r.name},f:function(r){return '<b>'+esc(r.name)+'</b>'}},
     {k:"team",l:"Team",v:function(r){return r.team},f:function(r){return tmL(r.team)}},
+    {k:"name",l:"Goalie",v:function(r){return r.name},f:function(r){return '<b>'+esc(r.name)+'</b>'}},
     {k:"gp",l:"GP",num:1,v:function(r){return r.gp}},{k:"st",l:"Starts",num:1,v:function(r){return r.st}},
     {k:"sv",l:"Save %",num:1,v:function(r){return r.sa?1-r.ga/r.sa:0},f:function(r){return r.sa?(1-r.ga/r.sa).toFixed(3).slice(1):"–"}},
     {k:"ga",l:"Goals against",num:1,v:function(r){return r.ga}},
