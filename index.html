@@ -422,6 +422,39 @@ table.pin3 th:nth-child(3)::after,table.pin3 td:nth-child(3)::after{content:"";p
 .tag.rvt{background:color-mix(in srgb,var(--rv) 22%,var(--bg));border-color:var(--rv);color:var(--rv);font-weight:700}
 .tag.nt.rvc{border-color:color-mix(in srgb,var(--rv) 70%,var(--line));color:var(--rv)}
 tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
+
+/* player card: opens over the page */
+.pm-back{position:fixed;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;padding:36px 16px;background:rgba(4,7,10,.78);backdrop-filter:blur(3px);overflow:hidden}
+.pm{width:min(1100px,100%);max-height:calc(100vh - 72px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px -20px #000;scrollbar-width:thin}
+.pm-head{position:relative;display:flex;align-items:flex-end;gap:22px;height:176px;padding:0 28px;overflow:hidden;border-radius:17px 17px 0 0;
+  background:linear-gradient(100deg,color-mix(in srgb,var(--tc) 92%,#000) 0%,color-mix(in srgb,var(--tc) 68%,#000) 100%)}
+.pm-wm{position:absolute;right:-30px;top:50%;height:150%;transform:translateY(-50%);opacity:.2;filter:brightness(0) invert(1);pointer-events:none}
+.pm-mug{position:relative;flex:none;width:176px;height:176px;align-self:flex-end}
+.pm-mug img{position:absolute;left:50%;bottom:0;width:112%;max-width:none;transform:translateX(-50%);filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
+.pm-mug span{position:absolute;inset:0;display:grid;place-items:center;font:700 56px var(--display);color:rgba(255,255,255,.3)}
+.pm-id{position:relative;align-self:center;min-width:0}
+.pm-id h2{margin:0;font:700 34px/1.05 var(--display);letter-spacing:.03em;text-transform:uppercase;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.pm-sub{margin-top:8px;display:flex;align-items:center;gap:8px;font:600 13px var(--display);letter-spacing:.09em;text-transform:uppercase;color:#fff}
+.pm-sub span{color:rgba(255,255,255,.85)}
+.pm-x{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75);background:rgba(0,0,0,.45);color:#fff;font:400 22px/1 var(--body);cursor:pointer}
+.pm-x:hover,.pm-x:focus-visible{background:rgba(0,0,0,.7);outline:none;border-color:#fff}
+.pm-body{padding:20px 26px 26px}
+.pm-seas{display:flex;justify-content:flex-end;margin-bottom:12px}
+.pm-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.pm-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pm-tile{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 13px;min-width:0}
+.pm-tile small{display:block;font:500 10.5px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pm-tile b{display:block;margin:5px 0 3px;font:600 24px/1.1 var(--mono);color:var(--ink)}
+.pm-tile span{display:block;font-size:12px;color:var(--muted);line-height:1.35}
+.pm-body h4{margin:20px 0 8px;font:600 12px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--tc-ink,var(--accent))}
+.pm-next{margin:0;font-size:14px;line-height:1.65;color:var(--soft)}
+.pm-next b{color:var(--ink)}
+.pm-log{max-height:calc(38px + 9 * 44px);overflow-y:auto;scrollbar-width:thin}
+.pm-log thead th{position:sticky;top:0;z-index:1;background:var(--bg)}
+.pm-log td{padding-block:9px}
+.pm-more{margin-top:18px;width:100%}
+.pm-work{margin-top:14px}
+@media(max-width:760px){.pm-back{padding:0}.pm{max-height:100vh;border-radius:0;border:0}.pm-head{height:132px;padding:0 16px;gap:12px;border-radius:0}.pm-mug{width:120px;height:132px}.pm-id h2{font-size:23px}.pm-wm{display:none}.pm-body{padding:16px 14px 22px}}
 </style>
 
 <div class="wrap">
@@ -1116,9 +1149,11 @@ function vPlayer(){
   hits.sort(function(x,y){return IX.P[y].a[6]-IX.P[x].a[6]});
   var p=S.player,st=p&&IX.P[p];
   var hd='<section class="panel"><div class="phead"><h2>Player</h2><label class="f">Find <input type="search" id="q" placeholder="Type a name" value="'+esc(S.q)+'" autocomplete="off"></label></div>'+
-    (q.length>=2?'<div class="tabs">'+hits.slice(0,14).map(function(x){return '<button data-pl="'+x+'"'+(x===p?' aria-selected="true"':'')+'>'+nm(x)+' <span class="o">'+(IX.P[x].team||"")+'</span></button>'}).join("")+(hits.length?"":'<span class="o">No skater matches.</span>')+'</div>':'')+
-    (st?"":'<p class="note">Search for a skater, or click any name on the other tabs, to see how his number is built and his game log.</p>')+'</section>';
-  if(!st){view.innerHTML=hd;return}
+    (q.length>=2?'<div class="tabs">'+hits.slice(0,14).map(function(x){return '<button data-pl="'+x+'">'+nm(x)+' <span class="o">'+(IX.P[x].team||"")+'</span></button>'}).join("")+(hits.length?"":'<span class="o">No skater matches.</span>')+'</div>':'')+
+    '<p class="note">Search for a skater, or click any name on the other tabs, to open his card: season numbers, his next game, his game log and how his number is built.</p></section>';
+  view.innerHTML=hd}
+function playerModal(p){ // the player card that opens over the page
+  var st=IX.P[p];if(!st)return "";
   var d=isD(p),L=IX.L[d?"D":"F"],x=rate(st,d),a=st.a,t=st.team;
   // tonight, if he is on the selected day's slate
   var dl=dayList(),row=slate(S.day).filter(function(r){return r.p===p})[0];
@@ -1144,16 +1179,49 @@ function vPlayer(){
       line("Chance to score",'<span class="px c'+level(row.pr)+'">'+p1(row.pr)+'</span>',"1 − e^(−expected goals). Fair price "+fairOdds(row.pr)+"."+(row.px?" Best price "+fmtP(row.px.price)+" at "+esc(row.px.book)+": edge "+(row.ev>0?"+":"")+Math.round(row.ev*100)+"%, value score "+row.vs.toFixed(1)+".":"")):
       line("Chance to score, neutral game",p1(1-Math.exp(-lam0*b.role*Math.exp(C.b.one))),"He is not on the slate for "+fmtD(S.day)+", so no opponent is applied."))+
     '</tbody></table></div>';
-  var log=st.log.filter(function(e){return (S.po==="all"||String(e.g.po)===S.po)&&(S.ssn==="all"||String(e.g.s)===S.ssn)}),win=lastN(log),tot={g:0,sog:0,xg:0,toi:0,pp:0,sc:0,pred:0,fen:0,hd:0};
-  win.forEach(function(e){var r=e.r;tot.g+=r[1];tot.sog+=r[2];tot.fen+=r[3];tot.xg+=(r[4]+r[5])/1000;tot.toi+=r[6];tot.pp+=r[7];tot.hd+=r[11];if(r[1])tot.sc++;tot.pred+=1-Math.exp(-IX.PRE[e.g.id][p][0])});
-  var n=win.length||1;
-  var sum='<div class="kv"><span>Games <b>'+win.length+'</b></span><span>Goals <b>'+tot.g+'</b></span><span>Scored in <b>'+pct(tot.sc,win.length)+'</b> of games</span><span>Model said <b>'+pct(tot.pred,win.length)+'</b></span><span>xG <b>'+f1(tot.xg)+'</b></span><span>Goals − xG <b>'+(tot.g-tot.xg>0?"+":"")+f1(tot.g-tot.xg)+'</b></span><span>Shots <b>'+f1(tot.sog/n)+'</b> a game</span><span>Shooting <b>'+pct(tot.g,tot.sog)+'</b></span><span>Ice time <b>'+mmss(tot.toi/n)+'</b></span><span>Power play <b>'+mmss(tot.pp/n)+'</b></span></div>';
-  var rows=win.slice().reverse(); // every game, newest first, in a box five rows tall that scrolls
-  var tbl='<div class="tw plog"><table><thead><tr><th>Game</th><th class="n">Model</th><th>Result</th><th class="n">Shots</th><th class="n">Attempts</th><th class="n">High-danger</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
-    rows.map(function(e){var r=e.r,g=e.g,o=opp(g,e.t),gk=g.g[o].length?g.g[o][0][0]:null;return '<tr><td>'+fmtD(g.d)+" "+(g.h===e.t?"vs ":"at ")+o+'</td><td class="n">'+p1(1-Math.exp(-IX.PRE[g.id][p][0]))+'</td><td>'+(r[1]?'<span class="res m">'+(r[1]>1?r[1]+" GOALS":"GOAL")+(r[8]?" · PP":"")+(r[9]?" · EN":"")+'</span>':'<span class="res x">–</span>')+'</td><td class="n">'+r[2]+'</td><td class="n">'+r[3]+'</td><td class="n">'+r[11]+'</td><td class="n">'+f2((r[4]+r[5])/1000)+'</td><td class="n">'+mmss(r[6])+'</td><td class="n">'+mmss(r[7])+'</td><td>'+(gk?nm(gk):"–")+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML=hd+'<section class="panel pprof">'+mugCard(p,t)+'<div class="pmain"><div class="phead"><h2>'+nm(p)+' <span class="o" style="font-size:16px">'+esc(ppos(p))+' · '+tmL(t)+'</span></h2>'+(row?'<span class="edge">'+fmtD(S.day)+" "+(row.home?"vs ":"at ")+row.opp+'</span>':'')+'</div>'+sum+tbl+'</div></section>'+
-    '<section class="panel"><div class="phead"><h2>How his number is built</h2></div>'+work+'</section>';
+  var ys=(D.seasons||[]).slice(),cnt={};st.log.forEach(function(e){cnt[e.g.s]=(cnt[e.g.s]||0)+1});
+  var sel=S.pmS;if(sel==null||(sel!=="all"&&!cnt[sel])){sel=null;for(var i=ys.length-1;i>=0;i--)if(cnt[ys[i]]>=10){sel=ys[i];break}if(sel==null)for(i=ys.length-1;i>=0;i--)if(cnt[ys[i]]){sel=ys[i];break}}
+  var win=st.log.filter(function(e){return sel==="all"||e.g.s===sel}),tot={g:0,sog:0,xg:0,toi:0,pp:0,sc:0,pred:0,fen:0,s2:0,s3:0,s4:0,s5:0};
+  win.forEach(function(e){var r=e.r;tot.g+=r[1];tot.sog+=r[2];tot.fen+=r[3];tot.xg+=(r[4]+r[5])/1000;tot.toi+=r[6];tot.pp+=r[7];if(r[1])tot.sc++;tot.pred+=1-Math.exp(-IX.PRE[e.g.id][p][0]);
+    if(r[2]>=2)tot.s2++;if(r[2]>=3)tot.s3++;if(r[2]>=4)tot.s4++;if(r[2]>=5)tot.s5++});
+  var n=win.length,n1=n||1,slab=sel==="all"?"All seasons":sel+"-"+String(sel+1).slice(2)+" season";
+  function tile(k,v,sub){return '<div class="pm-tile"><small>'+k+'</small><b>'+v+'</b><span>'+sub+'</span></div>'}
+  var tiles='<div class="pm-tiles">'+
+    tile("Games",n,slab.replace(" season",""))+
+    tile("Ice time",mmss(tot.toi/n1),"a game · "+mmss(tot.pp/n1)+" on the power play")+
+    tile("Goals",tot.g,f1(tot.xg)+" expected")+
+    tile("Scored in",pct(tot.sc,n),tot.sc+" of "+n+" · model said "+pct(tot.pred,n))+
+    tile("Shots",f1(tot.sog/n1),"a game · "+f1(tot.fen/n1)+" attempts")+
+    tile("Shooting",pct(tot.g,tot.sog),tot.g+" of "+tot.sog)+
+    tile("2+ shots",pct(tot.s2,n),tot.s2+" of "+n)+
+    tile("3+ shots",pct(tot.s3,n),tot.s3+" of "+n)+
+    tile("4+ shots",pct(tot.s4,n),tot.s4+" of "+n)+
+    tile("5+ shots",pct(tot.s5,n),tot.s5+" of "+n)+'</div>';
+  var next="";if(row){var h=row.sh,ch=[1,2,3,4,5].map(function(k){var q=nbOver(row.xs,k-.5);return '<b>'+k+'+</b> '+Math.round(q*100)+'% <span class="o">('+fairOdds(q)+')</span>'}).join(" · ");
+    next='<h4>'+(row.info.m.g?"Game":"Next game")+' · '+fmtD(S.day)+' '+(row.home?"vs ":"at ")+row.opp+(row.info.m.g?"":' · '+esc(row.info.m.t||""))+'</h4>'+
+      '<p class="pm-next">Chance to score <b>'+p1(row.pr)+'</b> <span class="o">(fair '+fairOdds(row.pr)+')</span>'+(row.px?', best price <b>'+fmtP(row.px.price)+'</b> at '+esc(row.px.book)+', edge '+pill(row.ev):'')+'. '+
+      'Projected <b>'+f2(row.xs)+'</b> shots on goal in <b>'+mmss(b.tev+b.tpp)+'</b> of ice time'+(h?', against a line of <b>'+f1(h.line)+'</b>':'')+'. Shot chances: '+ch+'.</p>'}
+  else next='<h4>Next game</h4><p class="pm-next"><span class="o">He is not on the slate for '+fmtD(S.day)+'. Pick a day he plays to see his chances.</span></p>';
+  var rows=win.slice().reverse();
+  var tbl='<div class="tw pm-log"><table><thead><tr><th>Date</th><th>Opp</th><th>Result</th><th class="n">Model</th><th class="n">Shots</th><th class="n">Projected</th><th class="n">Attempts</th><th class="n">xG</th><th class="n">Ice time</th><th class="n">PP time</th><th>Goalie faced</th></tr></thead><tbody>'+
+    rows.map(function(e){var r=e.r,g=e.g,o=opp(g,e.t),gk=g.g[o].length?g.g[o][0][0]:null,pre=IX.PRE[g.id][p];return '<tr><td>'+fmtD(g.d)+", "+g.d.slice(0,4)+(g.po?' <span class="tag">PO</span>':'')+'</td><td><span class="o">'+(g.h===e.t?"vs ":"@ ")+'</span>'+tmL(o)+'</td><td>'+(r[1]?'<span class="res m">'+(r[1]>1?r[1]+" GOALS":"GOAL")+(r[8]?" · PP":"")+(r[9]?" · EN":"")+'</span>':'<span class="res x">–</span>')+'</td><td class="n">'+p1(1-Math.exp(-pre[0]))+'</td><td class="n"><b>'+r[2]+'</b></td><td class="n"><span class="o">'+(pre[10]!=null?f2(pre[10]):"–")+'</span></td><td class="n">'+r[3]+'</td><td class="n">'+f2((r[4]+r[5])/1000)+'</td><td class="n">'+mmss(r[6])+'</td><td class="n">'+mmss(r[7])+'</td><td>'+(gk?nm(gk):"–")+'</td></tr>'}).join("")+
+    (rows.length?'':'<tr><td colspan="11" class="empty">No games in this season.</td></tr>')+'</tbody></table></div>';
+  var base="https://assets.nhle.com/",y=ys[ys.length-1]||new Date().getFullYear(),ini=pname(p).split(/\s+/).map(function(w){return w.charAt(0)}).slice(0,2).join("");
+  var seasons=ys.filter(function(yy){return cnt[yy]}).reverse().map(function(yy){return[yy,yy+"-"+String(yy+1).slice(2)]});if(seasons.length>1)seasons.push(["all","All"]);
+  return '<div class="pm" role="dialog" aria-modal="true" aria-label="'+nm(p)+'" style="--tc:'+(TCOL[t]||"#2b6b99")+'">'+
+    '<div class="pm-head"><img class="pm-wm" alt="" src="'+base+'logos/nhl/svg/'+t+'_dark.svg" onerror="this.remove()">'+
+      '<div class="pm-mug"><span aria-hidden="true">'+esc(ini)+'</span><img alt="" src="'+base+'mugs/nhl/'+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'mugs/nhl/latest/'+p+'.png" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'+
+      '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
+      '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
+    '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
+      tiles+next+'<h4>Game log</h4>'+tbl+
+      '<button class="more pm-more" id="pmWork" aria-expanded="'+(S.pmW?"true":"false")+'">'+(S.pmW?"Hide how his number is built":"How his number is built")+'</button>'+
+      '<div class="pm-work"'+(S.pmW?"":" hidden")+'>'+work+'</div></div></div>';
 }
+var PM={p:null,el:null};
+function openPlayer(p){if(!IX.P[p])return;PM.p=p;var el=PM.el||(PM.el=document.body.appendChild(Object.assign(document.createElement("div"),{id:"pmRoot",className:"pm-back"})));
+  el.innerHTML=playerModal(p);el.style.display="flex";document.body.style.overflow="hidden";var x=document.getElementById("pmClose");if(x)x.focus()}
+function closePlayer(){if(PM.el){PM.el.style.display="none";PM.el.innerHTML=""}PM.p=null;S.pmS=null;S.pmW=0;document.body.style.overflow=""}
 
 /* ================= Leaders ================= */
 function vLeaders(){
@@ -1417,6 +1485,11 @@ document.addEventListener("focusout",function(e){if(e.target.closest&&e.target.c
 document.addEventListener("scroll",hideTip,true);
 document.addEventListener("click",function(e){
   if(e.target.closest("input,select"))return;
+  if(PM.p!=null&&e.target.closest("#pmRoot")){ // the player card: close on the ×, or a click on the dimmed page behind it
+    if(e.target.id==="pmRoot"||e.target.closest("#pmClose"))return closePlayer();
+    var ps=e.target.closest("[data-pms]");if(ps){S.pmS=ps.dataset.pms==="all"?"all":+ps.dataset.pms;return openPlayer(PM.p)}
+    if(e.target.closest("#pmWork")){S.pmW=S.pmW?0:1;var sc=PM.el.querySelector(".pm").scrollTop;openPlayer(PM.p);PM.el.querySelector(".pm").scrollTop=sc;if(S.pmW){var w=PM.el.querySelector(".pm-work");if(w&&w.scrollIntoView)w.scrollIntoView({behavior:"smooth",block:"start"})}return}
+    var hp=e.target.closest(".pxh");if(hp)return TIP.at===hp?hideTip():showTip(hp);return}
   var ph=e.target.closest(".pxh");if(ph){e.stopPropagation();return TIP.el&&TIP.at===ph?hideTip():showTip(ph)}hideTip();
   var jp=e.target.closest("[data-jump]");if(jp){var to=document.getElementById(jp.dataset.jump);if(to)to.scrollIntoView({behavior:"smooth",block:"start"});return}
   var t=e.target.closest("[data-tab]");if(t){S.tab=t.dataset.tab;try{history.replaceState(null,"","#"+S.tab)}catch(_){}return render()}
@@ -1431,14 +1504,14 @@ document.addEventListener("click",function(e){
   if(id2==="trkMore"){S.trkN+=30;return render()}
   if(id2==="gamesMore"||id2==="logMore"){S.logN+=30;return render()}
   var hs=e.target.closest(".hs");if(hs){if(hs.dataset.gcs)S.gcSort=hs.dataset.gcs;else S.luSort=hs.dataset.lus;return render()}
-  var pb=e.target.closest("[data-pl]");if(pb){S.player=+pb.dataset.pl;S.logN=30;return render()}
+  var pb=e.target.closest("[data-pl]");if(pb)return openPlayer(+pb.dataset.pl);
   var th=e.target.closest("th[data-sort]");if(th)return sortBy(th);
-  var r=e.target.closest("[data-player]");if(r){S.player=+r.dataset.player;S.q="";S.logN=30;return go("player")}
+  var r=e.target.closest("[data-player]");if(r)return openPlayer(+r.dataset.player);
 });
-document.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&PM.p!=null)return closePlayer();if(e.key!=="Enter"&&e.key!==" ")return;
   var th=e.target.closest("th[data-sort]");if(th){e.preventDefault();return sortBy(th)}
   var hs=e.target.closest&&e.target.closest(".hs");if(hs){e.preventDefault();if(hs.dataset.gcs)S.gcSort=hs.dataset.gcs;else S.luSort=hs.dataset.lus;return render()}
-  var r=e.target.matches&&e.target.matches("[data-player]")?e.target:null;if(r){e.preventDefault();S.player=+r.dataset.player;S.q="";go("player")}});
+  var r=e.target.matches&&e.target.matches("[data-player]")?e.target:null;if(r){e.preventDefault();openPlayer(+r.dataset.player)}});
 function sortBy(th){var p=th.dataset.sort.split("|"),cur=S.sort[p[0]];
   if(cur&&cur.k===p[1])cur.dir=-cur.dir;else if(!cur&&th.getAttribute("aria-sort"))S.sort[p[0]]={k:p[1],dir:th.getAttribute("aria-sort")==="descending"?1:-1};
   else S.sort[p[0]]={k:p[1],dir:th.classList.contains("n")?-1:1};render()}
