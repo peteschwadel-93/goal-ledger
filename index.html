@@ -475,6 +475,24 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .lwc.bet.hit{background:color-mix(in srgb,var(--made,#4ade80) 16%,var(--bg))}
 
 .lwc .lwu{cursor:help;border-bottom:1px dotted color-mix(in srgb,var(--lad) 60%,transparent)}
+
+/* tracker: one combined net-units figure for Nightly Picks, Shot Picks and Ladder Watch */
+.netp{display:grid;grid-template-columns:minmax(260px,auto) 1fr;gap:18px 34px;align-items:center}
+.netbig small,.netpart small,.netdays small{display:block;font:500 11px var(--body);letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.netbig b{display:block;font:700 68px/1 var(--display);letter-spacing:.01em;margin:8px 0 10px;color:var(--ink)}
+.netbig.up b,.netpart b.up{color:var(--made,#4ade80)}.netbig.dn b,.netpart b.dn{color:var(--goal-hot)}
+.netbig span{font-size:13.5px;color:var(--soft)}
+.netparts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.netpart{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.netpart small span{letter-spacing:.04em;text-transform:none;opacity:.8}
+.netpart b{display:block;font:600 28px/1.1 var(--mono);margin:8px 0 5px;color:var(--ink)}
+.netpart>span{font-size:12.5px;color:var(--muted)}
+.netdays{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.netdays small{flex-basis:100%}
+.netday{font-size:13px;color:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.netday b{font-family:var(--mono);font-weight:600;color:var(--ink)}.netday.up b{color:var(--made,#4ade80)}.netday.dn b{color:var(--goal-hot)}
+.netp .note{grid-column:1/-1;margin:0}
+@media(max-width:900px){.netp{grid-template-columns:1fr}.netparts{grid-template-columns:1fr}.netbig b{font-size:52px}}
 </style>
 
 <div class="wrap">
@@ -1390,6 +1408,7 @@ function firstRecord(season,lab){ // every pick graded at the price it was first
     rows.map(function(R){return '<tr><td>'+R.lab+'</td><td class="n">'+R.n+'</td><td class="n">'+R.g+'</td><td class="n"><b>'+R.w+'</b>'+(R.g?' · '+pct(R.w,R.g):'')+'</td><td class="n">'+(R.g?pill2(R.u):"–")+'</td><td class="n">'+(R.g?pill(R.u/R.g):"–")+'</td><td class="n">'+(R.cn?'<b>'+R.cb+' of '+R.cn+'</b> · '+pct(R.cb,R.cn):"–")+'</td><td class="n">'+(R.pn?(R.pts/R.pn>=0?"+":"")+(100*R.pts/R.pn).toFixed(1)+' pts':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'+
     '<div class="tw" style="margin-top:14px"><table><thead><tr><th>Day</th><th>Pick</th><th class="n">First price</th><th>First listed</th><th>Last price before the game</th><th>Result</th></tr></thead><tbody>'+
     all.slice(0,S.trkN).map(function(x){var e=x.e;return '<tr class="pick" data-player="'+e.p+'"><td>'+fmtD(x.d)+'</td><td>'+seenLabel(e,x.k)+' <span class="o">'+(x.k==="s"?"shots":"goal")+'</span></td><td class="n"><b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+'</span></td><td>'+esc(fmtClock(e.at0).replace(" ET",""))+'</td><td>'+seenClose(e,x.k)+'</td><td>'+(x.g==null?'<span class="o">open</span>':'<span class="res '+(x.g>0?"m":"x")+'">'+(x.g>0?"WON":x.g<0?"LOST":"PUSH")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+var REC={s:null,w:null}; // the last Shot Picks and Ladder Watch totals worked out, for the combined tracker
 function watchRecord(season,lab){ // Ladder Watch graded: one unit a player, split across his shaded rungs
   var days={};Object.keys(D.locks||{}).forEach(function(d){if(((D.locks[d]||{}).lw||[]).length)days[d]=1});
   Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.sa&&o.sa.length)days[k.slice(0,10)]=1});
@@ -1397,7 +1416,7 @@ function watchRecord(season,lab){ // Ladder Watch graded: one unit a player, spl
   Object.keys(days).sort().forEach(function(d){if(!D.games.some(function(g){return g.d===d&&g.s===season}))return;
     var l=ladderWatch(d,slate(d)).filter(function(L){return L.act&&L.act[1]});if(!l.length)return;
     var x={d:d,l:l,u:0,w:0};l.forEach(function(L){R.n++;x.u+=L.u;if(L.u>0){R.w++;x.w++}L.bet.forEach(function(c){R.rn++;if(L.act[0]>=c.need)R.rh++})});R.u+=x.u;x.run=R.u;R.days.push(x)});
-  S.book=keepB;R.days.reverse();
+  S.book=keepB;R.days.reverse();REC.w=R;
   if(!R.n)return '<section class="panel"><div class="phead"><h2>Ladder Watch record · '+lab+'</h2></div><p class="note">No finished night has had a Ladder Watch candidate yet. It needs alternate-line prices, which started being fetched on Oct 4.</p></section>';
   function usd(u){return (u<0?"−$":"$")+Math.abs(u*S.unit).toFixed(2)}
   return '<section class="panel"><div class="phead"><h2>Ladder Watch record · '+lab+'</h2></div>'+
@@ -1453,7 +1472,7 @@ function shotRecord(season,lab){ // Shot Picks graded at one unit: the saved lis
   Object.keys(days).sort().forEach(function(d){if(!D.games.some(function(g){return g.d===d&&g.s===season}))return;
     var rows=slate(d),pk=shotPicks(d,rows).filter(function(c){return c.win!=null&&(!c.saved||c.locked)});if(!pk.length)return;
     var u=0,w=0;pk.forEach(function(c){u+=c.u;if(c.win>0)w++});R.n+=pk.length;R.w+=w;R.u+=u;R.days.push({d:d,pk:pk,u:u,w:w,run:R.u,lock:pk[0].saved})});
-  S.book=keepB;R.days.reverse();
+  S.book=keepB;R.days.reverse();REC.s=R;
   if(!R.n)return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div><p class="note">No finished day has stored shots lines yet. The record starts once the first night with lines has finished.</p></section>';
   function usd(u){return (u<0?"−$":"$")+Math.abs(u*S.unit).toFixed(2)}
   return '<section class="panel"><div class="phead"><h2>Shot Picks record · '+lab+'</h2></div>'+
@@ -1511,11 +1530,19 @@ function vTracker2(){
   var more=dayRows.length>S.trkN;
   var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th></tr></thead><tbody>'+
     dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td></tr>'}).join("")+'</tbody></table></div>';
-  view.innerHTML='<section class="panel"><div class="phead"><h2>Tracker · '+lab+'</h2><label class="f">Season '+seg("seg-trks",ss.slice().reverse().map(function(y){return[y,y+"-"+String(y+1).slice(2)]}),cur)+'</label></div>'+
+  var sHtml=shotRecord(cur,lab),wHtml=watchRecord(cur,lab),parts=[["Nightly Picks","goals",NP.n,NP.u,NP.days,"picks"],["Shot Picks","shots",REC.s.n,REC.s.u,REC.s.days,"picks"],["Ladder Watch","shot ladders",REC.w.n,REC.w.u,REC.w.days,"ladders"]];
+  var net=0,stk=0,byDay={};parts.forEach(function(x){net+=x[3];stk+=x[2];x[4].forEach(function(dd){byDay[dd.d]=(byDay[dd.d]||0)+dd.u})});
+  var dk=Object.keys(byDay).sort(),run=0,runs=dk.map(function(dd){run+=byDay[dd];return{d:dd,u:byDay[dd],run:run}}),up=dk.filter(function(dd){return byDay[dd]>0}).length;
+  function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
+  var netHtml=stk?'<section class="panel netp"><div class="netbig '+(net>0?"up":net<0?"dn":"")+'"><small>Net units · '+lab+'</small><b>'+sg(net)+'u</b><span>'+sg(net*S.unit,0).replace(/^([+−])/,"$1$")+' at $'+S.unit+' a unit · '+stk+' units staked · ROI '+(net/stk>=0?"+":"−")+Math.abs(Math.round(100*net/stk))+'% · '+up+' of '+dk.length+' nights up</span></div>'+
+    '<div class="netparts">'+parts.map(function(x){return '<div class="netpart"><small>'+x[0]+' <span>'+x[1]+'</span></small><b class="'+(x[3]>0?"up":x[3]<0?"dn":"")+'">'+(x[2]?sg(x[3])+'u':"–")+'</b><span>'+(x[2]?x[2]+' '+x[5]+' · ROI '+(x[3]/x[2]>=0?"+":"−")+Math.abs(Math.round(100*x[3]/x[2]))+'%':'nothing graded yet')+'</span></div>'}).join("")+'</div>'+
+    '<div class="netdays"><small>Night by night, all three together</small>'+runs.slice().reverse().slice(0,14).map(function(x){return '<span class="netday '+(x.u>0?"up":x.u<0?"dn":"")+'" title="Running total '+sg(x.run)+'u">'+fmtD(x.d)+' <b>'+sg(x.u)+'u</b></span>'}).join("")+'</div>'+
+    '<p class="note">One unit on every Nightly Pick, one on every Shot Pick and one split across each Ladder Watch ladder, at the prices saved before each game. Each part has its full record further down.</p></section>':'';
+  view.innerHTML=netHtml+'<section class="panel"><div class="phead"><h2>Tracker · '+lab+'</h2><label class="f">Season '+seg("seg-trks",ss.slice().reverse().map(function(y){return[y,y+"-"+String(y+1).slice(2)]}),cur)+'</label></div>'+
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+shotRecord(cur,lab)+firstRecord(cur,lab)+watchRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+sHtml+firstRecord(cur,lab)+wHtml+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
