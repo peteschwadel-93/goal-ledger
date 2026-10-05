@@ -768,7 +768,7 @@ function rungValues(r){ // the rungs one and two above his line that pass: [{i, 
   return out}
 function rungGrade(line,act){if(!act)return null;return act[0]>line?1:act[1]?-1:null} // won as soon as he clears it, lost only at the final whistle
 /* ---- Ladder Watch: players with two or more rungs that each beat their price ---- */
-var LW={lo:2,hi:5,ref:6,minEdge:.02,minTop:3,step:.05};
+var LW={lo:2,hi:5,ref:6,minEdge:.02,maxEdge:.2,minP:.2,minTop:3,step:.05}; // tightened on the first five nights of real prices: long shots and outsized edges were where the losses were
 function rungChance(r,need){ // the chance a rung is judged on: blended with the market on his main line, the model as it stands below it, trimmed above it
   var h=r.sh,p=nbOver(r.xs,need-.5),main=Math.ceil(h.line);
   if(need===main&&h.fairO!=null)return SP.w*p+(1-SP.w)*h.fairO;
@@ -776,7 +776,7 @@ function rungChance(r,need){ // the chance a rung is judged on: blended with the
 function ladderOf(r,saved){ // every rung from 2+ to 6+ with its price and edge, which ones to bet and how to split one unit; saved = the list locked before his game
   var h=r.sh;if(!h||r.xs==null)return null;var alt=saved?null:altOf(r.info.o,r.name),cells=[],bet=[];
   for(var k=LW.lo;k<=LW.ref;k++){var a=saved?(saved.c[k]?{price:saved.c[k][0],bk:saved.c[k][1],book:saved.c[k][1],all:null}:null):alt[k-.5]||null,pa=rungChance(r,k),c={need:k,p:nbOver(r.xs,k-.5),pa:pa,a:a,ev:a?pa*payout(a.price)-1:null,w:0};
-    if(saved)c.w=saved.c[k]&&saved.c[k][2]?saved.c[k][2]:0;else if(k<=LW.hi&&c.ev!=null&&c.ev>=LW.minEdge)bet.push(c);cells.push(c)}
+    if(saved)c.w=saved.c[k]&&saved.c[k][2]?saved.c[k][2]:0;else if(k<=LW.hi&&c.ev!=null&&c.ev>=LW.minEdge&&c.ev<=LW.maxEdge&&pa>=LW.minP)bet.push(c);cells.push(c)}
   if(saved)bet=cells.filter(function(c){return c.w>0});
   else{if(bet.length<2||bet[bet.length-1].need<LW.minTop)return null;
     // split one unit in proportion to each rung's edge over its payout, so the likelier rungs carry most of it; rounded to 0.05
@@ -789,7 +789,8 @@ function ladderOf(r,saved){ // every rung from 2+ to 6+ with its price and edge,
     chk:h.fairO!=null&&Math.abs(nbOver(r.xs,h.line)-h.fairO)>RV.gap}}
 function ladderWatch(day,rows){var sv=(!S.book||S.bookOff)?((D.locks||{})[day]||{}).lw:null,out=[];
   if(sv&&sv.length){var by={};rows.forEach(function(r){by[r.p]=r});sv.forEach(function(k){var r=by[k.p];if(!r||!r.sh)return;var L=ladderOf(r,k);if(L){L.line=k.line;L.main=Math.ceil(k.line);L.saved=1;out.push(L)}})}
-  else rows.forEach(function(r){var L=ladderOf(r);if(L)out.push(L)});
+  else{rows.forEach(function(r){var L=ladderOf(r);if(L)out.push(L)});out.sort(function(a,b){return b.edge-a.edge});
+    out.passed=out.length;var cut=out.slice(0,npCap(matchups(day).length));cut.passed=out.passed;return cut} // the same nightly cap as the picks: one for every three games, five at most
   return out.sort(function(a,b){return b.edge-a.edge})}
 /* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
 var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
@@ -1086,7 +1087,7 @@ function vShots(){
   var lwHtml='<section class="panel"><div class="phead"><h2>Ladder watch</h2><div class="pickers">'+
     (lwT.n?'<span class="tag nt'+(lwT.u>0?" w":lwT.u<0?" l":"")+'" title="One unit a player, split across his shaded rungs. A rung he reaches wins at once; a rung he has not reached loses only when his game ends.">'+(lwT.u>=0?"+":"−")+Math.abs(lwT.u).toFixed(2)+'u'+(S.unit?' · '+(lwT.u>=0?"+":"−")+'$'+Math.abs(lwT.u*S.unit).toFixed(0):'')+' · '+lwT.rh+' of '+lwT.rn+' rungs hit · '+lwT.w+' of '+(lwT.n-lwT.open)+' ladders in profit'+(lwT.open?' · '+lwT.open+' still live':'')+'</span>':'')+
     '<span class="tag nt ladc">'+lw.length+(lw.length===1?" candidate":" candidates")+' · best total edge first</span></div></div>'+
-    '<p class="note">Players with two or more rungs between 2+ and 5+ shots that each beat their price by 2% or more, reaching 3+ or higher. Each cell is the best price on that rung and its edge; shaded rungs are the ones to ladder, with a suggested split of one unit underneath (more on the likelier rungs, less on the long ones; hover over a stake to see how it was worked out). The amber bar marks his main over/under line, where the ladder starts. The chance behind each edge is the model\'s, averaged with the market on his main line and trimmed by 8% above it, where the model runs a little high. Plain cells have no price on record and show the model\'s chance and fair odds. Once the game is on, every rung he reaches glows. The 6+ column is for reference only. A CHECK tag means the model is more than 12 points from the market on his main line, which more often means missing news than a slow book.</p>'+
+    '<p class="note">Players with two or more rungs between 2+ and 5+ shots that each beat their price, reaching 3+ or higher, cut to the strongest few: one for every three games on the slate, five at most'+(lw.passed>lw.length?' ('+lw.passed+' passed tonight)':'')+'. A rung counts only if its chance is 20% or better and its edge is between 2% and 20%: on the first five nights of real prices, rungs under 20% and rungs showing bigger edges than that both lost heavily, which is what a model error looks like. Each cell is the best price on that rung and its edge; shaded rungs are the ones to ladder, with a suggested split of one unit underneath (more on the likelier rungs, less on the long ones; hover over a stake to see how it was worked out). The amber bar marks his main over/under line, where the ladder starts. The chance behind each edge is the model\'s, averaged with the market on his main line and trimmed by 8% above it, where the model runs a little high. Plain cells have no price on record and show the model\'s chance and fair odds. Once the game is on, every rung he reaches glows. The 6+ column is for reference only. A CHECK tag means the model is more than 12 points from the market on his main line, which more often means missing news than a slow book.</p>'+
     (lw.length?'<div class="tw"><table class="lwt"><thead><tr><th>Team</th><th>Player</th><th>Opp</th><th class="n">xSOG</th><th class="n">Ice time</th><th class="n">O/U line</th>'+[2,3,4,5,6].map(function(k){return '<th class="n">'+k+'+</th>'}).join("")+'<th class="n">Ladder edge</th><th class="n">Shots</th></tr></thead><tbody>'+
       lw.map(function(L){var r=L.r;return '<tr class="pick" data-player="'+r.p+'"><td>'+tmL(r.t)+'</td><td><b>'+esc(r.name)+'</b> '+(isPk[r.p]?'<span class="tag spkt">PICK</span>':'')+(L.chk?'<span class="tag q">CHECK</span>':'')+'</td><td><span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp+'</td><td class="n"><b>'+f2(r.xs)+'</b></td><td class="n">'+mmss(r.b.tev+r.b.tpp)+'</td><td class="n lwline">'+f1(L.line)+'</td>'+
         L.cells.map(function(c){return lwCell(L,c)}).join("")+
