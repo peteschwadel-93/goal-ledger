@@ -425,20 +425,21 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 
 /* player card: opens over the page */
 .pm-back{position:fixed;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;padding:36px 16px;background:rgba(4,7,10,.78);backdrop-filter:blur(3px);overflow:hidden}
-.pm{width:min(1100px,100%);max-height:calc(100vh - 72px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px -20px #000;scrollbar-width:thin}
+.pm{width:min(1100px,100%);max-height:calc(100vh - 72px);max-height:calc(100dvh - 72px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px -20px #000;scrollbar-width:thin}
 .pm-head{position:relative;display:flex;align-items:flex-end;gap:22px;height:176px;padding:0 28px;overflow:hidden;border-radius:17px 17px 0 0;
   background:linear-gradient(100deg,color-mix(in srgb,var(--tc) 92%,#000) 0%,color-mix(in srgb,var(--tc) 68%,#000) 100%)}
-.pm-wm{position:absolute;right:-30px;top:50%;height:150%;transform:translateY(-50%);opacity:.2;filter:brightness(0) invert(1);pointer-events:none}
+.pm-wm{position:absolute;right:-24px;top:50%;height:150%;transform:translateY(-50%);opacity:.22;filter:grayscale(1) brightness(1.7) contrast(1.05);pointer-events:none}
 .pm-mug{position:relative;flex:none;width:176px;height:176px;align-self:flex-end}
 .pm-mug img{position:absolute;left:50%;bottom:0;width:112%;max-width:none;transform:translateX(-50%);filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
-.pm-mug span{position:absolute;inset:0;display:grid;place-items:center;font:700 56px var(--display);color:rgba(255,255,255,.3)}
+.pm-mug span{position:absolute;inset:0;display:grid;place-items:center;font:700 20px var(--display);letter-spacing:.06em;color:rgba(255,255,255,.3)}
+.pm-mug.has span{display:none}
 .pm-id{position:relative;align-self:center;min-width:0}
 .pm-id h2{margin:0;font:700 34px/1.05 var(--display);letter-spacing:.03em;text-transform:uppercase;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45)}
 .pm-sub{margin-top:8px;display:flex;align-items:center;gap:8px;font:600 13px var(--display);letter-spacing:.09em;text-transform:uppercase;color:#fff}
 .pm-sub span{color:rgba(255,255,255,.85)}
 .pm-x{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75);background:rgba(0,0,0,.45);color:#fff;font:400 22px/1 var(--body);cursor:pointer}
 .pm-x:hover,.pm-x:focus-visible{background:rgba(0,0,0,.7);outline:none;border-color:#fff}
-.pm-body{padding:20px 26px 26px}
+.pm-body{padding:20px 26px 40px}
 .pm-seas{display:flex;justify-content:flex-end;margin-bottom:12px}
 .pm-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 @media(max-width:760px){.pm-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -449,10 +450,10 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .pm-body h4{margin:20px 0 8px;font:600 12px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--tc-ink,var(--accent))}
 .pm-next{margin:0;font-size:14px;line-height:1.65;color:var(--soft)}
 .pm-next b{color:var(--ink)}
-.pm-log{max-height:calc(38px + 9 * 44px);overflow-y:auto;scrollbar-width:thin}
+.pm-log{max-height:calc(38px + 8 * 42px);overflow-y:auto;scrollbar-width:thin}
 .pm-log thead th{position:sticky;top:0;z-index:1;background:var(--bg)}
-.pm-log td{padding-block:9px}
-.pm-more{margin-top:18px;width:100%}
+.pm-log td{padding-block:0;height:42px;box-sizing:border-box}
+.pm-more{display:block;margin:18px 0 0;width:100%;box-sizing:border-box;padding:11px 14px}
 .pm-work{margin-top:14px}
 @media(max-width:760px){.pm-back{padding:0}.pm{max-height:100vh;border-radius:0;border:0}.pm-head{height:132px;padding:0 16px;gap:12px;border-radius:0}.pm-mug{width:120px;height:132px}.pm-id h2{font-size:23px}.pm-wm{display:none}.pm-body{padding:16px 14px 22px}}
 </style>
@@ -1210,7 +1211,7 @@ function playerModal(p){ // the player card that opens over the page
   var seasons=ys.filter(function(yy){return cnt[yy]}).reverse().map(function(yy){return[yy,yy+"-"+String(yy+1).slice(2)]});if(seasons.length>1)seasons.push(["all","All"]);
   return '<div class="pm" role="dialog" aria-modal="true" aria-label="'+nm(p)+'" style="--tc:'+(TCOL[t]||"#2b6b99")+'">'+
     '<div class="pm-head"><img class="pm-wm" alt="" src="'+base+'logos/nhl/svg/'+t+'_dark.svg" onerror="this.remove()">'+
-      '<div class="pm-mug"><span aria-hidden="true">'+esc(ini)+'</span><img alt="" src="'+base+'mugs/nhl/'+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'mugs/nhl/latest/'+p+'.png" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'+
+      '<div class="pm-mug"><span aria-hidden="true">'+esc(ini)+'</span><img alt="" src="'+base+'mugs/nhl/'+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'mugs/nhl/latest/'+p+'.png" onload="this.parentNode.classList.add(\'has\')" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'+
       '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
       '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
     '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
