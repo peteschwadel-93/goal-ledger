@@ -1253,7 +1253,7 @@ function playerModal(p){ // the player card that opens over the page
       line("Chance to score, neutral game",p1(1-Math.exp(-lam0*b.role*Math.exp(C.b.one))),"He is not on the slate for "+fmtD(S.day)+", so no opponent is applied."))+
     '</tbody></table></div>';
   var ys=(D.seasons||[]).slice(),cnt={};st.log.forEach(function(e){cnt[e.g.s]=(cnt[e.g.s]||0)+1});
-  var sel=S.pmS;if(sel==null||(sel!=="all"&&!cnt[sel])){sel=null;for(var i=ys.length-1;i>=0;i--)if(cnt[ys[i]]>=10){sel=ys[i];break}if(sel==null)for(i=ys.length-1;i>=0;i--)if(cnt[ys[i]]){sel=ys[i];break}}
+  var sel=S.pmS;if(sel==null||(sel!=="all"&&!cnt[sel])){sel=null;for(var i=ys.length-1;i>=0;i--)if(cnt[ys[i]]){sel=ys[i];break}} // the current season first; an earlier one only if he has not played yet
   var win=st.log.filter(function(e){return sel==="all"||e.g.s===sel}),tot={g:0,sog:0,xg:0,toi:0,pp:0,sc:0,pred:0,fen:0,s2:0,s3:0,s4:0,s5:0};
   win.forEach(function(e){var r=e.r;tot.g+=r[1];tot.sog+=r[2];tot.fen+=r[3];tot.xg+=(r[4]+r[5])/1000;tot.toi+=r[6];tot.pp+=r[7];if(r[1])tot.sc++;tot.pred+=1-Math.exp(-IX.PRE[e.g.id][p][0]);
     if(r[2]>=2)tot.s2++;if(r[2]>=3)tot.s3++;if(r[2]>=4)tot.s4++;if(r[2]>=5)tot.s5++});
@@ -1625,7 +1625,7 @@ function start(d){
     Object.keys(S.px).forEach(function(k){if(k.slice(0,10)<today)delete S.px[k]});Object.keys(S.goalie).forEach(function(k){if(k.slice(0,10)<today)delete S.goalie[k]})}
   var ss=d.seasons||[];$("ssnWrap").hidden=ss.length<2;
   $("seg-ssn").innerHTML='<button data-v="all">All</button>'+ss.map(function(y){return '<button data-v="'+y+'">'+y+"-"+String(y+1).slice(2)+'</button>'}).join("");
-  if(!S.booted){var cur=ss[ss.length-1],nCur=d.games.filter(function(g){return g.s===cur}).length;S.ssn=String(cur);
+  if(!S.booted){var cur=ss[ss.length-1],nCur=d.games.filter(function(g){return g.s===cur}).length;S.ssn=String(cur);if(nCur<240)S.ldMin=1; // early in a season nobody has five games yet, and the Leaders tab would open empty
     var h=(location.hash||"").slice(1);if(TABS[h])S.tab=h}
   S.booted=1;applyLive();
   $("subline").textContent=d.season+" · who scores tonight, from NHL play-by-play, shift charts and the prices on offer.";
