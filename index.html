@@ -507,7 +507,7 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .tabn{display:inline-block;min-width:18px;padding:1px 5px;margin-left:4px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#06131c);font:600 11px/1.45 var(--mono);text-align:center;vertical-align:1px}
 .btn2{font:500 13px var(--body);color:var(--ink);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
 .btn2:hover:not(:disabled){border-color:var(--accent)}.btn2:disabled{opacity:.45;cursor:default}
-.pxin.bun{width:58px}.bwas{display:block;font-size:11px;margin-top:2px}
+.pxin.bun{width:50px}.bwas{font:400 12.5px var(--mono)}
 .bsel{font:500 12.5px var(--body);color:var(--ink);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:5px 6px}
 .bdel{margin-left:8px;width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer}
 .bdel:hover{color:var(--goal-hot);border-color:var(--goal)}
@@ -515,6 +515,17 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .sside.gl{color:var(--goal-hot);border-color:color-mix(in srgb,var(--goal) 55%,var(--line))}
 td .sside{font-size:13px;padding:3px 9px}
 @media(prefers-reduced-motion:reduce){#toast{transition:none}}
+
+.bets td{padding:4px 12px;font-size:13.5px}.bets th{padding:9px 12px}
+.bets .pxin{width:64px;padding:3px 7px;font-size:13px;border-radius:6px}.bets .pxin.bun{width:46px}
+.bets .bsel{padding:3px 4px;font-size:12px;border-radius:6px}.bets .bdel{width:22px;height:22px;font-size:14px;margin-left:6px;border-radius:6px}
+.bets .res{font-size:10px;padding:3px 8px}.bets td .tlogo{width:18px;height:18px}
+.bets tbody tr.bday td{border-top:1px solid color-mix(in srgb,var(--accent) 38%,var(--line))}
+.bets td:last-child,.bets th:last-child{border-left:1px solid var(--line);background:color-mix(in srgb,var(--surface) 55%,var(--bg))}
+.bty{font:500 13.5px var(--body);color:var(--soft)}
+.bty::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--made,#4ade80)}
+.bty.u::before{background:none;box-shadow:inset 0 0 0 1.5px var(--goal-hot)}.bty.gl::before{background:var(--goal-hot)}
+.brec{font:500 12.5px var(--mono);white-space:nowrap}.brec .o{font-family:var(--body)}
 </style>
 
 <div class="wrap">
@@ -1593,7 +1604,7 @@ S.bets=[];S.betF="all";
 try{var _sb=JSON.parse(localStorage.getItem("golBets"));if(Array.isArray(_sb))S.bets=_sb.filter(function(b){return b&&b.id&&b.d&&b.price})}catch(_){}
 function saveBets(){try{localStorage.setItem("golBets",JSON.stringify(S.bets))}catch(_){}}
 function betCount(){var tb=$("tab-bets");if(!tb)return;var n=S.bets.filter(function(b){return betGrade(b,1).st==="open"}).length;tb.innerHTML='My bets'+(n?' <span class="tabn">'+n+'</span>':'')}
-function betWhat(b){return b.m==="g"?"Anytime goal":b.m==="u"?"Under "+b.line+" shots":b.line%1?(Math.ceil(b.line))+"+ shots · over "+b.line:"Over "+b.line+" shots"}
+function betWhat(b){return b.m==="g"?"Anytime goal":b.m==="u"?"Under "+b.line+" shots":b.line%1?Math.ceil(b.line)+"+ shots":"Over "+b.line+" shots"}
 function toast(t){var el=document.getElementById("toast")||document.body.appendChild(Object.assign(document.createElement("div"),{id:"toast"}));el.setAttribute("role","status");el.textContent=t;el.className="on";clearTimeout(toast.t);toast.t=setTimeout(function(){el.className=""},2600)}
 function addBet(key,name,book,price){if(!key)return;var k=key.split("|"),p=+k[0],d=k[1],m=k[2],line=k[3]===""?null:+k[3];
   var bl=/^(.*) · (\d+(?:\.\d+)?)$/.exec(book);if(bl){book=bl[1];if(m!=="g")line=+bl[2]} // a book hanging a different line from the rest is listed with its own line: the bet is on that line
@@ -1632,17 +1643,24 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
     {k:"d",l:"Night",v:function(x){return x.b.d+x.b.at},f:function(x){return fmtD(x.b.d)}},
     {k:"t",l:"Team",v:function(x){return x.b.t||""},f:function(x){return x.b.t?tmL(x.b.t):"–"}},
     {k:"nm",l:"Player",v:function(x){return x.b.nm},f:function(x){return '<b>'+esc(x.b.nm)+'</b>'+(x.b.opp?' <span class="o">'+(x.b.home?"vs":"@")+" "+esc(x.b.opp)+'</span>':'')}},
-    {k:"m",l:"Bet",v:function(x){return x.b.m+(x.b.line==null?"":x.b.line)},f:function(x){return '<span class="sside '+(x.b.m==="u"?"u":x.b.m==="o"?"o":"gl")+'">'+esc(betWhat(x.b))+'</span>'}},
+    {k:"m",l:"Bet",v:function(x){return x.b.m+(x.b.line==null?"":x.b.line)},f:function(x){return '<span class="bty '+(x.b.m==="u"?"u":x.b.m==="o"?"o":"gl")+'">'+esc(betWhat(x.b))+'</span>'}},
     {k:"book",l:"Book",v:function(x){return x.b.book},f:function(x){return esc(x.b.book)}},
-    {k:"price",l:"Odds",num:1,v:function(x){return payout(x.b.price)},f:function(x){return '<input type="text" inputmode="numeric" class="pxin" data-be="'+x.b.id+'|price" value="'+fmtP(x.b.price)+'" aria-label="Odds for '+esc(x.b.nm)+'">'+(x.b.price0&&x.b.price0!==x.b.price?'<span class="o bwas" title="The price listed when you added it">was '+fmtP(x.b.price0)+'</span>':'')}},
+    {k:"price",l:"Odds",num:1,v:function(x){return payout(x.b.price)},f:function(x){return '<input type="text" inputmode="numeric" class="pxin" data-be="'+x.b.id+'|price" value="'+fmtP(x.b.price)+'" aria-label="Odds for '+esc(x.b.nm)+'">'}},
+    {k:"p0",l:"Listed",num:1,v:function(x){return x.b.price0&&x.b.price0!==x.b.price?payout(x.b.price0):null},f:function(x){return x.b.price0&&x.b.price0!==x.b.price?'<span class="o bwas" title="The price listed when you added it, before your change">'+fmtP(x.b.price0)+'</span>':''}},
     {k:"u",l:"Units",num:1,v:function(x){return x.b.u},f:function(x){return '<input type="text" inputmode="decimal" class="pxin bun" data-be="'+x.b.id+'|u" value="'+x.b.u+'" aria-label="Units on '+esc(x.b.nm)+'">'}},
     {k:"win",l:"To win",num:1,v:function(x){return x.b.u*(payout(x.b.price)-1)},f:function(x){return '<span class="o">'+(x.b.u*(payout(x.b.price)-1)).toFixed(2)+'u</span>'}},
     {k:"st",l:"Result",v:function(x){return x.g.st},f:function(x){var s=ST[x.g.st],a=x.g.act;return '<span class="res '+s[0]+'">'+(a!=null?a+(x.b.m==="g"?(a===1?" GOAL":" GOALS"):(a===1?" SHOT":" SHOTS"))+" · ":"")+s[1]+'</span>'}},
     {k:"pl",l:"Units won",num:1,v:function(x){return x.g.pl},f:function(x){return x.g.pl==null?'<span class="o">–</span>':'<b class="'+(x.g.pl>0?"bup":x.g.pl<0?"bdn":"")+'" title="'+usd(x.g.pl)+'">'+sg(x.g.pl)+'</b>'}},
     {k:"res",l:"Settle",v:function(x){return x.b.res||"auto"},f:function(x){return '<select class="bsel" data-be="'+x.b.id+'|res" aria-label="Settle '+esc(x.b.nm)+' by hand">'+[["auto","Auto"],["w","Won"],["l","Lost"],["v","Void"]].map(function(o){return '<option value="'+o[0]+'"'+((x.b.res||"auto")===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select><button class="bdel" data-bdel="'+x.b.id+'" aria-label="Remove '+esc(x.b.nm)+' bet" title="Remove this bet">×</button>'}}];
-  view.innerHTML=head+'<section class="panel"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
+  var bst=S.sort.bets||{k:"d",dir:-1},byN=bst.k==="d";
+  if(byN){var ord=rows.slice().sort(function(a,b){var x=a.b.d+a.b.at,y=b.b.d+b.b.at;return bst.dir*x.localeCompare(y)||0}),days={};
+    all.forEach(function(x){var q=days[x.b.d]||(days[x.b.d]={w:0,l:0,p:0,u:0,o:0,n:0});q.n++;if(x.g.st==="void")return;if(x.g.pl==null){q.o++;return}q.u+=x.g.pl;if(x.g.w>0)q.w++;else if(x.g.w<0)q.l++;else q.p++});
+    ord.forEach(function(x,i){x.first=i>0&&ord[i-1].b.d!==x.b.d;x.last=!ord[i+1]||ord[i+1].b.d!==x.b.d;x.day=days[x.b.d]})}
+  cols.push({k:"rec",l:"Night",v:function(x){return x.b.d+x.b.at},f:function(x){var q=x.day;if(!byN||!x.last||!q)return "";var st=q.w+q.l+q.p;
+    return '<span class="brec"><span class="o">'+fmtD(x.b.d)+'</span> '+(st?q.w+'–'+q.l+(q.p?'–'+q.p:'')+' <b class="'+(q.u>0?"bup":q.u<0?"bdn":"")+'">'+sg(q.u)+'u</b>':'')+(q.o?' <span class="o">'+(st?"· ":"")+q.o+' open</span>':'')+'</span>'}});
+  view.innerHTML=head+'<section class="panel bets"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
     '<label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label><button class="btn2" id="betExport"'+(S.bets.length?"":" disabled")+'>Export</button><button class="btn2" id="betImport">Import</button><input type="file" id="betFile" accept="application/json,.json" hidden></div></div>'+
-    (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon":"")+'"':""}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at.</p>')+'</section>'}
+    (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon":"")+(byN&&x.first?" bday":"")+'"':byN&&x.first?' class="bday"':""}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at.</p>')+'</section>'}
 var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,games:vGames};
 function render(){
   if(!D)return;
