@@ -543,6 +543,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .pm-more{position:sticky;bottom:14px;z-index:3;background:var(--raise);box-shadow:0 0 0 14px var(--surface),0 -18px 18px 0 var(--surface)}
 .pm-body h4{margin:16px 0 7px}.pm-body{padding-bottom:28px}
 .prow .pv4.pvs,.phd .pv4.pvs{grid-template-columns:40px 34px 54px 82px 82px 74px}
+.prow .pxf{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}.prow .pxf small{font-size:10.5px;color:var(--muted);letter-spacing:.01em}
 .prow .pvs .lwline{color:#f5c542}
 @media(max-width:760px){.prow .pv4.pvs{grid-template-columns:auto auto auto}}
 .res.shn{min-width:10px;text-align:center;font-size:11.5px;padding:3px 7px}
@@ -558,6 +559,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .bty.bp::before{background:var(--accent)}
 .bets .bspl{font-size:12px}
 .kv b.bup{color:var(--made,#4ade80)}.kv b.bdn{color:var(--goal-hot)}
+.prow .pxf .bk{margin-left:5px}
 </style>
 
 <div class="wrap">
@@ -1088,7 +1090,7 @@ function vLineups(){
   if(SH)rows.forEach(function(r){shotPrep(r,day)});
   function shRes(r){if(!r.sh){var q=shotAct(r);r.sv.act=q?q[0]:null;r.sv.fin=q?q[1]:0}var a=r.sv.act;if(a==null)return "";var c=!r.sh?(r.sv.fin?"x":"live"):a>r.sh.line?"so":r.sv.fin?"su":"live",t=a+(a===1?" shot":" shots")+(r.sh?(a>r.sh.line?", over ":r.sv.fin?", under ":", line ")+r.sh.line:"")+(r.sv.fin?"":" · live");
     return '<span class="res '+c+' shn" title="'+t+'">'+a+(r.sv.fin?"":" · LIVE")+'</span>'}
-  function shSide(r,k){var h=r.sh,px=h&&h[k];return px?'<span class="pxb"><b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over ":" under ")+h.line,[r.p,k,h.line])+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span></span>':'<span class="o">–</span>'}
+  function shSide(r,k){var h=r.sh,px=h&&h[k],fp=h?fairOdds(k==="o"?r.sv.pso:r.sv.psu):"";return px?'<span class="pxb pxf"><span><b>'+pxH({price:px.price,book:px.book,all:px.all},r.name+(k==="o"?" over ":" under ")+h.line,[r.p,k,h.line])+'</b><span class="bk" title="'+esc(px.bk)+'">'+esc(bkAb(px.bk))+'</span></span><small title="Fair price: the odds that match the chance of the '+(k==="o"?"over":"under")+'">fair '+fp+'</small></span>':h?'<span class="pxb pxf"><span class="o">–</span><small>fair '+fp+'</small></span>':'<span class="o">–</span>'}
   function shRow(r){var h=r.sh,v=r.sv;return '<span class="pv pv4 pvs"><b>'+(r.xs==null?"–":f2(r.xs))+'</b><span class="lwline">'+(h?f1(h.line):'<span class="o">–</span>')+'</span><span>'+(h?shH(r,"o"):'<span class="o">–</span>')+'</span>'+shSide(r,"o")+shSide(r,"u")+
     '<span>'+(h&&v.best>-9?'<span class="o">'+(v.side==="o"?"O":"U")+'</span> '+pill(v.best):'')+'</span></span>'}
   var cards=ms.map(function(m){var key=gameKey(m),mine=rows.filter(function(r){return r.info.key===key});if(!mine.length)return "";var info=mine[0].info;
@@ -1110,7 +1112,7 @@ function vLineups(){
     return '<section class="lcard" id="lu-'+m.a+m.h+'"><div class="lhead"><span class="tm">'+vsL(m.a,m.h)+'</span><span class="o">'+(m.g?"Final "+m.g.sc[0]+"–"+m.g.sc[1]:esc(m.t||""))+'</span></div><div class="lteams">'+sides+'</div></section>'}).join("");
   view.innerHTML='<section class="panel"><div class="phead"><h2>Lineups</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Show '+seg("seg-luv",[["g","Goals"],["s","Shots"]],SH?"s":"g")+'</label><label class="f">Sort each team by '+seg("seg-lu",SH?[["lines","Lines"],["xs","xSOG"],["po","Over chance"],["sev","Edge"],["toi","Ice time"]]:[["lines","Lines"],["pr","Chance"],["px","Shortest price"],["ev","Edge"],["vs","Value score"],["toi","Ice time"]],S.luSort)+'</label>'+bookPicker(day)+'</div>'+
-    '<p class="note">'+(SH?'Each row reads: expected shots on goal, the books\' line, the chance of the over (hover for the model\'s and the book\'s own figures), the best over and under prices on that line, and the edge on whichever side is better (O or U beside it). Click a price to add it to My bets; click a name for his rungs and the rest. ':'Each row reads: chance to score, fair price (the odds that match that chance; a best price longer than it is a positive edge), best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. ')+'<b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. For games still to be played, forward lines are Daily Faceoff\'s projected combinations when the heading says so. Otherwise, and for finished games, they are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts and ordered by expected ice time. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
+    '<p class="note">'+(SH?'Each row reads: expected shots on goal, the books\' line, the chance of the over (hover for the model\'s and the book\'s own figures), the best over and under prices on that line with the fair price under each (a best price longer than its fair price is a positive edge), and the edge on whichever side is better (O or U beside it). Click a price to add it to My bets; click a name for his rungs and the rest. ':'Each row reads: chance to score, fair price (the odds that match that chance; a best price longer than it is a positive edge), best price, edge, value score (edge divided by payout, the number Blend ranks by), expected ice time. ')+'<b>Lines</b> order is first line to fourth, then spare forwards, then defensemen by ice time; the label on the left of each row (L1, L2, D) stays put however you sort. For games still to be played, forward lines are Daily Faceoff\'s projected combinations when the heading says so. Otherwise, and for finished games, they are the three-man groups that shared the most five-on-five ice in the game shown, read from the shift charts and ordered by expected ice time. Power-play units rank the expected lineup by recent power-play minutes: the top five are PP1. '+
     'Who is expected to dress is the team\'s last lineup, less anyone listed out'+(D.inj?"":" (no injury feed in this copy)")+'. Change the starting goalie here or on the Picks tab and every number that depends on him follows.</p></section>'+
     (ms.length>1?'<section class="panel jump"><div class="phead"><h2>'+fmtD(day)+' · '+ms.length+' games</h2></div><div class="jumps">'+ms.map(function(m){return '<button data-jump="lu-'+m.a+m.h+'">'+m.a+' @ '+m.h+' <span>'+gameWhen(m).replace(" ET","")+'</span></button>'}).join("")+'</div></section>':'')+
     (cards?'<div class="lgrid">'+cards+'</div>':'<p class="empty">No games on this day.</p>');
