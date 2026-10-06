@@ -557,10 +557,6 @@ td .sside{font-size:13px;padding:3px 9px}
 .bets .leg.lost{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--goal-hot) 60%,transparent)}
 .bty.bp::before{background:var(--accent)}
 .bets .bspl{font-size:12px}
-.bets tbody tr.bcont>td{border-top-color:transparent}
-.bets tbody tr.bcont>td:nth-child(2),.bets tbody tr.bcont>td:nth-child(3){color:transparent}.bets tbody tr.bcont>td:nth-child(3) img{visibility:hidden}
-.bets tbody tr.bcont>td:nth-child(4) b{font-weight:400;color:var(--muted)}.bets tbody tr.bcont>td:nth-child(4) .o{display:none}
-.bets tbody tr.bcont.glit>td:nth-child(2),.bets tbody tr.bcont.glit>td:nth-child(3){color:#fff}.bets tbody tr.bcont.glit>td:nth-child(3) img{visibility:visible}.bets tbody tr.bcont.glit>td:nth-child(4) b{color:#fff;font-weight:600}
 </style>
 
 <div class="wrap">
@@ -1731,7 +1727,10 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
   var grp={};S.bets.forEach(function(b){if(b.legs||b.man)return;var k=b.d+"|"+b.p;if(!grp[k]||b.at<grp[k])grp[k]=b.at});
-  function skey(b){return b.d+"|"+(b.legs||b.man?b.at+"|"+b.id:grp[b.d+"|"+b.p]+"|"+b.p)+"|"+b.at} // a night's bets on one player sit together, placed by the first of them
+  var bdir=(S.sort.bets||{dir:-1}).dir;
+  function skey(b){ // a night's bets on one player sit together, placed by the first of them, and read goal, then 2+, 3+, 4+ upward, then unders, whichever way the nights run
+    var rk=b.m==="g"?0:Math.round((b.m==="u"?500:10)+(b.line||0)*10),o=bdir<0?9999-rk:rk;
+    return b.d+"|"+(b.legs||b.man?b.at+"|"+b.id:grp[b.d+"|"+b.p]+"|"+b.p)+"|"+("0000"+o).slice(-4)+"|"+b.at}
   var all=S.bets.map(function(b){return{b:b,g:betGrade(b)}}),T={n:0,w:0,l:0,p:0,u:0,stk:0,open:0,ostk:0},kinds={g:{l:"Anytime goals",n:0,w:0,u:0,stk:0},o:{l:"Shots overs and rungs",n:0,w:0,u:0,stk:0},u:{l:"Shots unders",n:0,w:0,u:0,stk:0},p:{l:"Parlays and custom",n:0,w:0,u:0,stk:0}},byDay={};
   all.forEach(function(x){var g=x.g,b=x.b;if(g.st==="void")return;if(g.pl==null){T.open++;T.ostk+=b.u;return}
     T.n++;T.stk+=b.u;T.u+=g.pl;if(g.w>0)T.w++;else if(g.w<0)T.l++;else T.p++;var K=b.legs||b.man?kinds.p:kinds[b.m]||kinds.o;K.n++;K.stk+=b.u;K.u+=g.pl;if(g.w>0)K.w++;byDay[b.d]=(byDay[b.d]||0)+g.pl});
