@@ -557,6 +557,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .bets .leg.lost{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--goal-hot) 60%,transparent)}
 .bty.bp::before{background:var(--accent)}
 .bets .bspl{font-size:12px}
+.kv b.bup{color:var(--made,#4ade80)}.kv b.bdn{color:var(--goal-hot)}
 </style>
 
 <div class="wrap">
@@ -1599,14 +1600,14 @@ function vTracker2(){
   var bands=[[0,.1],[.1,.15],[.15,.2],[.2,.25],[.25,.3],[.3,.35],[.35,.4],[.4,1]],B=bands.map(function(){return{n:0,p:0,h:0}});
   var top1={n:0,h:0,p:0},top3={n:0,h:0,p:0},byDay={},BT=[],priced={};
   gs.forEach(function(g){var all=[],o=(D.odds||{})[g.d+"|"+g.a+"|"+g.h];
-    [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var pr=1-Math.exp(-IX.PRE[g.id][r[0]][0]),hit=r[1]>0?1:0;all.push({p:r[0],t:t,pr:pr,hit:hit});
+    [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var pr=1-Math.exp(-IX.PRE[g.id][r[0]][0]),hit=r[1]>0?1:0,me={p:r[0],t:t,pr:pr,hit:hit};all.push(me);
       for(var i=0;i<bands.length;i++)if(pr>=bands[i][0]&&pr<bands[i][1]){B[i].n++;B[i].p+=pr;B[i].h+=hit;break}
-      if(o&&o.p){var px=priceOf(o,pname(r[0]),"",0);if(px){var pay=payout(px.price);BT.push({pr:pr,ev:pr*pay-1,hit:hit,pay:pay});priced[g.id]=1}}})});
+      if(o&&o.p){var px=priceOf(o,pname(r[0]),"",0);if(px){var pay=payout(px.price);me.px=px.price;me.bk=px.book;BT.push({pr:pr,ev:pr*pay-1,hit:hit,pay:pay});priced[g.id]=1}}})});
     all.sort(function(a,b){return b.pr-a.pr});
     if(all.length){top1.n++;top1.h+=all[0].hit;top1.p+=all[0].pr;all.slice(0,3).forEach(function(x){top3.n++;top3.h+=x.hit;top3.p+=x.pr})}
     var d=byDay[g.d]=byDay[g.d]||{d:g.d,games:0,all:[]};d.games++;d.all=d.all.concat(all)});
-  var dayRows=Object.keys(byDay).sort().reverse().map(function(k){var d=byDay[k];d.all.sort(function(a,b){return b.pr-a.pr});d.top=d.all.slice(0,5);d.h=d.top.filter(function(x){return x.hit}).length;d.exp=0;d.top.forEach(function(x){d.exp+=x.pr});return d});
-  var t5={n:0,h:0,p:0};dayRows.forEach(function(d){t5.n+=d.top.length;t5.h+=d.h;t5.p+=d.exp});
+  var dayRows=Object.keys(byDay).sort().reverse().map(function(k){var d=byDay[k];d.all.sort(function(a,b){return b.pr-a.pr});d.top=d.all.slice(0,5);d.h=d.top.filter(function(x){return x.hit}).length;d.exp=0;d.un=0;d.u=0;d.uh=0;d.top.forEach(function(x){d.exp+=x.pr;if(x.px!=null){d.un++;if(x.hit){d.uh++;d.u+=payout(x.px)-1}else d.u-=1}});return d});
+  var t5={n:0,h:0,p:0,un:0,u:0,uh:0,dn:0,dw:0};dayRows.forEach(function(d){t5.n+=d.top.length;t5.h+=d.h;t5.p+=d.exp;t5.un+=d.un;t5.u+=d.u;t5.uh+=d.uh;if(d.un){t5.dn++;if(d.u>0)t5.dw++}});
   var lab=cur+"-"+String(cur+1).slice(2),mx=0;B.forEach(function(b){if(b.n)mx=Math.max(mx,b.h/b.n,b.p/b.n)});
   var cal='<div class="tw"><table style="width:auto"><thead><tr><th>Model said</th><th class="n">Player-games</th><th class="n">Average call</th><th class="n">Scored</th><th>Call vs result</th></tr></thead><tbody>'+
     B.map(function(b,i){return '<tr><td>'+Math.round(bands[i][0]*100)+(bands[i][1]<1?"–"+Math.round(bands[i][1]*100)+"%":"%+")+'</td><td class="n">'+b.n+'</td><td class="n">'+(b.n?p1(b.p/b.n):"–")+'</td><td class="n"><b>'+(b.n?p1(b.h/b.n):"–")+'</b></td><td>'+(b.n?'<div class="calbar"><i style="width:'+(100*b.p/b.n/mx)+'%"></i><b style="width:'+(100*b.h/b.n/mx)+'%"></b></div>':"")+'</td></tr>'}).join("")+'</tbody></table></div>';
@@ -1640,8 +1641,10 @@ function vTracker2(){
       x.pk.map(function(r){return '<span class="pick" data-player="'+r.p+'" style="white-space:nowrap">'+esc(r.name)+' <span class="o">'+fmtP(r.px.price)+'</span> <span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>':
     '<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div><p class="note">No finished day in '+lab+' has stored prices yet, so there are no graded picks.</p></section>';
   var more=dayRows.length>S.trkN;
-  var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th></tr></thead><tbody>'+
-    dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td></tr>'}).join("")+'</tbody></table></div>';
+  var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th><th class="n">Units</th></tr></thead><tbody>'+
+    dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%'+(x.px!=null?' · <span title="'+esc(x.bk||"")+'">'+fmtP(x.px)+'</span>':'')+'</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td><td class="n">'+(d.un?'<b class="'+(d.u>0?"bup":d.u<0?"bdn":"")+'"'+(d.un<d.top.length?' title="'+d.un+' of '+d.top.length+' had a price"':'')+'>'+(d.u>=0?"+":"−")+Math.abs(d.u).toFixed(2)+'</b>':'<span class="o">–</span>')+'</td></tr>'}).join("")+'</tbody></table></div>';
+  var t5Html=t5.un?'<div class="kv" style="margin-bottom:12px"><span>One unit on each of the five most likely, every night: <b>'+t5.uh+' of '+t5.un+'</b> scored · '+pct(t5.uh,t5.un)+'</span><span>Units <b class="'+(t5.u>0?"bup":t5.u<0?"bdn":"")+'">'+(t5.u>=0?"+":"−")+Math.abs(t5.u).toFixed(2)+'</b></span><span>Profit <b>'+(t5.u>=0?"+":"−")+'$'+Math.abs(t5.u*S.unit).toFixed(2)+'</b></span><span>ROI <b>'+(t5.u>=0?"+":"−")+Math.abs(Math.round(100*t5.u/t5.un))+'%</b></span><span>Nights up <b>'+t5.dw+' of '+t5.dn+'</b></span></div>'+
+    '<p class="note" style="margin-top:0">Each of the five at the best price on record across books for that game'+(t5.un<t5.n?'; '+(t5.n-t5.un)+' of '+t5.n+' had no price stored and are left out of the units':'')+'. These are the model\'s five most likely, not the Nightly Picks: favourites at short prices, bet with no test for value.</p>':'';
   var sHtml=shotRecord(cur,lab),wHtml=watchRecord(cur,lab),parts=[["Nightly Picks","goals",NP.n,NP.u,NP.days,"picks"],["Shot Picks","shots",REC.s.n,REC.s.u,REC.s.days,"picks"],["Ladder Watch","shot ladders",REC.w.n,REC.w.u,REC.w.days,"ladders"]];
   var net=0,stk=0,byDay={};parts.forEach(function(x){net+=x[3];stk+=x[2];x[4].forEach(function(dd){byDay[dd.d]=(byDay[dd.d]||0)+dd.u})});
   var dk=Object.keys(byDay).sort(),run=0,runs=dk.map(function(dd){run+=byDay[dd];return{d:dd,u:byDay[dd],run:run}}),up=dk.filter(function(dd){return byDay[dd]>0}).length;
@@ -1654,7 +1657,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+sHtml+firstRecord(cur,lab)+wHtml+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+sHtml+firstRecord(cur,lab)+wHtml+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
