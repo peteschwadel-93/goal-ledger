@@ -798,7 +798,8 @@ function slate(day){
       rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);
         var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
           var mid=1/payout(px.mid||px.price);r.mk=Math.min(.95,mid/C.np.vig);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
-          r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books)}
+          r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books);
+          r.evM=r.ev;r.vsM=r.vs;r.ev=r.evS;r.vs=r.vsS} // edge and value score everywhere are judged on the pick chance (model and market averaged); the model-only figures are kept as evM and vsM
         r.sh=shotsOf(o,r.name);
         out.push(r)})})});
   return out}
@@ -907,7 +908,7 @@ function lockedRows(day,rows){var L=lockOf(day);if(!L)return null;var by={};rows
     if(base)r=Object.assign({},base);
     else{var mate=rows.filter(function(x){return x.t===k.t})[0];if(!mate)return null;
       r={p:k.p,name:pname(k.p),pos:ppos(k.p),t:k.t,opp:k.o,home:mate.home,info:mate.info,b:rate(stOf(k.p),isD(k.p)),unit:0,isVoid:1}}
-    r.pr=k.pr;r.px={price:k.price,book:k.book,n:k.nb||0,mid:null,locked:1};r.pay=payout(k.price);r.be=1/r.pay;r.ps=k.ps;r.mk=k.mk;r.evS=k.ev;r.vsS=k.vs;r.ev=k.pr*r.pay-1;r.vs=valScore(k.pr,r.pay);r.np=1;r.locked=k.lk===0?0:1;r.openTs=k.lk===0?k.ts:null;r.outl=0;
+    r.pr=k.pr;r.px={price:k.price,book:k.book,n:k.nb||0,mid:null,locked:1};r.pay=payout(k.price);r.be=1/r.pay;r.ps=k.ps;r.mk=k.mk;r.evS=k.ev;r.vsS=k.vs;r.evM=k.pr*r.pay-1;r.vsM=valScore(k.pr,r.pay);r.ev=k.ev;r.vs=k.vs;r.np=1;r.locked=k.lk===0?0:1;r.openTs=k.lk===0?k.ts:null;r.outl=0;
     return r}).filter(Boolean)}
 function ranked(rows,mode){var k=mode==="np"?"vsS":mode==="value"?"ev":mode==="blend"?"vs":"pr";
   return rows.slice().sort(function(a,b){var x=a[k],y=b[k];if(x==null&&y==null)return b.pr-a.pr;if(x==null)return 1;if(y==null)return -1;return y-x})}
@@ -933,6 +934,7 @@ function pxH(px,name,bet){ // a price that lists every book's price on hover, fo
   return '<span class="pxh'+(bet?" pxb2":"")+'" tabindex="0" data-nm="'+esc(name||"")+'" data-at="'+esc(px.book)+'"'+(bet?' data-bet="'+bet[0]+"|"+S.day+"|"+bet[1]+"|"+(bet[2]==null?"":bet[2])+'"':'')+' data-bk="'+esc(ks.map(function(k){return k+":"+a[k]}).join("|"))+'">'+fmtP(px.price)+'</span>'}
 function bkTag(px){return px?'<span class="bk" title="'+esc(px.book)+'">'+esc(bkAb(px.book))+'</span>':''}
 function pill2(u){return '<span class="tag eg '+(u>=3?"p3":u>=1?"p2":u>0?"p1":u>-1?"n1":u>-3?"n2":"n3")+'">'+(u>=0?"+":"")+f1(u)+'</span>'}
+function fairP(r){return r.ps!=null?r.ps:r.pr} // the chance a fair price is quoted on: the pick chance when he has a price, the model's otherwise
 function edgeTag(r){return r.ev==null?'<span class="o">no price</span>':pill(r.ev)}
 function resTag(r){if(!r.res)return "";return r.res[1]>0?'<span class="res m">'+(r.res[1]>1?r.res[1]+" GOALS":"GOAL")+'</span>':'<span class="res x">NO GOAL</span>'}
 function gkLine(info,t,op){var s=info.side[t],g=s.gk;if(!g.p)return '<span class="o">no goalie on record</span>';
@@ -992,7 +994,8 @@ function pickCard(r,i,mode){
       '<span>Model says</span><span class="px c'+lv+'">'+p1(r.pr)+'</span>'+
       '<span>Market says</span><span>'+p1(r.mk)+'</span>'+(function(){var e=((((D.locks||{})[S.day]||{}).seenG)||{})[r.p];return e&&e.price0!==r.px.price?'<span>First listed</span><span>'+fmtP(e.price0)+' <span class="o">'+esc(fmtClock(e.at0).replace(" ET",""))+'</span></span>':""})()+'</div>':
     '<div class="rq"><span>Chance to score</span><span class="px c'+lv+'" style="font-size:20px">'+p1(r.pr)+'</span>'+
-    '<span>Fair price</span><span>'+fairOdds(r.pr)+'</span>'+
+    (r.ps!=null?'<span>Pick chance</span><span><b>'+p1(r.ps)+'</b> <span class="o">market '+p1(r.mk)+'</span></span>':'')+
+    '<span>Fair price</span><span>'+fairOdds(fairP(r))+'</span>'+
     '<span>Best price</span><span>'+(r.px?'<b>'+fmtP(r.px.price)+'</b> <span class="o">'+esc(r.px.book)+'</span>':'<span class="o">none loaded</span>')+'</span>'+
     '<span>Edge</span><span>'+edgeTag(r)+'</span>'+
     '<span>Value score</span><span>'+vsTxt(r.vs)+'</span></div>')+
@@ -1012,7 +1015,7 @@ function gameCard(m,rows,mode){
       '<div class="kv f3"><span>Defense in front of him <b>'+f2(defF(op))+'×</b></span>'+(s.f.ob2b>1?'<span class="tag q">'+op+' ON A BACK-TO-BACK</span>':'')+(s.f.b2b<1?'<span class="tag l">'+t+' ON A BACK-TO-BACK</span>':'')+'</div>'+
       '<div class="phd"><span></span><span>Player</span><span class="pv pv4 pvg">'+[["pr","Chance"],["px","Best price"],["","Fair"],["ev","Edge"],["vs","Value"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===mode?" on":"")+'" tabindex="0" data-gcs="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div>'+
       '<ol>'+l.map(function(r){var lv=level(r.pr);return '<li data-player="'+r.p+'" class="pick prow'+(r.res&&r.res[1]>0?' win':'')+'" tabindex="0"><span class="lpos">'+esc(r.pos)+'</span><span class="pn"><span class="pname">'+esc(r.name)+'</span><span class="ptags">'+unitTag(r.unit)+injTag(r)+resTag(r)+'</span></span>'+
-        '<span class="pv pv4 pvg"><span class="px c'+lv+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+pxH(r.px,r.name,[r.p,"g"])+'</b>'+bkTag(r.px)+'</span><span class="o">'+fairOdds(r.pr)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc">'+(r.vs==null?'':vsTxt(r.vs))+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
+        '<span class="pv pv4 pvg"><span class="px c'+lv+'">'+p1(r.pr)+'</span><span class="pxb"><b>'+pxH(r.px,r.name,[r.p,"g"])+'</b>'+bkTag(r.px)+'</span><span class="o">'+fairOdds(fairP(r))+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc">'+(r.vs==null?'':vsTxt(r.vs))+'</span></span></li>'}).join("")+'</ol></div>'}).join("");
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
 
 /* ================= Slate table ================= */
@@ -1025,12 +1028,15 @@ function vSlate(){
     {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+resTag(r)}},
     {k:"opp",l:"Opponent",v:function(r){return r.opp},f:function(r){return '<span class="o">'+(r.home?"vs ":"@ ")+'</span>'+r.opp}},
     {k:"pr",l:"Chance",num:1,v:function(r){return r.pr},f:function(r){return '<span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span>'}},
-    {k:"fair",l:"Fair price",num:1,v:function(r){return r.pr},f:function(r){return fairOdds(r.pr)}},
+    {k:"mk",l:"Market",num:1,v:function(r){return r.mk},f:function(r){return r.mk==null?'<span class="o">–</span>':'<span class="o" title="The chance the books\' middle price implies once their margin is taken out">'+p1(r.mk)+'</span>'}},
+    {k:"ps",l:"Pick chance",num:1,v:function(r){return r.ps},f:function(r){return r.ps==null?'<span class="o">–</span>':'<b title="The model and the market averaged half and half. Edge and value score are judged on this.">'+p1(r.ps)+'</b>'}},
+    {k:"fair",l:"Fair price",num:1,v:function(r){return fairP(r)},f:function(r){return fairOdds(fairP(r))}},
     {k:"price",l:"Best price",num:1,v:function(r){return r.px?r.pay:null},f:function(r){return '<b>'+pxH(r.px,r.name,[r.p,"g"])+'</b>'}},
     {k:"book",l:"Book",v:function(r){return r.px?r.px.book:"~"},f:function(r){return r.px?esc(r.px.book)+(r.px.one?(r.px.best!==r.px.price?' <span class="o" title="The best price across all books">best '+fmtP(r.px.best)+' '+esc(r.px.bestBook)+'</span>':' <span class="o">best price</span>'):(r.px.n>1?' <span class="o">of '+r.px.n+'</span>':'')):'<span class="o">–</span>'}},
     {k:"be",l:"Break-even",num:1,v:function(r){return r.be},f:function(r){return r.be?p1(r.be):"–"}},
     {k:"ev",l:"Edge",num:1,v:function(r){return r.ev},f:edgeTag},
     {k:"vs",l:"Value score",num:1,v:function(r){return r.vs},f:function(r){return vsTxt(r.vs)}},
+    {k:"evm",l:"Model edge",num:1,v:function(r){return r.evM},f:function(r){return r.evM==null?"":'<span class="o" title="The edge if the model alone were right, ignoring the market">'+(r.evM>0?"+":"")+Math.round(r.evM*100)+'%</span>'}},
     {k:"lam",l:"Exp. goals",num:1,v:function(r){return r.lam},f:function(r){return f2(r.lam)}},
     {k:"xs",l:"xSOG",num:1,v:function(r){return r.xs},f:function(r){return f2(r.xs)}},
     {k:"toi",l:"Ice time",num:1,v:function(r){return r.b.tev+r.b.tpp},f:function(r){return mmss(r.b.tev+r.b.tpp)}},
@@ -1041,6 +1047,7 @@ function vSlate(){
   view.innerHTML='<section class="panel"><div class="phead"><h2>Slate value table</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">Every skater on the slate against '+(S.book?'the anytime-goalscorer price at <b>'+esc(S.book)+'</b>':'the best anytime-goalscorer price across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
+    '<b>Chance</b> is the model\'s. <b>Market</b> is what the books\' middle price implies with their margin removed, and <b>Pick chance</b> is the two averaged half and half. <b>Fair price</b>, <b>Edge</b> and <b>Value score</b> are all judged on the pick chance, the same numbers the Nightly Picks are chosen and ranked on, so a player the model likes and no book agrees with is marked down. <b>Model edge</b> is what the edge would be on the model alone. '+
     'Hover over a price, or tap it, to see every book\'s price for that player. <b>Matchup</b> is everything outside the player himself multiplied together: home ice, the defense and goalie he faces, rest, and the market scaling. Click a name for the full working.</p>'+
     table("slate",cols,show,{k:priced?"vs":"pr",dir:-1},{pin:1,row:function(r){return ' class="pick'+(r.res&&r.res[1]>0?" glit":"")+'" data-player="'+r.p+'"'}})+'</section>';
 }
@@ -1058,7 +1065,7 @@ function vLineups(){
     var sides=[m.a,m.h].map(function(t){var op=t===m.h?m.a:m.h,my=mine.filter(function(r){return r.t===t}),by={};my.forEach(function(r){by[r.p]=r});
       var dfl=m.g?null:dfLines(t),src=m.g?{g:m.g,l:m.g.l[t]||[]}:dfl?{df:1,l:dfl}:recentLines(t),used={};
       if(src&&!src.df){var toi=function(tr){var s=0;tr.forEach(function(p){if(by[p])s+=by[p].b.tev+by[p].b.tpp});return s/tr.length};src={g:src.g,l:src.l.slice().sort(function(x,y){return toi(y)-toi(x)})}}
-      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow'+(r&&r.res&&r.res[1]>0?' win':'')+'" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o" title="Fair price: the odds that match the model\'s chance">'+fairOdds(r.pr)+'</span><span class="pxb"><b>'+pxH(r.px,r.name,[r.p,"g"])+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
+      function li(p,lab){var r=by[p];used[p]=1;return '<li data-player="'+p+'" class="pick prow'+(r&&r.res&&r.res[1]>0?' win':'')+'" tabindex="0"><span class="lpos">'+lab+'</span><span class="pn"><span class="pname">'+nm(p)+'</span><span class="ptags">'+(r?unitTag(r.unit)+injTag(r)+resTag(r):'<span class="tag l">NOT EXPECTED</span>')+'</span></span>'+(r?'<span class="pv pv4 pvl"><span class="px c'+level(r.pr)+'">'+p1(r.pr)+'</span><span class="o" title="Fair price: the odds that match his pick chance (model and market averaged), or the model\'s chance if he has no price">'+fairOdds(fairP(r))+'</span><span class="pxb"><b>'+pxH(r.px,r.name,[r.p,"g"])+'</b>'+bkTag(r.px)+'</span><span>'+(r.px?edgeTag(r):'')+'</span><span class="vsc" title="Value score: edge divided by payout">'+(r.vs==null?'':vsTxt(r.vs))+'</span><span class="o">'+mmss(r.b.tev+r.b.tpp)+' ice</span></span>':'')+'</li>'}
       var h='<div class="lteam"><h3>'+tmL(t)+(info.side[t].conf?' <span class="tag w">LINEUP POSTED</span>':'')+' <span class="o">'+(src&&src.df?'projected lines · Daily Faceoff':'lines from '+(src?fmtD(src.g.d)+" "+(src.g.h===t?"vs ":"at ")+opp(src.g,t):"–"))+'</span></h3><div class="phd"><span></span><span class="hs'+(S.luSort==="lines"?" on":"")+'" tabindex="0" data-lus="lines">Player</span><span class="pv pv4 pvl">'+[["pr","Chance"],["","Fair"],["px","Best price"],["ev","Edge"],["vs","Value"],["toi","Ice time"]].map(function(c){return '<span'+(c[0]?' class="hs'+(c[0]===S.luSort?" on":"")+'" tabindex="0" data-lus="'+c[0]+'"':'')+'>'+c[1]+'</span>'}).join("")+'</span></div><ol>';
       var lab={},ord=[];(src?src.l:[]).forEach(function(tr,i){tr.forEach(function(p){lab[p]="L"+(i+1);ord.push(p)})});
       if(S.luSort==="lines"){ord.forEach(function(p){h+=li(p,lab[p])});
@@ -1318,7 +1325,7 @@ function playerModal(p){ // the player card that opens over the page
       line("Rest",f2(f.ob2b*f.b2b)+"×",(f.ob2b>1?row.opp+" played yesterday (+4%). ":"")+(f.b2b<1?row.t+" played yesterday (−7%). ":"")+(f.ob2b===1&&f.b2b===1?"Neither side played yesterday.":""))+
       line("Market scaling",f2(scale)+"×",row.info.side[row.t].mkt!=null&&S.mkt?row.t+"'s skaters add up to "+f2(row.info.side[row.t].model)+" goals in the model; the moneyline and total price the team at "+f2(row.info.side[row.t].mkt)+".":"No market line in use for this game.")+
       line("Expected goals",f2(row.lam),"Everything above multiplied together, times a fixed "+f2(f.k)+" that keeps the league total right.")+
-      line("Chance to score",'<span class="px c'+level(row.pr)+'">'+p1(row.pr)+'</span>',"1 − e^(−expected goals). Fair price "+fairOdds(row.pr)+"."+(row.px?" Best price "+fmtP(row.px.price)+" at "+esc(row.px.book)+": edge "+(row.ev>0?"+":"")+Math.round(row.ev*100)+"%, value score "+row.vs.toFixed(1)+".":"")):
+      line("Chance to score",'<span class="px c'+level(row.pr)+'">'+p1(row.pr)+'</span>',"1 − e^(−expected goals). Fair price "+fairOdds(row.pr)+"."+(row.px?" Best price "+fmtP(row.px.price)+" at "+esc(row.px.book)+": on the model alone that is an edge of "+(row.evM>0?"+":"")+Math.round(row.evM*100)+"%. The page judges value on the pick chance instead, the model averaged with the market\'s "+p1(row.mk)+": "+p1(row.ps)+", edge "+(row.ev>0?"+":"")+Math.round(row.ev*100)+"%, value score "+row.vs.toFixed(1)+".":"")):
       line("Chance to score, neutral game",p1(1-Math.exp(-lam0*b.role*Math.exp(C.b.one))),"He is not on the slate for "+fmtD(S.day)+", so no opponent is applied."))+
     '</tbody></table></div>';
   var ys=(D.seasons||[]).slice(),cnt={};st.log.forEach(function(e){cnt[e.g.s]=(cnt[e.g.s]||0)+1});
@@ -1342,7 +1349,7 @@ function playerModal(p){ // the player card that opens over the page
   var odds="",stbl="";
   if(row){shotPrep(row,S.day);var o=row.info.o,al=altOf(o,row.name),hh=row.sh,ot=[];
     function ot1(lab,px,nmx,bet,ev,sub){ot.push('<div class="pm-tile pm-odd"><small>'+lab+'</small><b>'+pxH(px,nmx,bet)+'</b><span>'+esc(bkAb(px.bk||px.book))+(ev==null?'':' · edge '+(ev>0?"+":"")+Math.round(ev*100)+'%')+(sub?'<br>'+sub:'')+'</span></div>')}
-    if(row.px)ot1("Anytime goal",row.px,row.name,[row.p,"g"],row.ev,'fair '+fairOdds(row.pr));
+    if(row.px)ot1("Anytime goal",row.px,row.name,[row.p,"g"],row.ev,'fair '+fairOdds(fairP(row)));
     if(hh&&hh.u)ot1("Under "+f1(hh.line),{price:hh.u.price,book:hh.u.book,bk:hh.u.bk,all:hh.u.all},row.name+" under "+hh.line,[row.p,"u",hh.line],row.sv.eu,'fair '+fairOdds(row.sv.pu));
     Object.keys(al).map(Number).sort(function(a,b){return a-b}).forEach(function(ln){var a=al[ln],k=Math.ceil(ln),pa=ln%1?rungChance(row,k):nbOver(row.xs,ln);if(!a)return;
       ot1(hh&&ln===hh.line?(ln%1?k+"+":"Over "+ln)+' <i>· main line</i>':(ln%1?k+"+ shots":"Over "+ln),{price:a.price,book:a.book,bk:a.bk,all:a.all},row.name+" "+(ln%1?k+"+ shots":"over "+ln),[row.p,"o",ln],pa*payout(a.price)-1,'fair '+fairOdds(pa))});
