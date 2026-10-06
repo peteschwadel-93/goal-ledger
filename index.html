@@ -450,7 +450,7 @@ tbody tr.rvr>td:first-child{box-shadow:inset 3px 0 0 var(--rv)}
 .pm-body h4{margin:20px 0 8px;font:600 12px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--tc-ink,var(--accent))}
 .pm-next{margin:0;font-size:14px;line-height:1.65;color:var(--soft)}
 .pm-next b{color:var(--ink)}
-.pm-log{max-height:calc(38px + 5 * 42px);overflow-y:auto;scrollbar-width:thin}
+.pm-log{max-height:calc(38px + 3 * 42px);overflow-y:auto;scrollbar-width:thin}
 .pm-log thead th{position:sticky;top:0;z-index:1;background:var(--bg)}
 .pm-log td{padding-block:0;height:42px;box-sizing:border-box}
 .pm-more{display:block;margin:18px 0 0;width:100%;box-sizing:border-box;padding:11px 14px}
@@ -540,6 +540,8 @@ td .sside{font-size:13px;padding:3px 9px}
 .pm-odd small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pm-odd small i{margin-left:0}
 @media(max-width:760px){.pm-odds{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .chh{cursor:help;border-bottom:1px dotted color-mix(in srgb,currentColor 45%,transparent)}
+.pm-more{position:sticky;bottom:14px;z-index:3;background:var(--raise);box-shadow:0 0 0 14px var(--surface),0 -18px 18px 0 var(--surface)}
+.pm-body h4{margin:16px 0 7px}.pm-body{padding-bottom:28px}
 </style>
 
 <div class="wrap">
@@ -1024,10 +1026,7 @@ function gameCard(m,rows,mode){
   return '<section class="lcard" id="game-'+m.a+m.h+'">'+head+mk+'<div class="lteams">'+sides+'</div></section>'}
 
 /* ================= Slate table ================= */
-function vSlate(){
-  var dl=dayList(),day=S.day,rows=slate(day),priced=rows.filter(function(r){return r.px}).length,at="";
-  rows.forEach(function(r){if(r.info.o&&r.info.o.at&&r.info.o.at>at)at=r.info.o.at});
-  var show=S.slateAll?rows:rows.filter(function(r){return r.px||r.pr>=.12});
+function slateCols(){ // the Slate table's columns, shared with the player card
   var cols=[
     {k:"t",l:"Team",v:function(r){return r.t},f:function(r){return tmL(r.t)}},
     {k:"name",l:"Player",v:function(r){return r.name},f:function(r){return '<span class="o lposi">'+esc(r.pos)+'</span> <b>'+esc(r.name)+'</b> '+unitTag(r.unit)+injTag(r)+resTag(r)}},
@@ -1047,6 +1046,12 @@ function vSlate(){
     {k:"xg",l:"xG / 60",num:1,v:function(r){return (r.b.evr*r.b.tev+r.b.ppr*r.b.tpp)/(r.b.tev+r.b.tpp)},f:function(r){return f2((r.b.evr*r.b.tev+r.b.ppr*r.b.tpp)/(r.b.tev+r.b.tpp)*3600)}},
     {k:"fin",l:"Finishing",num:1,v:function(r){return r.b.finRel},f:function(r){return f2(r.b.finRel)+"×"}},
     {k:"ctx",l:"Matchup",num:1,v:function(r){var s=r.info.side[r.t];return s.f.all*s.scale},f:function(r){var s=r.info.side[r.t];return f2(s.f.all/s.f.k*s.scale)+"×"}}];
+  return cols}
+function vSlate(){
+  var dl=dayList(),day=S.day,rows=slate(day),priced=rows.filter(function(r){return r.px}).length,at="";
+  rows.forEach(function(r){if(r.info.o&&r.info.o.at&&r.info.o.at>at)at=r.info.o.at});
+  var show=S.slateAll?rows:rows.filter(function(r){return r.px||r.pr>=.12});
+  var cols=slateCols();
   view.innerHTML='<section class="panel"><div class="phead"><h2>Slate value table</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Rows '+seg("seg-all",[[0,"Priced or 12%+"],[1,"Everyone"]],S.slateAll)+'</label>'+bookPicker(day)+(rows.some(function(r){return r.info.mk})?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+'</div>'+
     '<p class="note">Every skater on the slate against '+(S.book?'the anytime-goalscorer price at <b>'+esc(S.book)+'</b>':'the best anytime-goalscorer price across books')+(at?", fetched "+esc(at.replace("T"," "))+" ET":"")+'. '+priced+' of '+rows.length+' have a price. Click a column to sort. '+
@@ -1354,16 +1359,18 @@ function playerModal(p){ // the player card that opens over the page
     tile("3+ shots",pct(tot.s3,n),tot.s3+" of "+n)+
     tile("4+ shots",pct(tot.s4,n),tot.s4+" of "+n)+
     tile("5+ shots",pct(tot.s5,n),tot.s5+" of "+n)+'</div>';
-  var odds="",stbl="";
+  var odds="",stbl="",gtbl="";
   if(row){shotPrep(row,S.day);var o=row.info.o,al=altOf(o,row.name),hh=row.sh,ot=[];
     function ot1(lab,px,nmx,bet,ev,sub){ot.push('<div class="pm-tile pm-odd"><small>'+lab+'</small><b>'+pxH(px,nmx,bet)+'</b><span>'+esc(bkAb(px.bk||px.book))+(ev==null?'':' · edge '+(ev>0?"+":"")+Math.round(ev*100)+'%')+(sub?'<br>'+sub:'')+'</span></div>')}
     if(row.px)ot1("Anytime goal",row.px,row.name,[row.p,"g"],row.ev,'fair '+fairOdds(fairP(row)));
     if(hh&&hh.u)ot1("Under "+f1(hh.line),{price:hh.u.price,book:hh.u.book,bk:hh.u.bk,all:hh.u.all},row.name+" under "+hh.line,[row.p,"u",hh.line],row.sv.eu,'fair '+fairOdds(row.sv.psu));
-    Object.keys(al).map(Number).sort(function(a,b){return a-b}).forEach(function(ln){var a=al[ln],k=Math.ceil(ln),pa=ln%1?rungChance(row,k):nbOver(row.xs,ln);if(!a)return;
+    Object.keys(al).map(Number).sort(function(a,b){return a-b}).forEach(function(ln){var a=al[ln],k=Math.ceil(ln),pa=ln%1&&hh?rungChance(row,k):nbOver(row.xs,ln);if(!a)return;
       ot1(hh&&ln===hh.line?(ln%1?k+"+":"Over "+ln)+' <i>· main line</i>':(ln%1?k+"+ shots":"Over "+ln),{price:a.price,book:a.book,bk:a.bk,all:a.all},row.name+" "+(ln%1?k+"+ shots":"over "+ln),[row.p,"o",ln],pa*payout(a.price)-1,'fair '+fairOdds(pa))});
     odds=ot.length?'<h4>'+(row.info.m.g?"Odds":"Tonight\'s odds")+' · '+fmtD(S.day)+' '+(row.home?"vs ":"at ")+row.opp+(row.info.m.g?"":' · '+esc(row.info.m.t||""))+(o&&o.at?' <span>fetched '+esc(String(o.at).replace("T"," "))+' ET · click a price to add it to My bets</span>':'')+'</h4><div class="pm-tiles pm-odds">'+ot.join("")+'</div>':'<h4>Tonight\'s odds</h4><p class="pm-next"><span class="o">No prices are stored for him on '+fmtD(S.day)+'.</span></p>';
+    function oneRow(cs){return '<table><thead><tr>'+cs.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+c.l+'</th>'}).join("")+'</tr></thead><tbody><tr>'+cs.map(function(c){return '<td'+(c.num?' class="n"':'')+'>'+(c.f?c.f(row):esc(c.v(row)))+'</td>'}).join("")+'</tr></tbody></table>'}
+    gtbl='<h4>Goalscorer</h4><div class="tw pm-shots">'+oneRow(slateCols().slice(3))+'</div>';
     var sc=shotCols({}).slice(3);
-    stbl='<h4>Shots on goal</h4><div class="tw pm-shots"><table><thead><tr>'+sc.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+c.l+'</th>'}).join("")+'</tr></thead><tbody><tr>'+sc.map(function(c){return '<td'+(c.num?' class="n"':'')+'>'+(c.f?c.f(row):esc(c.v(row)))+'</td>'}).join("")+'</tr></tbody></table></div>'}
+    stbl=!hh&&row.xs==null?'':'<h4>Shots on goal</h4><div class="tw pm-shots"><table><thead><tr>'+sc.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+c.l+'</th>'}).join("")+'</tr></thead><tbody><tr>'+sc.map(function(c){return '<td'+(c.num?' class="n"':'')+'>'+(c.f?c.f(row):esc(c.v(row)))+'</td>'}).join("")+'</tr></tbody></table></div>'}
   var next="";if(row){var h=row.sh,ch=[1,2,3,4,5].map(function(k){var q=nbOver(row.xs,k-.5);return '<b>'+k+'+</b> '+Math.round(q*100)+'% <span class="o">('+fairOdds(q)+')</span>'}).join(" · ");
     next='<h4>'+(row.info.m.g?"Game":"Next game")+' · '+fmtD(S.day)+' '+(row.home?"vs ":"at ")+row.opp+(row.info.m.g?"":' · '+esc(row.info.m.t||""))+'</h4>'+
       '<p class="pm-next">Chance to score <b>'+p1(row.pr)+'</b> <span class="o">(fair '+fairOdds(row.pr)+')</span>'+(row.px?', best price <b>'+fmtP(row.px.price)+'</b> at '+esc(row.px.book)+', edge '+pill(row.ev):'')+'. '+
@@ -1381,7 +1388,7 @@ function playerModal(p){ // the player card that opens over the page
       '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
       '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
     '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
-      tiles+(row?'':next)+odds+stbl+'<h4>Game log</h4>'+tbl+
+      tiles+(row?'':next)+odds+gtbl+stbl+'<h4>Game log</h4>'+tbl+
       '<button class="more pm-more" id="pmWork" aria-expanded="'+(S.pmW?"true":"false")+'">'+(S.pmW?"Hide how his number is built":"How his number is built")+'</button>'+
       '<div class="pm-work"'+(S.pmW?"":" hidden")+'>'+work+'</div></div></div>';
 }
