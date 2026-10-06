@@ -557,6 +557,10 @@ td .sside{font-size:13px;padding:3px 9px}
 .bets .leg.lost{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--goal-hot) 60%,transparent)}
 .bty.bp::before{background:var(--accent)}
 .bets .bspl{font-size:12px}
+.bets tbody tr.bcont>td{border-top-color:transparent}
+.bets tbody tr.bcont>td:nth-child(2),.bets tbody tr.bcont>td:nth-child(3){color:transparent}.bets tbody tr.bcont>td:nth-child(3) img{visibility:hidden}
+.bets tbody tr.bcont>td:nth-child(4) b{font-weight:400;color:var(--muted)}.bets tbody tr.bcont>td:nth-child(4) .o{display:none}
+.bets tbody tr.bcont.glit>td:nth-child(2),.bets tbody tr.bcont.glit>td:nth-child(3){color:#fff}.bets tbody tr.bcont.glit>td:nth-child(3) img{visibility:visible}.bets tbody tr.bcont.glit>td:nth-child(4) b{color:#fff;font-weight:600}
 </style>
 
 <div class="wrap">
@@ -1711,11 +1715,12 @@ function betGrade(b,quick){ // {st: won | lost | push | void | open | live, act:
       else{var a=shotAct(r);if(a){act=a[0];w=shotGrade(b.m,b.line,a);live=!a[1]}}}}
   var pl=w==null?null:w>0?b.u*(pay-1):w<0?-b.u:0;
   return{st:b.res==="v"?"void":w==null?(live?"live":"open"):w>0?"won":w<0?"lost":"push",w:w,act:act,live:live,pl:pl}}
-function betParlay(){var ids=S.bsel||{},legs=S.bets.filter(function(b){return ids[b.id]&&!b.legs&&!b.man});if(legs.length<2)return;
+function betParlay(keep){var ids=S.bsel||{},legs=S.bets.filter(function(b){return ids[b.id]&&!b.legs&&!b.man});if(legs.length<2)return;
   var dec=1,d="",bk={};legs.forEach(function(l){dec*=payout(l.price);if(l.d>d)d=l.d;bk[l.book]=1});var pr=amer(dec),books=Object.keys(bk);
-  S.bets=S.bets.filter(function(b){return legs.indexOf(b)<0});
+  if(keep)legs=legs.map(function(l){var c=JSON.parse(JSON.stringify(l));c.id=betId();return c}); // the singles stay as bets of their own; the parlay carries copies
+  else S.bets=S.bets.filter(function(b){return legs.indexOf(b)<0});
   S.bets.push({id:betId(),at:new Date().toISOString(),d:d,legs:legs,nm:"Parlay",m:"par",book:books.length===1?books[0]:"",price:pr,price0:pr,u:1,res:"auto"});
-  S.bsel={};saveBets();toast(legs.length+" legs combined at "+fmtP(pr)+". Change the odds if the book priced it differently.");render()}
+  S.bsel={};saveBets();toast(legs.length+" legs combined at "+fmtP(pr)+(keep?", singles kept":"")+". Change the odds if the book priced it differently.");render()}
 function betSplit(id){var b=S.bets.filter(function(x){return x.id===id})[0];if(!b||!b.legs)return;S.bets=S.bets.filter(function(x){return x!==b}).concat(b.legs);saveBets();render()}
 function betCustom(){S.bets.push({id:betId(),at:new Date().toISOString(),d:S.day||todayET(),man:1,nm:"",m:"cx",book:"",price:100,price0:100,u:1,res:"auto"});saveBets();S.betF="all";render();
   var el=document.querySelector('#view input[data-be$="|nm"]:placeholder-shown')||document.querySelector('#view input[data-be$="|nm"]');if(el)el.focus()}
@@ -1725,6 +1730,8 @@ function betImport(inp){var f=inp.files&&inp.files[0];if(!f)return;var rd=new Fi
 function vBets(){BSL.tick=(BSL.tick||0)+1;
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
+  var grp={};S.bets.forEach(function(b){if(b.legs||b.man)return;var k=b.d+"|"+b.p;if(!grp[k]||b.at<grp[k])grp[k]=b.at});
+  function skey(b){return b.d+"|"+(b.legs||b.man?b.at+"|"+b.id:grp[b.d+"|"+b.p]+"|"+b.p)+"|"+b.at} // a night's bets on one player sit together, placed by the first of them
   var all=S.bets.map(function(b){return{b:b,g:betGrade(b)}}),T={n:0,w:0,l:0,p:0,u:0,stk:0,open:0,ostk:0},kinds={g:{l:"Anytime goals",n:0,w:0,u:0,stk:0},o:{l:"Shots overs and rungs",n:0,w:0,u:0,stk:0},u:{l:"Shots unders",n:0,w:0,u:0,stk:0},p:{l:"Parlays and custom",n:0,w:0,u:0,stk:0}},byDay={};
   all.forEach(function(x){var g=x.g,b=x.b;if(g.st==="void")return;if(g.pl==null){T.open++;T.ostk+=b.u;return}
     T.n++;T.stk+=b.u;T.u+=g.pl;if(g.w>0)T.w++;else if(g.w<0)T.l++;else T.p++;var K=b.legs||b.man?kinds.p:kinds[b.m]||kinds.o;K.n++;K.stk+=b.u;K.u+=g.pl;if(g.w>0)K.w++;byDay[b.d]=(byDay[b.d]||0)+g.pl});
@@ -1732,12 +1739,12 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
   var head='<section class="panel netp"><div class="netbig '+(T.u>0?"up":T.u<0?"dn":"")+'"><small>My bets · net units</small><b>'+(T.n?sg(T.u)+"u":"–")+'</b><span>'+(T.n?usd(T.u)+' at $'+S.unit+' a unit · '+T.w+'–'+T.l+(T.p?'–'+T.p:'')+' · '+(+T.stk.toFixed(2))+' units staked · ROI '+(T.u/T.stk>=0?"+":"−")+Math.abs(Math.round(100*T.u/T.stk))+'%':'Nothing settled yet')+(T.open?' · '+T.open+' open ('+(+T.ostk.toFixed(2))+'u at risk)':'')+'</span></div>'+
     '<div class="netparts n4">'+["g","o","u","p"].map(function(k){var K=kinds[k];return '<div class="netpart"><small>'+K.l+'</small><b class="'+(K.u>0?"up":K.u<0?"dn":"")+'">'+(K.n?sg(K.u)+'u':"–")+'</b><span>'+(K.n?K.w+' of '+K.n+' won · ROI '+(K.u/K.stk>=0?"+":"−")+Math.abs(Math.round(100*K.u/K.stk))+'%':'nothing settled yet')+'</span></div>'}).join("")+'</div>'+
     (runs.length?'<div class="netdays"><small>Night by night</small>'+runs.slice().reverse().slice(0,14).map(function(x){return '<span class="netday '+(x.u>0?"up":x.u<0?"dn":"")+'" title="Running total '+sg(x.run)+'u">'+fmtD(x.d)+' <b>'+sg(x.u)+'u</b></span>'}).join("")+'</div>':'')+
-    '<p class="note">To add a bet, click any price on Picks, Slate table, Shots, Goals feed, Lineups or a player card and choose the book you bet it at. It lands here at one unit and that book\'s price; change the odds for a boost, or the units, in the table. Results fill in by themselves from the same live feed as the rest of the page. <b>Parlay:</b> tick two or more bets and press Make parlay; the legs are multiplied together, so type the book\'s own price over it for a same-game parlay or a boost. It loses as soon as one leg loses and wins when all have. <b>Add custom bet</b> makes a blank line for anything not listed on the page, which you settle by hand. These bets are saved in this browser only, so use Export to back them up or move them to another device.</p></section>';
+    '<p class="note">To add a bet, click any price on Picks, Slate table, Shots, Goals feed, Lineups or a player card and choose the book you bet it at. It lands here at one unit and that book\'s price; change the odds for a boost, or the units, in the table. Results fill in by themselves from the same live feed as the rest of the page. <b>Parlay:</b> tick two or more bets and press Make parlay (the ticked bets move into it) or Parlay + keep singles (they stay as bets of their own as well); the legs are multiplied together, so type the book\'s own price over it for a same-game parlay or a boost. It loses as soon as one leg loses and wins when all have. <b>Add custom bet</b> makes a blank line for anything not listed on the page, which you settle by hand. These bets are saved in this browser only, so use Export to back them up or move them to another device.</p></section>';
   var f=S.betF,rows=all.filter(function(x){return f==="all"||(f==="open"?x.g.pl==null&&x.g.st!=="void":x.g.pl!=null||x.g.st==="void")});
   var ST={won:["m","WON"],lost:["x","LOST"],push:["","PUSH"],void:["","VOID"],open:["","OPEN"],live:["live","LIVE"]};
   var cols=[
     {k:"sel",l:"",v:function(x){return S.bsel&&S.bsel[x.b.id]?1:0},f:function(x){return x.b.legs||x.b.man?'':'<input type="checkbox" class="bchk" data-bsel="'+x.b.id+'"'+(S.bsel&&S.bsel[x.b.id]?" checked":"")+' aria-label="Pick '+esc(x.b.nm)+' for a parlay">'}},
-    {k:"d",l:"Night",v:function(x){return x.b.d+x.b.at},f:function(x){return x.b.man?'<input type="date" class="pxin bdt" data-be="'+x.b.id+'|d" value="'+esc(x.b.d)+'" aria-label="Night">':fmtD(x.b.d)}},
+    {k:"d",l:"Night",v:function(x){return skey(x.b)},f:function(x){return x.b.man?'<input type="date" class="pxin bdt" data-be="'+x.b.id+'|d" value="'+esc(x.b.d)+'" aria-label="Night">':fmtD(x.b.d)}},
     {k:"t",l:"Team",v:function(x){return x.b.t||""},f:function(x){return x.b.t?tmL(x.b.t):"–"}},
     {k:"nm",l:"Player",v:function(x){return x.b.nm},f:function(x){var b=x.b;if(b.man)return '<input type="text" class="pxin btx" data-be="'+b.id+'|nm" value="'+esc(b.nm)+'" placeholder="What the bet is" aria-label="What the bet is">';
       if(b.legs)return '<div class="legs">'+b.legs.map(function(l,i){var g=x.g.legs?x.g.legs[i]:betGrade(l);return '<span class="leg '+g.st+'" data-pl="'+l.p+'" title="'+esc(l.book)+' '+fmtP(l.price)+(g.act!=null?" · "+g.act+(l.m==="g"?" goals":" shots")+" so far":"")+'"><b>'+esc(l.nm)+'</b> '+esc(betWhat(l))+(g.act!=null&&l.m!=="g"?' <i>'+g.act+'</i>':'')+'</span>'}).join("")+'</div>';
@@ -1754,14 +1761,16 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
     {k:"res",l:"Settle",v:function(x){return x.b.res||"auto"},f:function(x){return '<select class="bsel" data-be="'+x.b.id+'|res" aria-label="Settle '+esc(x.b.nm)+' by hand">'+[["auto",x.b.man?"Open":"Auto"],["w","Won"],["l","Lost"],["v","Void"]].map(function(o){return '<option value="'+o[0]+'"'+((x.b.res||"auto")===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select>'+(x.b.legs?'<button class="bdel bspl" data-bsplit="'+x.b.id+'" title="Split back into single bets" aria-label="Split this parlay back into single bets">⇄</button>':'')+'<button class="bdel" data-bdel="'+x.b.id+'" aria-label="Remove '+esc(x.b.nm)+' bet" title="Remove this bet">×</button>'}}];
   var nSel=Object.keys(S.bsel||{}).filter(function(k){return S.bsel[k]&&S.bets.some(function(b){return b.id===k})}).length;
   var bst=S.sort.bets||{k:"d",dir:-1},byN=bst.k==="d";
-  if(byN){var ord=rows.slice().sort(function(a,b){var x=a.b.d+a.b.at,y=b.b.d+b.b.at;return bst.dir*x.localeCompare(y)||0}),days={};
+  if(byN){var ord=rows.slice().sort(function(a,b){return bst.dir*skey(a.b).localeCompare(skey(b.b))||0}),days={};
     all.forEach(function(x){var q=days[x.b.d]||(days[x.b.d]={w:0,l:0,p:0,u:0,o:0,n:0});q.n++;if(x.g.st==="void")return;if(x.g.pl==null){q.o++;return}q.u+=x.g.pl;if(x.g.w>0)q.w++;else if(x.g.w<0)q.l++;else q.p++});
-    ord.forEach(function(x,i){x.first=i>0&&ord[i-1].b.d!==x.b.d;x.last=!ord[i+1]||ord[i+1].b.d!==x.b.d;x.day=days[x.b.d]})}
+    ord.forEach(function(x,i){x.first=i>0&&ord[i-1].b.d!==x.b.d;x.last=!ord[i+1]||ord[i+1].b.d!==x.b.d;x.day=days[x.b.d];
+      var pv=ord[i-1],sameP=function(y){return y&&!x.b.legs&&!x.b.man&&!y.b.legs&&!y.b.man&&y.b.d===x.b.d&&y.b.p===x.b.p};x.cont=sameP(pv);x.grp=x.cont||sameP(ord[i+1])})}
+  else all.forEach(function(x){x.cont=x.grp=0});
   cols.push({k:"rec",l:"Night",v:function(x){return x.b.d+x.b.at},f:function(x){var q=x.day;if(!byN||!x.last||!q)return "";var st=q.w+q.l+q.p;
     return '<span class="brec"><span class="o">'+fmtD(x.b.d)+'</span> '+(st?q.w+'–'+q.l+(q.p?'–'+q.p:'')+' <b class="'+(q.u>0?"bup":q.u<0?"bdn":"")+'">'+sg(q.u)+'u</b>':'')+(q.o?' <span class="o">'+(st?"· ":"")+q.o+' open</span>':'')+'</span>'}});
   view.innerHTML=head+'<section class="panel bets"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
-    '<label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label><button class="btn2" id="betParlay"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first">Make parlay'+(nSel?" · "+nSel:"")+'</button><button class="btn2" id="betCustom">Add custom bet</button><button class="btn2" id="betExport"'+(S.bets.length?"":" disabled")+'>Export</button><button class="btn2" id="betImport">Import</button><input type="file" id="betFile" accept="application/json,.json" hidden></div></div>'+
-    (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon"+(x.b.m==="g"?" glit":""):"")+(byN&&x.first?" bday":"")+'"':' class="'+(x.b.legs?"bpar":"bman")+(byN&&x.first?" bday":"")+'"'}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at, or use Add custom bet.</p>')+'</section>'}
+    '<label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label><button class="btn2" id="betParlay"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. The ticked bets move into the parlay.">Make parlay'+(nSel?" · "+nSel:"")+'</button><button class="btn2" id="betParlayK"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. Makes the parlay and leaves the ticked bets as singles too.">Parlay + keep singles</button><button class="btn2" id="betCustom">Add custom bet</button><button class="btn2" id="betExport"'+(S.bets.length?"":" disabled")+'>Export</button><button class="btn2" id="betImport">Import</button><input type="file" id="betFile" accept="application/json,.json" hidden></div></div>'+
+    (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon"+(x.b.m==="g"?" glit":""):"")+(byN&&x.first?" bday":"")+(x.cont?" bcont":"")+(x.grp?" bgrp":"")+'"':' class="'+(x.b.legs?"bpar":"bman")+(byN&&x.first?" bday":"")+'"'}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at, or use Add custom bet.</p>')+'</section>'}
 var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,games:vGames};
 function render(){
   if(!D)return;
@@ -1809,6 +1818,7 @@ document.addEventListener("click",function(e){
   var bd=e.target.closest("[data-bdel]");if(bd){S.bets=S.bets.filter(function(b){return b.id!==bd.dataset.bdel});saveBets();return render()}
   if(e.target.id==="betExport")return betExport();
   if(e.target.id==="betParlay")return betParlay();
+  if(e.target.id==="betParlayK")return betParlay(1);
   if(e.target.id==="betCustom")return betCustom();
   var bsp=e.target.closest("[data-bsplit]");if(bsp)return betSplit(bsp.dataset.bsplit);
   if(e.target.id==="betImport"){var fi=$("betFile");if(fi)fi.click();return}
