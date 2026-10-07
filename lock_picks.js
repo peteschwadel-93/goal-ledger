@@ -190,6 +190,9 @@ if (games.length) {
         const ev = { at: stamp, ch: all };
         if (b.s != null && e.s != null) ev.c = [+b.s.toFixed(4), +e.s.toFixed(4)];
         if (b.x != null && e.x != null) ev.x = [+b.x.toFixed(2), +e.x.toFixed(2)];
+        const val = (ch2, price) => { if (ch2 == null || price == null) return null; const pay = price > 0 ? 1 + price / 100 : 1 + 100 / -price; return +(((ch2 * pay - 1) / (pay - 1)) * 100).toFixed(2); };
+        const v0 = b.px !== undefined ? val(b.s, b.px) : null, v1 = val(e.s, e.px);
+        if (v0 != null && v1 != null) ev.v = [v0, v1];                // the value score before and after, each at the price of its moment
         note(e.p, ev);
       });
       const nowIn = new Set(cur.r.map(e => e.p));

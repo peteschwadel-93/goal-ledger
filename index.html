@@ -1879,12 +1879,13 @@ function vMovers(){
   function chips(ch){return ch.length?'<span class="mvw">'+ch.map(function(c){return '<span class="lgc"><b>'+esc(c[0])+'</b> '+(c[1]?esc(c[1])+' → ':'')+esc(c[2])+'</span>'}).join("")+'</span>':'<span class="o">–</span>'}
   Object.keys(log).forEach(function(p){p=+p;var all=log[p],r=by[p]||null,base={p:p,r:r,name:r?r.name:pname(p),t:r?r.t:(IX.P[p]?IX.P[p].team:""),opp:r?r.opp:"",home:r?r.home:null};
     if(EV)all.forEach(function(e){var ch=why(e.ch),mvd=e[k]?e[k][1]-e[k][0]:0;if(!ch.length&&Math.abs(mvd)<(SH?.01:.0005))return;
-      list.push(Object.assign({},base,{at:e.at,a:e[k]?e[k][0]:null,b:e[k]?e[k][1]:null,d:mvd,ch:ch,n:1}))});
+      list.push(Object.assign({},base,{at:e.at,a:e[k]?e[k][0]:null,b:e[k]?e[k][1]:null,d:mvd,ch:ch,n:1,va:e.v?e.v[0]:null,vb:e.v?e.v[1]:null}))});
     else{var ev=all.filter(function(e){return e[k]}),a=ev.length?ev[0][k][0]:null,b=ev.length?ev[ev.length-1][k][1]:null,m={},ord=[],n=0,last="";
       all.forEach(function(e){var ch=why(e.ch);if(ch.length||(e[k]&&Math.abs(e[k][1]-e[k][0])>=(SH?.01:.0005))){n++;last=e.at}
         ch.forEach(function(c){if(m[c[0]])m[c[0]][2]=c[2];else{m[c[0]]=[c[0],c[1],c[2]];ord.push(c[0])}})}); // one line a cause: where it started the day and where it is now
       var ch2=ord.map(function(q){return m[q]}).filter(function(c){return c[1]!==c[2]||!c[1]});if(!n)return;
-      list.push(Object.assign({},base,{at:last,a:a,b:b,d:a!=null?b-a:0,ch:ch2,n:n}))}});
+      var vv=all.filter(function(e){return e.v});
+      list.push(Object.assign({},base,{at:last,a:a,b:b,d:a!=null?b-a:0,ch:ch2,n:n,va:vv.length?vv[0].v[0]:null,vb:vv.length?vv[vv.length-1].v[1]:null}))}});
   function num(v){return v==null?'<span class="o">–</span>':SH?f2(v):p1(v)}
   function dlt(x){if(x.a==null||Math.abs(x.d)<(SH?.005:.0005))return '<span class="o">–</span>';return '<b class="'+(x.d>0?"bup":"bdn")+'">'+(x.d>0?"▲ +":"▼ −")+(SH?Math.abs(x.d).toFixed(2):(Math.abs(x.d)*100).toFixed(1)+" pts")+'</b>'}
   var cols=[
@@ -1903,14 +1904,16 @@ function vMovers(){
   else cols.push(
     {k:"price",l:"Best price",num:1,v:function(x){return x.r&&x.r.px?x.r.pay:null},f:function(x){return x.r&&x.r.px?'<b>'+pxH(x.r.px,x.name,[x.p,"g"])+'</b>'+bkTag(x.r.px):'<span class="o">–</span>'}},
     {k:"ev",l:"Edge now",num:1,v:function(x){return x.r?x.r.ev:null},f:function(x){return x.r&&x.r.px?edgeTag(x.r):""}},
-    {k:"vs",l:"Value now",num:1,v:function(x){return x.r?x.r.vs:null},f:function(x){return x.r&&x.r.vs!=null?vsTxt(x.r.vs):""}});
+    {k:"va",l:"Value before",num:1,v:function(x){return x.va},f:function(x){return x.va==null?'<span class="o">–</span>':'<span class="o">'+(x.va>0?"+":"")+x.va.toFixed(1)+'</span>'}},
+    {k:"vb",l:"Value after",num:1,v:function(x){return x.vb!=null?x.vb:x.r?x.r.vs:null},f:function(x){var v=x.vb!=null?x.vb:x.r?x.r.vs:null;return v==null?"":vsTxt(v)}},
+    {k:"vd",l:"Value moved",num:1,v:function(x){return x.va!=null&&x.vb!=null&&Math.abs(x.vb-x.va)>=.05?x.vb-x.va:null},f:function(x){if(x.va==null||x.vb==null||Math.abs(x.vb-x.va)<.05)return '<span class="o">–</span>';var d=x.vb-x.va;return '<b class="'+(d>0?"bup":"bdn")+'">'+(d>0?"▲ +":"▼ −")+Math.abs(d).toFixed(1)+'</b>'}});
   if(!EV)cols.push({k:"n",l:"Changes",num:1,v:function(x){return x.n},f:function(x){return x.n}});
   cols.push({k:"why",l:EV?"What changed":"What changed today",v:function(x){return x.ch.map(function(c){return c[0]}).join(" ")},f:function(x){return chips(x.ch)}});
   var up=list.filter(function(x){return x.d>0}).length,dn=list.filter(function(x){return x.d<0}).length;
   view.innerHTML='<section class="panel"><div class="phead"><h2>Movers · '+fmtD(day)+'</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><label class="f">Show '+seg("seg-mvv",[["g","Goals"],["s","Shots"]],SH?"s":"g")+'</label><label class="f">Rows '+seg("seg-mvr",[["p","One a player"],["e","Every change"]],EV?"e":"p")+'</label>'+
       '<span class="tag nt">'+list.length+(EV?" changes":" players")+'</span>'+(list.length?'<span class="tag nt w">'+up+' up</span><span class="tag nt l">'+dn+' down</span>':'')+'</div>'+
-    '<p class="note">Every refresh compares each skater with the refresh before, for games still to start, and records what changed. <b>'+(SH?"Shots":"Goals")+'</b> view shows '+(SH?"expected shots on goal":"his chance to score (model and market averaged)")+' before and after, how far it moved, and the causes that bear on it. <b>One a player</b> nets the whole day into one row, from the first refresh to now; <b>Every change</b> lists each refresh on its own row with its time. A cause with no move is real: a goalie change is often cancelled by the team-total scaling. '+
+    '<p class="note">Every refresh compares each skater with the refresh before, for games still to start, and records what changed. <b>'+(SH?"Shots":"Goals")+'</b> view shows '+(SH?"expected shots on goal":"his chance to score (model and market averaged)")+' before and after, how far it moved, and the causes that bear on it'+(SH?'':'; <b>Value before</b>, <b>after</b> and <b>moved</b> are his value score across the same stretch, each worked out at the price of its moment')+'. <b>One a player</b> nets the whole day into one row, from the first refresh to now; <b>Every change</b> lists each refresh on its own row with its time. A cause with no move is real: a goalie change is often cancelled by the team-total scaling. '+
     'Prices shown are the latest fetched, so a role change after the last fetch is the thing to check at your book. The log covers today and the two days before; nothing is recorded once a game has started.</p>'+
     (list.length?table("mv"+(SH?"s":"g")+(EV?"e":"p"),cols,list,{k:EV?"at":"d",dir:-1},{pin:1,row:function(x){return IX.P[x.p]?' class="pick" data-player="'+x.p+'"':""}}):'<p class="empty">'+(L&&L.log?"Nothing has changed "+(SH?"for shots ":"")+"between refreshes on this day.":"No change log is saved for this day. It is kept for today and the two days before, starting from the second refresh after the feature was added.")+'</p>')+'</section>'}
 var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,movers:vMovers,games:vGames};
