@@ -152,6 +152,11 @@ if (games.length) {
       c: r5(r.pr), s: r5(r.ps != null ? r.ps : r.pr), px: r.px ? r.px.price : null, ln: r.sh ? r.sh.line : null };
     if (r.inj) e.inj = r.inj;
     if (r.back) e.back = 1;
+    if (r.sh && r.xs != null && api.shotPrep) {                    // the shots market as it stands: line, the over's pick chance, the better side's edge, both best prices
+      api.shotPrep(r, day);
+      const v = r.sv || {};
+      if (v.pso != null) e.q = [r.sh.line, r5(v.pso), v.best > -9 ? r5(v.best) : null, v.side || "", r.sh.o ? r.sh.o.price : null, r.sh.u ? r.sh.u.price : null];
+    }
     t.r.push(e);
   });
   /* The day's change log: what moved for each skater between one refresh and the next, while his game is still to start.
@@ -181,6 +186,11 @@ if (games.length) {
         if (b.b && e.b && Math.abs((b.b.tev + b.b.tpp) - (e.b.tev + e.b.tpp)) >= 20) ch.push(["Expected ice time", clock(b.b.tev + b.b.tpp), clock(e.b.tev + e.b.tpp)]);
         if (b.px !== undefined && b.px !== e.px) ch.push(["Best goal price", od(b.px), od(e.px)]);
         if (b.ln !== undefined && b.ln !== e.ln) ch.push(["Shots line", b.ln == null ? "none" : String(b.ln), e.ln == null ? "none" : String(e.ln)]);
+        if (b.q && e.q) {
+          if (b.q[4] !== e.q[4]) ch.push(["Best over price", od(b.q[4]), od(e.q[4])]);
+          if (b.q[5] !== e.q[5]) ch.push(["Best under price", od(b.q[5]), od(e.q[5])]);
+          if (b.q[0] === e.q[0] && b.q[4] === e.q[4] && b.q[5] === e.q[5] && Math.abs(b.q[1] - e.q[1]) >= 0.005) ch.push(["Books' over chance", (b.q[1] * 100).toFixed(1) + "%", (e.q[1] * 100).toFixed(1) + "%"]);   // other books moved while the best prices stood still
+        }
         const i0 = b.inj ? b.inj.st : "", i1 = e.inj ? e.inj.st : "";
         if (i0 !== i1) ch.push(["Injury report", i0 || "not listed", i1 || "not listed"]);
         const all = ch.concat(team);
@@ -193,6 +203,11 @@ if (games.length) {
         const val = (ch2, price) => { if (ch2 == null || price == null) return null; const pay = price > 0 ? 1 + price / 100 : 1 + 100 / -price; return +(((ch2 * pay - 1) / (pay - 1)) * 100).toFixed(2); };
         const v0 = b.px !== undefined ? val(b.s, b.px) : null, v1 = val(e.s, e.px);
         if (v0 != null && v1 != null) ev.v = [v0, v1];                // the value score before and after, each at the price of its moment
+        if (b.q && e.q) {                                               // shots: the over's chance and the better side's edge, before and after
+          ev.so = [+b.q[1].toFixed(4), +e.q[1].toFixed(4)];
+          if (b.q[2] != null && e.q[2] != null) { ev.se = [+b.q[2].toFixed(4), +e.q[2].toFixed(4)]; ev.ss = [b.q[3], e.q[3]]; }
+          if (b.q[0] !== e.q[0]) ev.sl = [b.q[0], e.q[0]];
+        }
         note(e.p, ev);
       });
       const nowIn = new Set(cur.r.map(e => e.p));
