@@ -146,7 +146,7 @@ if (games.length) {
   Object.values(byP).forEach(r => {
     const ts = r.info.m.ts;
     if (!ts || Date.parse(ts) <= now) return;
-    const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, s: {} });
+    const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, mv: 2, s: {} });   // mv: which version of the shots model wrote these numbers
     const t = g.s[r.t] || (g.s[r.t] = { f: Object.fromEntries(Object.entries(sd.f).map(([k, v]) => [k, r5(v)])), scale: r5(sd.scale), model: r5(sd.model), mkt: r5(sd.mkt), gk: { p: sd.gk.p || 0, src: sd.gk.src || "" }, r: [] });
     const e = { p: r.p, l: r5(r.lam0), x: r5(r.xs), u: r.unit || 0, b: Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, r5(v)])),
       c: r5(r.pr), s: r5(r.ps != null ? r.ps : r.pr), px: r.px ? r.px.price : null, ln: r.sh ? r.sh.line : null };
@@ -170,6 +170,7 @@ if (games.length) {
   Object.entries(fresh).forEach(([key, g]) => {
     const old = (prevDay.fz || {})[key];
     if (!old) return;                                  // first sight of this game: nothing to compare with
+    const sameModel = old.mv === g.mv;                 // expected shots from two versions of the model are not a change in the player
     Object.entries(g.s).forEach(([t, cur]) => {
       const was = old.s && old.s[t];
       if (!was) return;
@@ -191,15 +192,16 @@ if (games.length) {
           if (b.q[5] !== e.q[5]) ch.push(["Best under price", od(b.q[5]), od(e.q[5])]);
           if (b.q[0] === e.q[0] && b.q[4] === e.q[4] && b.q[5] === e.q[5] && Math.abs(b.q[1] - e.q[1]) >= 0.005) ch.push(["Books' over chance", (b.q[1] * 100).toFixed(1) + "%", (e.q[1] * 100).toFixed(1) + "%"]);   // other books moved while the best prices stood still
         }
+        if (sameModel && b.x != null && e.x != null && Math.abs(b.x - e.x) >= 0.03) ch.push(["Expected shots", b.x.toFixed(2), e.x.toFixed(2)]);   // his share of the ice or his power-play unit changed with the lineup
         const i0 = b.inj ? b.inj.st : "", i1 = e.inj ? e.inj.st : "";
         if (i0 !== i1) ch.push(["Injury report", i0 || "not listed", i1 || "not listed"]);
         const all = ch.concat(team);
-        const dc = b.s != null && e.s != null ? e.s - b.s : 0, dx = b.x != null && e.x != null ? e.x - b.x : 0;
+        const dc = b.s != null && e.s != null ? e.s - b.s : 0, dx = sameModel && b.x != null && e.x != null ? e.x - b.x : 0;
         if (!all.length && Math.abs(dc) < 0.005 && Math.abs(dx) < 0.05) return;
         if (!all.length) all.push(["Team around him", "", "roles or lineup changed"]);
         const ev = { at: stamp, ch: all };
         if (b.s != null && e.s != null) ev.c = [+b.s.toFixed(4), +e.s.toFixed(4)];
-        if (b.x != null && e.x != null) ev.x = [+b.x.toFixed(2), +e.x.toFixed(2)];
+        if (sameModel && b.x != null && e.x != null) ev.x = [+b.x.toFixed(2), +e.x.toFixed(2)];
         const val = (ch2, price) => { if (ch2 == null || price == null) return null; const pay = price > 0 ? 1 + price / 100 : 1 + 100 / -price; return +(((ch2 * pay - 1) / (pay - 1)) * 100).toFixed(2); };
         const v0 = b.px !== undefined ? val(b.s, b.px) : null, v1 = val(e.s, e.px);
         if (v0 != null && v1 != null) ev.v = [v0, v1];                // the value score before and after, each at the price of its moment
