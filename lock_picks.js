@@ -127,10 +127,28 @@ if (games.length) {
       seenL[r.p].last = stamp;
     });
   }
-  if (picks.length || shots.length || Object.keys(lad).length || rv.length || lw.length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, seenL, lad, rv, lw };
+  /* Table numbers freeze at puck drop too: every skater's projection as of the last run before his game starts.
+     Unstarted games are rewritten each run; a started game keeps what it had. The page reads these until the
+     finished game arrives in the archive, so nothing moves while a game is on. */
+  const fz = Object.assign({}, prevDay.fz || {});
+  const r5 = v => typeof v === "number" && isFinite(v) && !Number.isInteger(v) ? +v.toPrecision(5) : v;   // whole numbers are ids and flags: left alone
+  const fresh = {};
+  Object.values(byP).forEach(r => {
+    const ts = r.info.m.ts;
+    if (!ts || Date.parse(ts) <= now) return;
+    const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, s: {} });
+    const t = g.s[r.t] || (g.s[r.t] = { f: Object.fromEntries(Object.entries(sd.f).map(([k, v]) => [k, r5(v)])), scale: r5(sd.scale), model: r5(sd.model), mkt: r5(sd.mkt), gk: { p: sd.gk.p || 0, src: sd.gk.src || "" }, r: [] });
+    const e = { p: r.p, l: r5(r.lam0), x: r5(r.xs), u: r.unit || 0, b: Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, r5(v)])) };
+    if (r.inj) e.inj = r.inj;
+    if (r.back) e.back = 1;
+    t.r.push(e);
+  });
+  Object.assign(fz, fresh);
+  if (picks.length || shots.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, seenL, lad, rv, lw, fz };
   }
 }
+Object.keys(store).forEach(k => { if (store[k] && store[k].fz && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) delete store[k].fz; });   // the archive has those games by now
 const keep = Object.keys(store).sort().slice(-250);
 store = Object.fromEntries(keep.map(k => [k, store[k]]));
 fs.writeFileSync(storePath, JSON.stringify(store));

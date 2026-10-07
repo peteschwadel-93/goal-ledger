@@ -520,7 +520,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .bets .pxin{width:64px;padding:3px 7px;font-size:13px;border-radius:6px}.bets .pxin.bun{width:46px}
 .bets .bsel{padding:3px 4px;font-size:12px;border-radius:6px}.bets .bdel{width:22px;height:22px;font-size:14px;margin-left:6px;border-radius:6px}
 .bets .res{font-size:10px;padding:3px 8px}.bets td .tlogo{width:18px;height:18px}
-.bets tbody tr.bday td{border-top:1px solid color-mix(in srgb,var(--accent) 38%,var(--line))}
+.bets tbody tr.bday td{border-top:2px solid #f5c542}
 .bets td:last-child,.bets th:last-child{border-left:1px solid var(--line);background:color-mix(in srgb,var(--surface) 55%,var(--bg))}
 .bty{font:500 13.5px var(--body);color:var(--soft)}
 .bty::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--made,#4ade80)}
@@ -573,6 +573,12 @@ td .sside{font-size:13px;padding:3px 9px}
 .lsht td.rgh{background:color-mix(in srgb,var(--made,#4ade80) 13%,transparent)}
 .lsht tbody tr{cursor:pointer}
 @media(max-width:760px){.lsht .lshn{min-width:0;max-width:158px;overflow:hidden;text-overflow:ellipsis}.lsht td.lshn .tag{display:none}.lsht td.lshn .lpos{width:20px}}
+/* tracker: one player a line, columns lined up */
+.tlist{display:grid;grid-template-columns:max-content max-content max-content max-content;gap:5px 18px;align-items:center;justify-content:start;padding:3px 0;line-height:1.3}
+.tlist .tl{display:contents;cursor:pointer}.tlist .tl>b{font-weight:500;color:var(--ink)}.tlist .tl:hover>b{color:var(--accent)}
+.tlist .tlr{display:inline-block;min-width:74px;margin-right:6px;font-variant-numeric:tabular-nums;white-space:nowrap}.tlist .tlr.hit{color:var(--made,#4ade80)}
+.tlist .res{justify-self:start}
+@media(max-width:760px){.tlist{grid-template-columns:max-content max-content;gap:2px 12px}.tlist .tlr{min-width:0}}
 </style>
 
 <div class="wrap">
@@ -814,21 +820,29 @@ function matchups(day){
   var played=D.games.filter(function(g){return g.d===day}).map(function(g){return{d:g.d,h:g.h,a:g.a,g:g}});
   var ms=played.concat((D.sched||[]).filter(function(x){return x.d===day&&!played.some(function(p){return p.h===x.h&&p.a===x.a})}));
   ms.sort(function(x,y){return String(x.ts||"").localeCompare(String(y.ts||""))||x.h.localeCompare(y.h)});return ms}
+function frozenOf(day,key,m){ // the table numbers saved before a game's puck drop, used from the moment it starts until the finished game is in the archive
+  var L=(D.locks||{})[day],z=L&&L.fz&&L.fz[key];if(!z)return null;
+  return (m.ts&&Date.parse(m.ts)<=Date.now())||m.gl||/OFF|FINAL|LIVE|CRIT/.test(m.st||"")?z:null}
 function slate(day){
   var out=[];
   matchups(day).forEach(function(m){
     var key=gameKey(m),o=oddsOf(m),mk=marketTotals(o&&o.ln),info={m:m,key:key,o:o,mk:mk,side:{}};
-    [[m.a,m.h],[m.h,m.a]].forEach(function(pr){var t=pr[0],op=pr[1],rows=[],f,gk;
+    var Z=m.g?null:frozenOf(day,key,m);
+    [[m.a,m.h],[m.h,m.a]].forEach(function(pr){var t=pr[0],op=pr[1],rows=[],f,gk,z=null;
       if(m.g){f=IX.CTX[m.g.id][t];gk={p:f.goalie,list:[]};
         m.g.p[t].forEach(function(r){var x=IX.PRE[m.g.id][r[0]];rows.push({p:r[0],lam0:x[0],b:{tev:x[1],tpp:x[2],evr:x[3],ppr:x[4],fin:x[5],en:x[6],toiF:x[8],mt:x[9],role:x[8]*x[9],base:x[0]/f.all/(x[8]*x[9]),ev:x[5]*x[3]*x[1],pp:x[5]*x[4]*x[2],finRel:x[5]/IX.L[isD(r[0])?"D":"F"].fin},gp:x[7],res:r,xs:x[10]})})}
+      else if(Z&&Z.s&&Z.s[t]){z=Z.s[t];f=z.f;gk={p:z.gk.p||null,list:[],src:z.gk.src||""};var finZ=/OFF|FINAL/.test(m.st||""); // his game has started: the numbers saved before puck drop, with only the live goals and shots laid on top
+        z.r.forEach(function(e){if(!IX.P[e.p])return;var n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:e.l,b:e.b,gp:IX.P[e.p].a[6],inj:e.inj,back:e.back,xs:e.x,fzu:e.u||undefined};
+          if(m.gl&&(n||finZ))row.res=[e.p,n];if(m.sg)row.sgl=[m.sg[e.p]||0,finZ?1:0];rows.push(row)})}
       else{gk=projGoalie(op,day,key,m);var T=IX.T[t]||{},O=IX.T[op]||{};
         f=context(t===m.h,defF(op),gk.p?gkF(gk.p):1,O.last&&days(O.last,day)===1,T.last&&days(T.last,day)===1);f.goalie=gk.p;
         var fin=/OFF|FINAL/.test(m.st||"");
         projSkaters(t,day,m).forEach(function(e){var st=IX.P[e.p],x=rate(st,isD(e.p)),n=m.gl?(m.gl[e.p]||0):0,row={p:e.p,lam0:x.base*x.role*f.all,b:x,gp:st.a[6],inj:e.inj,back:e.back,xs:sogMu(x.sog0,t===m.h,op)};
           if(m.gl&&(n||fin))row.res=[e.p,n];if(m.sg)row.sgl=[m.sg[e.p]||0,fin?1:0];rows.push(row)})}
       var sum=0;rows.forEach(function(r){sum+=r.lam0});
-      var scale=S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u=ppUnits(rows);
-      info.side[t]={f:f,gk:gk,model:sum,scale:scale,mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t])};
+      var scale=z?z.scale:S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u;
+      if(z){u={};rows.forEach(function(r){u[r.p]=r.fzu})}else u=ppUnits(rows);
+      info.side[t]={f:f,gk:gk,model:z?z.model:sum,scale:scale,mkt:z?z.mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t]),frozen:z?1:0};
       rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);
         var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
           var mid=1/payout(px.mid||px.price);r.mk=Math.min(.95,mid/C.np.vig);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
@@ -1562,8 +1576,8 @@ function watchRecord(season,lab){ // Ladder Watch graded: one unit a player, spl
     '<p class="note">Every Ladder Watch candidate on a finished night, one unit a player split across his shaded rungs as the page suggested, at the prices saved before his game. A ladder is in profit when the rungs he reached pay more than the ones he missed cost.</p>'+
     '<div class="kv"><span>Ladders in profit <b>'+R.w+" of "+R.n+'</b> · '+pct(R.w,R.n)+'</span><span>Rungs hit <b>'+R.rh+' of '+R.rn+'</b> · '+pct(R.rh,R.rn)+'</span><span>Units <b>'+(R.u>=0?"+":"")+R.u.toFixed(2)+'</b></span><span>Staked <b>$'+(R.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(R.u>=0?"made":"miss")+')">'+usd(R.u)+'</b></span><span>ROI (return per ladder) '+pill(R.u/R.n)+'</span><span>Nights <b>'+R.days.length+'</b></span></div>'+
     '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Ladders</th><th class="n">In profit</th><th class="n">Units</th><th class="n">Running</th><th>The ladders</th></tr></thead><tbody>'+
-    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
-      x.l.map(function(L){return '<span class="pick" data-player="'+L.r.p+'" style="white-space:nowrap">'+esc(L.r.name)+' <span class="o">'+L.bet.map(function(c){return c.need+"+ "+fmtP(c.a.price)}).join(", ")+'</span> <span class="res '+(L.u>0?"m":"x")+'">'+L.act[0]+' · '+(L.u>=0?"+":"")+L.u.toFixed(2)+'u</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell"><div class="tlist">'+
+      x.l.map(function(L){return '<span class="pick tl" data-player="'+L.r.p+'"><b>'+esc(L.r.name)+'</b><span class="o">'+L.bet.map(function(c){return '<span class="tlr'+(L.act[0]>=c.need?" hit":"")+'">'+c.need+"+ "+fmtP(c.a.price)+'</span>'}).join("")+'</span><span class="o">'+L.act[0]+(L.act[0]===1?" shot":" shots")+'</span><span class="res '+(L.u>0?"m":"x")+'">'+(L.u>=0?"+":"")+L.u.toFixed(2)+'u</span></span>'}).join("")+'</div></td></tr>'}).join("")+'</tbody></table></div></section>'}
 function rungRecord(season,lab){ // every RUNG VALUE tag on a finished night, one unit at the price it had before the game
   var days={};Object.keys(D.locks||{}).forEach(function(d){if(((D.locks[d]||{}).rv||[]).length)days[d]=1});
   Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.sa&&o.sa.length)days[k.slice(0,10)]=1});
@@ -1581,8 +1595,10 @@ function rungRecord(season,lab){ // every RUNG VALUE tag on a finished night, on
     '<p class="note">Every rung that carried the RUNG VALUE tag, one unit on each at the best price before the game. <b>Expected</b> is the trimmed chance the tag was judged on, so a hit rate well under it means the tag is flagging the model\'s mistakes, not the books\'.</p>'+
     '<div class="kv"><span>Rungs <b>'+R.w+" of "+R.n+'</b> · '+pct(R.w,R.n)+' <span class="o">(expected '+pct(R.exp,R.n)+')</span></span><span>Units <b>'+(R.u>=0?"+":"")+R.u.toFixed(2)+'</b></span><span>Staked <b>$'+(R.n*S.unit).toFixed(0)+'</b></span><span>Profit <b style="color:var(--'+(R.u>=0?"made":"miss")+')">'+usd(R.u)+'</b></span><span>ROI (return per bet) '+pill(R.u/R.n)+'</span><span>Nights <b>'+R.days.length+'</b></span></div>'+
     '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Rungs</th><th class="n">Won</th><th class="n">Units</th><th class="n">Running</th><th>The rungs</th></tr></thead><tbody>'+
-    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
-      x.l.map(function(c){return '<span class="pick" data-player="'+c.r.p+'" style="white-space:nowrap">'+esc(c.r.name)+' <span class="o">'+c.need+'+ '+fmtP(c.price)+'</span> <span class="res '+(c.g>0?"m":"x")+'">'+c.a+(c.g>0?" WON":" LOST")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell"><div class="tlist">'+
+      (function(){var by={},ord=[];x.l.forEach(function(c){if(!by[c.r.p]){by[c.r.p]=[];ord.push(c.r.p)}by[c.r.p].push(c)}); // one line a player, his rungs side by side
+        return ord.map(function(p){var l=by[p].sort(function(a,b){return a.need-b.need}),u=0;l.forEach(function(c){u+=c.g>0?payout(c.price)-1:-1});
+          return '<span class="pick tl" data-player="'+p+'"><b>'+esc(l[0].r.name)+'</b><span class="o">'+l.map(function(c){return '<span class="tlr'+(c.g>0?" hit":"")+'">'+c.need+'+ '+fmtP(c.price)+'</span>'}).join("")+'</span><span class="o">'+l[0].a+(l[0].a===1?" shot":" shots")+'</span><span class="res '+(u>0?"m":"x")+'">'+(u>=0?"+":"")+u.toFixed(2)+'u</span></span>'}).join("")})()+'</div></td></tr>'}).join("")+'</tbody></table></div></section>'}
 function ladderRecord(season,lab){ // every LADDER tag on a finished night: did he clear the line, the next rung, the rung after
   var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
   var keepB=S.book;S.book="";var R={n:0,c0:0,c1:0,c2:0,e0:0,e1:0,e2:0,days:[],b1:{n:0,u:0},b2:{n:0,u:0}};
@@ -1603,8 +1619,8 @@ function ladderRecord(season,lab){ // every LADDER tag on a finished night: did 
     '<div class="kv"><span>Candidates <b>'+R.n+'</b></span><span>Cleared the line '+cell(R.c0,R.n,R.e0)+'</span><span>Next rung '+cell(R.c1,R.n,R.e1)+'</span><span>Rung after '+cell(R.c2,R.n,R.e2)+'</span><span>Nights <b>'+R.days.length+'</b></span></div>'+
     '<div class="kv"><span>Betting the next rung '+bet(R.b1)+'</span><span>Betting the rung after '+bet(R.b2)+'</span></div>'+
     '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Candidates</th><th class="n">Line</th><th class="n">Next rung</th><th class="n">Rung after</th><th>Who, biggest gap first</th></tr></thead><tbody>'+
-    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.c0+'</b></td><td class="n"><b>'+x.c1+'</b></td><td class="n"><b>'+x.c2+'</b></td><td class="cell" style="white-space:normal">'+
-      x.l.map(function(c){return '<span class="pick" data-player="'+c.r.p+'" style="white-space:nowrap">'+esc(c.r.name)+' <span class="o">line '+f1(c.line)+', xSOG '+f2(c.r.xs)+(c.p1!=null?', next rung '+fmtP(c.p1):'')+'</span> <span class="res '+(c.c1?"m":"x")+'">'+c.a+(c.c2?" · +2 RUNGS":c.c1?" · +1 RUNG":c.c0?" · LINE ONLY":" · MISSED")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+    R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.c0+'</b></td><td class="n"><b>'+x.c1+'</b></td><td class="n"><b>'+x.c2+'</b></td><td class="cell"><div class="tlist">'+
+      x.l.map(function(c){return '<span class="pick tl" data-player="'+c.r.p+'"><b>'+esc(c.r.name)+'</b><span class="o"><span class="tlr">line '+f1(c.line)+'</span><span class="tlr">xSOG '+f2(c.r.xs)+'</span>'+(c.p1!=null?'<span class="tlr'+(c.c1?" hit":"")+'">'+Math.ceil(c.line+1)+'+ '+fmtP(c.p1)+'</span>':'')+(c.p2!=null?'<span class="tlr'+(c.c2?" hit":"")+'">'+Math.ceil(c.line+2)+'+ '+fmtP(c.p2)+'</span>':'')+'</span><span class="o">'+c.a+(c.a===1?" shot":" shots")+'</span><span class="res '+(c.c1?"m":"x")+'">'+(c.c2?"+2 RUNGS":c.c1?"+1 RUNG":c.c0?"LINE ONLY":"MISSED")+'</span></span>'}).join("")+'</div></td></tr>'}).join("")+'</tbody></table></div></section>'}
 function shotRecord(season,lab){ // Shot Picks graded at one unit: the saved list where there is one, otherwise the rule replayed on the stored lines
   var days={};Object.keys(D.odds||{}).forEach(function(k){var o=D.odds[k];if(o&&o.s&&o.s.length)days[k.slice(0,10)]=1});
   var keepB=S.book;S.book="";var R={n:0,w:0,u:0,days:[]};
