@@ -49,6 +49,16 @@ if (games.length) {
     .map(r => ({ p: r.p, n: r.name, t: r.t, o: r.opp, ts: r.info.m.ts, price: r.px.price, book: r.px.book, nb: r.px.n,
       pr: +r.pr.toFixed(4), mk: +r.mk.toFixed(4), ps: +r.ps.toFixed(4), ev: +r.evS.toFixed(4), vs: +r.vsS.toFixed(2), lk: 0 }));
   const picks = kept.concat(open).sort((a, b) => b.vs - a.vs);
+  /* Likely Scorers, the second goal list, lock the same way: started games keep their saved picks, the rest stay open. */
+  let ls = (store[day] && store[day].ls) || [];
+  if (api.likelyOk) {
+    const keptL = ls.filter(k => k.ts && Date.parse(k.ts) <= now).map(k => Object.assign(k, { lk: 1 }));
+    const haveL = new Set(keptL.map(k => k.p));
+    const candL = api.slate(day).filter(r => api.likelyOk(r) && !haveL.has(r.p) && r.info.m.ts && Date.parse(r.info.m.ts) > now);
+    const openL = api.likelySelect(candL, cap, keptL).map(r => ({ p: r.p, n: r.name, t: r.t, o: r.opp, ts: r.info.m.ts, price: r.px.price, book: r.px.book, nb: r.px.n,
+      pr: +r.pr.toFixed(4), mk: +r.mk.toFixed(4), ps: +r.ps.toFixed(4), ev: +r.evS.toFixed(4), vs: +r.vsS.toFixed(2), pts: +(r.ps - 1 / r.pay).toFixed(4), lk: 0 }));
+    ls = keptL.concat(openL).sort((a, b) => (b.pts || 0) - (a.pts || 0));
+  }
   const anyStarted = games.some(m => Date.parse(m.ts) <= now), allStarted = games.every(m => Date.parse(m.ts) <= now);
   /* Shot Picks lock the same way: a pick whose game has started is kept as saved; the other places stay open. */
   let shots = (store[day] && store[day].shots) || [];
@@ -144,8 +154,8 @@ if (games.length) {
     t.r.push(e);
   });
   Object.assign(fz, fresh);
-  if (picks.length || shots.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, seenG, seenS, seenL, lad, rv, lw, fz };
+  if (picks.length || shots.length || ls.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, fz };
   }
 }
 Object.keys(store).forEach(k => { if (store[k] && store[k].fz && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) delete store[k].fz; });   // the archive has those games by now

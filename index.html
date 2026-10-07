@@ -951,8 +951,16 @@ function npCap(games){return Math.min(C.np.cap,Math.max(1,Math.ceil(games/3)))} 
    leaves the evening places open until those games start. Price and chances are the ones on the card at the lock.
    A locked pick who then does not dress is void. */
 function lockOf(day){var L=(D.locks||{})[day];return L&&L.locked&&(!S.book||S.bookOff)?L:null}
-function lockedRows(day,rows){var L=lockOf(day);if(!L)return null;var by={};rows.forEach(function(r){by[r.p]=r});
-  return L.picks.map(function(k){var base=by[k.p],r;
+var LS={minP:.25,minPts:.02,books:3}; // Likely Scorers: a pick chance of 25% or better, sitting at least 2 points above the price's break-even chance, at three or more books
+function likelyOk(r){return !!(r.px&&r.ps!=null&&r.ps>=LS.minP&&r.ps-1/r.pay>=LS.minPts&&(r.px.manual||r.px.n>=LS.books))}
+function likelySelect(cands,cap,kept){ // best margin over break-even first, one a team, up to the nightly cap after the places already locked
+  var used={},out=[];(kept||[]).forEach(function(k){used[k.t]=1});
+  cands.slice().sort(function(a,b){return (b.ps-1/b.pay)-(a.ps-1/a.pay)}).forEach(function(r){if(used[r.t]||out.length>=cap-(kept||[]).length)return;used[r.t]=1;out.push(r)});return out}
+function likelyRows(day,rows){ // the saved list once any game has started, otherwise worked out now
+  var L=lockOf(day);if(L&&L.ls)return lockedRows(day,rows,L.ls);
+  return likelySelect(rows.filter(likelyOk),npCap(matchups(day).length))}
+function lockedRows(day,rows,list){var L=lockOf(day);if(!L)return null;var by={};rows.forEach(function(r){by[r.p]=r});
+  return (list||L.picks).map(function(k){var base=by[k.p],r;
     if(base)r=Object.assign({},base);
     else{var mate=rows.filter(function(x){return x.t===k.t})[0];if(!mate)return null;
       r={p:k.p,name:pname(k.p),pos:ppos(k.p),t:k.t,opp:k.o,home:mate.home,info:mate.info,b:rate(stOf(k.p),isD(k.p)),unit:0,isVoid:1}}
@@ -1030,7 +1038,11 @@ function vPicks(){
     (top.length?'<div class="rcards">'+cards+'</div>'+(top.length>S.topN?'<button class="more" id="topMore">Show 12 more</button>':'')+(S.minP==="np"&&!priced&&rows.length?'<p class="note">Nightly Picks need prices, and none are loaded for this day, so this is the likelihood ranking.</p>':''):'<p class="empty">'+(rows.length?(np?"No bet clears all four tests on this slate. That is a real answer: some nights the prices are fair. Choose another view in the Show list to browse anyway.":"Nobody clears these filters."):"No games on this day.")+'</p>')+(np&&!(S.book&&!S.bookOff)&&S.pos==="all"?droppedStrip(day,"g",(function(){var m={};top.forEach(function(r){m[r.p]=1});return m})()):"")+'</section>';
   var gs=priced?(S.gcSort==="toi"?"vs":S.gcSort):"pr",games=ms.map(function(m){return gameCard(m,rows,gs)}).join("");
   var gopt=priced?[["vs","Value"],["pr","Chance"],["px","Shortest price"],["ev","Edge"]]:[["pr","Chance"]];
-  view.innerHTML=hd+body+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
+  var lsl=priced&&S.pos==="all"?likelyRows(day,rows):[],lsG=lsl.filter(function(r){return r.res&&(r.res[1]>0||r.info.m.g||/OFF|FINAL/.test(r.info.m.st||""))}),lsU=0;lsG.forEach(function(r){lsU+=r.res[1]>0?r.pay-1:-1});
+  var lsHtml=priced?'<section class="panel"><div class="phead"><h2>Likely scorers</h2><div class="pickers">'+(lsG.length?'<span class="tag nt'+(lsU>0?" w":lsU<0?" l":"")+'">'+lsG.filter(function(r){return r.res[1]>0}).length+' of '+lsG.length+' · '+(lsU>=0?"+":"−")+Math.abs(lsU).toFixed(2)+'u</span>':'')+'<span class="tag nt">'+lsl.length+(lsl.length===1?" pick":" picks")+'</span></div></div>'+
+    '<p class="note">A second, shorter-priced list, kept as an experiment: players with a 25% or better chance (model and market averaged) whose best price sits at least 2 points above its break-even chance, at three or more books. Ranked by that margin, one a team, under the same nightly cap. Books price the likeliest scorers tightly, so most nights there are one or two and some nights none. It is graded on the Tracker but left out of the combined net units until it has a record.</p>'+
+    (lsl.length?'<div class="rcards">'+lsl.map(function(r,i){return pickCard(r,i+1,"np")}).join("")+'</div>':'<p class="empty">'+(S.pos!=="all"?"Set Position to All to see this list.":"No likely scorer is priced above fair on this slate.")+'</p>')+'</section>':'';
+  view.innerHTML=hd+body+lsHtml+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-gc",gopt,gs)+'</label><label class="f">Show '+seg("seg-gcn",[[6,"Top six"],[0,"All skaters"]],S.gcN)+'</label></div>'+
     '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'. Clicking a column heading on any card sorts every card by that column.</p></section><div class="lgrid">'+games+'</div>':'');
 }
@@ -1672,6 +1684,12 @@ function vTracker2(){
     if(!pk.length)return;
     var x={d:d,pk:pk,h:0,u:0,lock:lk?1:0};pk.forEach(function(r,i){var hit=r.res[1]>0?1:0,u=hit*r.pay-1;x.h+=hit;x.u+=u;NP.exp+=r.ps;if(i<3){T3.n++;T3.h+=hit;T3.u+=u}});
     NP.n+=pk.length;NP.h+=x.h;NP.u+=x.u;NP.days.push(x)});
+  var LSR={n:0,h:0,u:0,exp:0,days:[]};
+  Object.keys(byDay).sort().forEach(function(d){var rows=slate(d),L=lockOf(d),pk;
+    if(L&&L.ls)pk=lockedRows(d,rows,L.ls).filter(function(r){return r.locked&&!r.isVoid&&r.res&&r.info.m.g});
+    else pk=likelySelect(rows.filter(function(r){return likelyOk(r)&&r.res&&r.info.m.g}),npCap(byDay[d].games));
+    if(!pk.length)return;var x={d:d,pk:pk,h:0,u:0,lock:L&&L.ls?1:0};pk.forEach(function(r){var hit=r.res[1]>0?1:0;x.h+=hit;x.u+=hit*r.pay-1;LSR.exp+=r.ps});
+    LSR.n+=pk.length;LSR.h+=x.h;LSR.u+=x.u;x.run=LSR.u;LSR.days.push(x)});LSR.days.reverse();
   var run=0;NP.days.slice().reverse().forEach(function(x){run+=x.u;x.run=run});
   function un(u){return (u>=0?"+":"")+f1(u)}
   function usd(u){var v=u*S.unit;return (v<0?"−":"+")+"$"+Math.abs(v).toFixed(2)}
@@ -1682,6 +1700,12 @@ function vTracker2(){
     NP.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+(x.lock?' <span class="tag" title="Graded on the list and prices locked as each game started.">LOCKED</span>':' <span class="o" title="No locked list was saved for this day, so it is worked out afresh from the stored prices and the real lineups.">replayed</span>')+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n">'+usd(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell" style="white-space:normal">'+
       x.pk.map(function(r){return '<span class="pick" data-player="'+r.p+'" style="white-space:nowrap">'+esc(r.name)+' <span class="o">'+fmtP(r.px.price)+'</span> <span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td></tr>'}).join("")+'</tbody></table></div></section>':
     '<section class="panel"><div class="phead"><h2>Nightly Picks record · '+lab+'</h2></div><p class="note">No finished day in '+lab+' has stored prices yet, so there are no graded picks.</p></section>';
+  var lsRec='<section class="panel"><div class="phead"><h2>Likely Scorers record · '+lab+'</h2></div>'+
+    '<p class="note">The experimental second goal list: a 25% or better chance, at least 2 points above break-even at the best price, three or more books, one a team, under the nightly cap. One unit on each. Days marked LOCKED use the list saved as each game started; earlier days are replayed on the last stored prices. Not counted in the net units above.</p>'+
+    (LSR.n?'<div class="kv"><span>Picks <b>'+LSR.h+' of '+LSR.n+'</b> · '+pct(LSR.h,LSR.n)+' <span class="o">(expected '+pct(LSR.exp,LSR.n)+')</span></span><span>Units <b class="'+(LSR.u>0?"bup":LSR.u<0?"bdn":"")+'">'+un(LSR.u)+'</b></span><span>Staked <b>$'+(LSR.n*S.unit).toFixed(0)+'</b></span><span>Profit <b>'+usd(LSR.u)+'</b></span><span>ROI (return per bet) '+pill(LSR.u/LSR.n)+'</span><span>Days <b>'+LSR.days.length+'</b></span></div>'+
+    '<div class="tw"><table><thead><tr><th>Day</th><th class="n">Picks</th><th class="n">Hit</th><th class="n">Units</th><th class="n">Running</th><th>The picks</th></tr></thead><tbody>'+
+    LSR.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+(x.lock?' <span class="tag">LOCKED</span>':' <span class="o">replayed</span>')+'</td><td class="n">'+x.pk.length+'</td><td class="n"><b>'+x.h+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell"><div class="tlist">'+
+      x.pk.map(function(r){return '<span class="pick tl" data-player="'+r.p+'"><b>'+esc(r.name)+'</b><span class="o"><span class="tlr">'+fmtP(r.px.price)+'</span><span class="tlr">chance '+p1(r.ps)+'</span></span><span class="o">needs '+p1(1/r.pay)+'</span><span class="res '+(r.res[1]>0?"m":"x")+'">'+(r.res[1]>0?"GOAL":"NO")+'</span></span>'}).join("")+'</div></td></tr>'}).join("")+'</tbody></table></div>':'<p class="empty">No finished night has had a likely scorer priced above fair yet.</p>')+'</section>';
   var more=dayRows.length>S.trkN;
   var log='<div class="tw"><table><thead><tr><th>Day</th><th class="n">Games</th><th>Five most likely scorers before puck drop</th><th class="n">Hit</th><th class="n">Expected</th><th class="n">Units</th></tr></thead><tbody>'+
     dayRows.slice(0,S.trkN).map(function(d){return '<tr><td>'+fmtD(d.d)+", "+d.d.slice(0,4)+'</td><td class="n">'+d.games+'</td><td class="cell" style="white-space:normal">'+d.top.map(function(x){return '<span class="pick" data-player="'+x.p+'" style="white-space:nowrap">'+nm(x.p)+' <span class="o">'+Math.round(x.pr*100)+'%'+(x.px!=null?' · <span title="'+esc(x.bk||"")+'">'+fmtP(x.px)+'</span>':'')+'</span> <span class="res '+(x.hit?"m":"x")+'">'+(x.hit?"GOAL":"NO")+'</span></span>'}).join(" &nbsp; ")+'</td><td class="n"><b>'+d.h+"/"+d.top.length+'</b></td><td class="n">'+f1(d.exp)+'</td><td class="n">'+(d.un?'<b class="'+(d.u>0?"bup":d.u<0?"bdn":"")+'"'+(d.un<d.top.length?' title="'+d.un+' of '+d.top.length+' had a price"':'')+'>'+(d.u>=0?"+":"−")+Math.abs(d.u).toFixed(2)+'</b>':'<span class="o">–</span>')+'</td></tr>'}).join("")+'</tbody></table></div>';
@@ -1699,7 +1723,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    npHtml+sHtml+firstRecord(cur,lab)+wHtml+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    npHtml+lsRec+sHtml+firstRecord(cur,lab)+wHtml+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
 }
 
 /* ================= Game log ================= */
@@ -2006,7 +2030,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({slate:slate,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
