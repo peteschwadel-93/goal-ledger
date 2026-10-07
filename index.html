@@ -620,8 +620,8 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
       <button role="tab" data-tab="picks" id="tab-picks">Picks</button>
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
       <button role="tab" data-tab="shots" id="tab-shots">Shots</button>
-      <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
       <button role="tab" data-tab="movers" id="tab-movers">Movers</button>
+      <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
       <button role="tab" data-tab="lineups" id="tab-lineups">Lineups</button>
       <button role="tab" data-tab="matchup" id="tab-matchup">Matchup</button>
       <button role="tab" data-tab="player" id="tab-player">Player</button>
@@ -1886,7 +1886,7 @@ function vMovers(){
       var ch2=ord.map(function(q){return m[q]}).filter(function(c){return c[1]!==c[2]||!c[1]});if(!n)return;
       list.push(Object.assign({},base,{at:last,a:a,b:b,d:a!=null?b-a:0,ch:ch2,n:n}))}});
   function num(v){return v==null?'<span class="o">–</span>':SH?f2(v):p1(v)}
-  function dlt(x){if(x.a==null||Math.abs(x.d)<(SH?.005:.0005))return '<span class="o">–</span>';return '<b class="'+(x.d>0?"bup":"bdn")+'">'+(x.d>0?"+":"−")+(SH?Math.abs(x.d).toFixed(2):(Math.abs(x.d)*100).toFixed(1)+" pts")+'</b>'}
+  function dlt(x){if(x.a==null||Math.abs(x.d)<(SH?.005:.0005))return '<span class="o">–</span>';return '<b class="'+(x.d>0?"bup":"bdn")+'">'+(x.d>0?"▲ +":"▼ −")+(SH?Math.abs(x.d).toFixed(2):(Math.abs(x.d)*100).toFixed(1)+" pts")+'</b>'}
   var cols=[
     {k:"t",l:"Team",v:function(x){return x.t},f:function(x){return x.t?tmL(x.t):"–"}},
     {k:"name",l:"Player",v:function(x){return x.name},f:function(x){var r=x.r;return (r?'<span class="o lposi">'+esc(r.pos)+'</span> ':'')+'<b>'+esc(x.name)+'</b> '+(r?unitTag(r.unit)+injTag(r):'<span class="tag l">NOT EXPECTED</span>')}},
@@ -1894,8 +1894,7 @@ function vMovers(){
     {k:"at",l:EV?"When":"Last change",v:function(x){return x.at},f:function(x){return '<span class="o">'+esc(fmtClock(x.at).replace(" ET",""))+'</span>'}},
     {k:"a",l:SH?"xSOG before":"Chance before",num:1,v:function(x){return x.a},f:function(x){return '<span class="o">'+num(x.a).replace(/<[^>]+>/g,"")+'</span>'}},
     {k:"b",l:SH?"xSOG after":"Chance after",num:1,v:function(x){return x.b},f:function(x){return x.b==null?'<span class="o">–</span>':'<b>'+num(x.b)+'</b>'}},
-    {k:"d",l:"Moved",num:1,v:function(x){return Math.abs(x.d)},f:dlt},
-    {k:"dir",l:"Direction",num:1,v:function(x){return x.d},f:function(x){return Math.abs(x.d)<(SH?.005:.0005)?"":x.d>0?'<span class="bup">▲ up</span>':'<span class="bdn">▼ down</span>'}}];
+    {k:"d",l:"Moved",num:1,v:function(x){return x.a==null||Math.abs(x.d)<(SH?.005:.0005)?null:x.d},f:dlt}]; // sorted as a signed number: biggest rise at one end, biggest fall at the other, and no move left at the bottom
   if(SH)cols.push(
     {k:"ln",l:"Line",num:1,v:function(x){return x.r&&x.r.sh?x.r.sh.line:null},f:function(x){return x.r&&x.r.sh?'<span class="lwline">'+f1(x.r.sh.line)+'</span>':'<span class="o">–</span>'}},
     {k:"gap",l:"xSOG − line",num:1,v:function(x){return x.r&&x.r.sh?x.r.xs-x.r.sh.line:null},f:function(x){if(!x.r||!x.r.sh)return "";var g=x.r.xs-x.r.sh.line;return '<span class="'+(g>=1?"vst p3":g>0?"vst p1":"o")+'">'+(g>0?"+":"")+f2(g)+'</span>'}},
