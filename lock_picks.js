@@ -148,17 +148,67 @@ if (games.length) {
     if (!ts || Date.parse(ts) <= now) return;
     const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, s: {} });
     const t = g.s[r.t] || (g.s[r.t] = { f: Object.fromEntries(Object.entries(sd.f).map(([k, v]) => [k, r5(v)])), scale: r5(sd.scale), model: r5(sd.model), mkt: r5(sd.mkt), gk: { p: sd.gk.p || 0, src: sd.gk.src || "" }, r: [] });
-    const e = { p: r.p, l: r5(r.lam0), x: r5(r.xs), u: r.unit || 0, b: Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, r5(v)])) };
+    const e = { p: r.p, l: r5(r.lam0), x: r5(r.xs), u: r.unit || 0, b: Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, r5(v)])),
+      c: r5(r.pr), s: r5(r.ps != null ? r.ps : r.pr), px: r.px ? r.px.price : null, ln: r.sh ? r.sh.line : null };
     if (r.inj) e.inj = r.inj;
     if (r.back) e.back = 1;
     t.r.push(e);
   });
+  /* The day's change log: what moved for each skater between one refresh and the next, while his game is still to start.
+     Each entry lists the inputs that changed and the net move in his chance to score and his expected shots. */
+  const log = prevDay.log || {};
+  const note = (pid, ev) => { const l = log[pid] || (log[pid] = []); l.push(ev); if (l.length > 14) l.splice(0, l.length - 14); };
+  const nameOf = id => (id && D.players && D.players[id] ? D.players[id][0] : "not named");
+  const pp = u => (u === 1 ? "PP1" : u === 2 ? "PP2" : "none");
+  const od = v => (v == null ? "no price" : (v > 0 ? "+" : "") + v);
+  const clock = sec => { sec = Math.round(sec); return Math.floor(sec / 60) + ":" + ("0" + (sec % 60)).slice(-2); };
+  Object.entries(fresh).forEach(([key, g]) => {
+    const old = (prevDay.fz || {})[key];
+    if (!old) return;                                  // first sight of this game: nothing to compare with
+    Object.entries(g.s).forEach(([t, cur]) => {
+      const was = old.s && old.s[t];
+      if (!was) return;
+      const before = {}; was.r.forEach(e => { before[e.p] = e; });
+      const team = [];
+      if ((was.f.goalie || 0) !== (cur.f.goalie || 0)) team.push(["Opposing goalie", nameOf(was.f.goalie), nameOf(cur.f.goalie)]);
+      if (was.mkt != null && cur.mkt != null && Math.abs(was.mkt - cur.mkt) >= 0.05) team.push(["Books' team goal total", was.mkt.toFixed(2), cur.mkt.toFixed(2)]);
+      cur.r.forEach(e => {
+        const b = before[e.p];
+        if (!b) { note(e.p, { at: stamp, ch: [["Lineup", "not expected to dress", "expected to dress"]] }); return; }
+        const ch = [];
+        if ((b.u || 0) !== (e.u || 0)) ch.push(["Power play", pp(b.u), pp(e.u)]);
+        if (b.b && e.b && Math.abs(b.b.mt - e.b.mt) >= 0.01) ch.push(["Linemates", b.b.mt.toFixed(2) + "×", e.b.mt.toFixed(2) + "×"]);
+        if (b.b && e.b && Math.abs((b.b.tev + b.b.tpp) - (e.b.tev + e.b.tpp)) >= 20) ch.push(["Expected ice time", clock(b.b.tev + b.b.tpp), clock(e.b.tev + e.b.tpp)]);
+        if (b.px !== undefined && b.px !== e.px) ch.push(["Best goal price", od(b.px), od(e.px)]);
+        if (b.ln !== undefined && b.ln !== e.ln) ch.push(["Shots line", b.ln == null ? "none" : String(b.ln), e.ln == null ? "none" : String(e.ln)]);
+        const i0 = b.inj ? b.inj.st : "", i1 = e.inj ? e.inj.st : "";
+        if (i0 !== i1) ch.push(["Injury report", i0 || "not listed", i1 || "not listed"]);
+        const all = ch.concat(team);
+        const dc = b.s != null && e.s != null ? e.s - b.s : 0, dx = b.x != null && e.x != null ? e.x - b.x : 0;
+        if (!all.length && Math.abs(dc) < 0.005 && Math.abs(dx) < 0.05) return;
+        if (!all.length) all.push(["Team around him", "", "roles or lineup changed"]);
+        const ev = { at: stamp, ch: all };
+        if (b.s != null && e.s != null) ev.c = [+b.s.toFixed(4), +e.s.toFixed(4)];
+        if (b.x != null && e.x != null) ev.x = [+b.x.toFixed(2), +e.x.toFixed(2)];
+        note(e.p, ev);
+      });
+      const nowIn = new Set(cur.r.map(e => e.p));
+      was.r.forEach(e => { if (!nowIn.has(e.p)) note(e.p, { at: stamp, ch: [["Lineup", "expected to dress", "not expected to dress"]] }); });
+    });
+  });
+  /* Joining or leaving one of the lists is part of the story too. */
+  const lists = [["Nightly Picks", prevDay.picks, picks], ["Shot Picks", prevDay.shots, shots], ["Likely Scorers", prevDay.ls, ls], ["Ladder Watch", prevDay.lw, lw]];
+  if (store[day]) lists.forEach(([lab, a, b]) => {
+    const A = new Set((a || []).map(k => k.p)), B = new Set((b || []).map(k => k.p));
+    B.forEach(pid => { if (!A.has(pid)) note(pid, { at: stamp, ch: [[lab, "", "added"]] }); });
+    A.forEach(pid => { if (!B.has(pid)) note(pid, { at: stamp, ch: [[lab, "", "dropped"]] }); });
+  });
   Object.assign(fz, fresh);
   if (picks.length || shots.length || ls.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, fz };
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, fz, log };
   }
 }
-Object.keys(store).forEach(k => { if (store[k] && store[k].fz && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) delete store[k].fz; });   // the archive has those games by now
+Object.keys(store).forEach(k => { if (store[k] && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) { delete store[k].fz; delete store[k].log; } });   // the archive has those games by now
 const keep = Object.keys(store).sort().slice(-250);
 store = Object.fromEntries(keep.map(k => [k, store[k]]));
 fs.writeFileSync(storePath, JSON.stringify(store));

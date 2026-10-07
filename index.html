@@ -580,6 +580,15 @@ td .sside{font-size:13px;padding:3px 9px}
 .tlist .res{justify-self:start}
 @media(max-width:760px){.tlist{grid-template-columns:max-content max-content;gap:2px 12px}.tlist .tlr{min-width:0}}
 .stk{color:#f5c542;font-weight:600;font-variant-numeric:tabular-nums;cursor:help}
+/* the day's change log */
+.pm-chg{max-height:132px;overflow-y:auto;scrollbar-width:thin;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:4px 12px}
+.lgr{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:4px 14px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px solid var(--line)}.lgr:first-child{border-top:0}
+.lgc{display:inline-block;margin-right:14px;color:var(--soft);white-space:nowrap}.lgc b{font-weight:500;color:var(--ink)}
+.lgm{display:inline-block;margin-left:12px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}.lgm.up{color:var(--made,#4ade80)}.lgm.dn{color:var(--goal-hot)}
+.movers{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.movers .mv{display:block;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;font-size:13.5px}.movers .mv:hover{border-color:var(--accent)}
+.movers .mv .lgm{margin-left:8px}.movers .mv small{display:block;margin-top:3px;font-size:11.5px;color:var(--muted)}
+@media(max-width:760px){.lgr{grid-template-columns:54px minmax(0,1fr)}.lgr>span:last-child{grid-column:2}.lgc{white-space:normal}}
 </style>
 
 <div class="wrap">
@@ -821,6 +830,15 @@ function matchups(day){
   var played=D.games.filter(function(g){return g.d===day}).map(function(g){return{d:g.d,h:g.h,a:g.a,g:g}});
   var ms=played.concat((D.sched||[]).filter(function(x){return x.d===day&&!played.some(function(p){return p.h===x.h&&p.a===x.a})}));
   ms.sort(function(x,y){return String(x.ts||"").localeCompare(String(y.ts||""))||x.h.localeCompare(y.h)});return ms}
+function dayLog(day,p){var L=(D.locks||{})[day];return (L&&L.log&&L.log[p])||[]} // what changed for him between refreshes today, oldest first
+function logLine(e){var mv=[];if(e.c&&Math.abs(e.c[1]-e.c[0])>=.0005)mv.push('<span class="lgm '+(e.c[1]>e.c[0]?"up":"dn")+'">chance '+p1(e.c[0])+' → '+p1(e.c[1])+'</span>');if(e.x&&Math.abs(e.x[1]-e.x[0])>=.01)mv.push('<span class="lgm '+(e.x[1]>e.x[0]?"up":"dn")+'">xSOG '+f2(e.x[0])+' → '+f2(e.x[1])+'</span>');
+  return '<div class="lgr"><span class="o">'+esc(fmtClock(e.at).replace(" ET",""))+'</span><span>'+e.ch.map(function(c){return '<span class="lgc"><b>'+esc(c[0])+'</b> '+(c[1]?esc(c[1])+' → ':'')+esc(c[2])+'</span>'}).join("")+'</span><span>'+mv.join("")+'</span></div>'}
+function moversHtml(day,rows){ // the players whose chance has moved most since the day's first refresh
+  var L=(D.locks||{})[day];if(!L||!L.log)return "";var by={};rows.forEach(function(r){by[r.p]=r});
+  var l=Object.keys(L.log).map(function(p){var ev=L.log[p].filter(function(e){return e.c}),r=by[p];if(!ev.length||!r)return null;var a=ev[0].c[0],b=ev[ev.length-1].c[1],why={};L.log[p].forEach(function(e){e.ch.forEach(function(c){why[c[0]]=1})});
+    return{r:r,a:a,b:b,d:b-a,why:Object.keys(why)}}).filter(function(x){return x&&Math.abs(x.d)>=.01}).sort(function(x,y){return Math.abs(y.d)-Math.abs(x.d)}).slice(0,8);
+  if(!l.length)return "";
+  return '<section class="panel"><div class="phead"><h2>Movers today</h2><span class="tag nt">'+l.length+' biggest changes in chance since the first refresh</span></div><div class="movers">'+l.map(function(x){return '<span class="pick mv" data-player="'+x.r.p+'" tabindex="0"><b>'+esc(x.r.name)+'</b> <span class="o">'+x.r.t+'</span><span class="lgm '+(x.d>0?"up":"dn")+'">'+p1(x.a)+' → '+p1(x.b)+'</span><small>'+esc(x.why.slice(0,3).join(" · "))+'</small></span>'}).join("")+'</div></section>'}
 function frozenOf(day,key,m){ // the table numbers saved before a game's puck drop, used from the moment it starts until the finished game is in the archive
   var L=(D.locks||{})[day],z=L&&L.fz&&L.fz[key];if(!z)return null;
   return (m.ts&&Date.parse(m.ts)<=Date.now())||m.gl||/OFF|FINAL|LIVE|CRIT/.test(m.st||"")?z:null}
@@ -1048,7 +1066,7 @@ function vPicks(){
   var lsHtml=priced?'<section class="panel"><div class="phead"><h2>Likely scorers</h2><div class="pickers">'+(lsG.length?'<span class="tag nt'+(lsU>0?" w":lsU<0?" l":"")+'">'+lsG.filter(function(r){return r.res[1]>0}).length+' of '+lsG.length+' · '+(lsU>=0?"+":"−")+Math.abs(lsU).toFixed(2)+'u</span>':'')+'<span class="tag nt">'+lsl.length+(lsl.length===1?" pick":" picks")+'</span></div></div>'+
     '<p class="note">A second, shorter-priced list, kept as an experiment: players with a 25% or better chance (model and market averaged) whose best price sits at least 2 points above its break-even chance, at three or more books. Ranked by that margin, one a team, under the same nightly cap. Books price the likeliest scorers tightly, so most nights there are one or two and some nights none. It is graded on the Tracker but left out of the combined net units until it has a record.</p>'+
     (lsl.length?'<div class="rcards">'+lsl.map(function(r,i){return pickCard(r,i+1,"np")}).join("")+'</div>':'<p class="empty">'+(S.pos!=="all"?"Set Position to All to see this list.":"No likely scorer is priced above fair on this slate.")+'</p>')+'</section>':'';
-  view.innerHTML=hd+body+lsHtml+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
+  view.innerHTML=hd+body+lsHtml+moversHtml(day,rows)+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-gc",gopt,gs)+'</label><label class="f">Show '+seg("seg-gcn",[[6,"Top six"],[0,"All skaters"]],S.gcN)+'</label></div>'+
     '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'. Clicking a column heading on any card sorts every card by that column.</p></section><div class="lgrid">'+games+'</div>':'');
 }
@@ -1471,7 +1489,7 @@ function playerModal(p){ // the player card that opens over the page
       '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
       '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
     '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
-      tiles+(row?'':next)+odds+gtbl+stbl+'<h4>Game log</h4>'+tbl+
+      tiles+(row?'':next)+odds+gtbl+stbl+(function(){var lg=dayLog(S.day,p);return lg.length?'<h4>Changes on '+fmtD(S.day)+' <span>'+lg.length+' between refreshes, newest first</span></h4><div class="pm-chg">'+lg.slice().reverse().map(logLine).join("")+'</div>':''})()+'<h4>Game log</h4>'+tbl+
       '<button class="more pm-more" id="pmWork" aria-expanded="'+(S.pmW?"true":"false")+'">'+(S.pmW?"Hide how his number is built":"How his number is built")+'</button>'+
       '<div class="pm-work"'+(S.pmW?"":" hidden")+'>'+work+'</div></div></div>';
 }
