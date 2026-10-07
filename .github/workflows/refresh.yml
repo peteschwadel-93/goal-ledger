@@ -52,9 +52,9 @@ jobs:
       - name: Build data
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          # Hours before puck drop at which each game is priced. One request per game per look.
-          # "24,2" = a day ahead, then two hours out.  "6" = one look, about half the requests.
-          ODDS_LOOKS: "24,2"
+          # Hours before puck drop at which each game is priced. Three requests per game per look.
+          # "24,7,2" = a day ahead, midday (noon ET for a 7pm game), then two hours out.
+          ODDS_LOOKS: "24,7,2"
           ODDS_BACKFILL: ${{ inputs.backfill && '1' || '' }}
         run: python build_data.py --out data.json
 
