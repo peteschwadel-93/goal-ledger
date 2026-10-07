@@ -593,6 +593,9 @@ td .sside{font-size:13px;padding:3px 9px}
 body.pm-open .wrap *,body.pm-open .wrap *::after,body.pm-open .wrap *::before{animation-play-state:paused!important}
 .pm{overscroll-behavior:contain;contain:layout paint}
 .pm .tw{contain:paint;overscroll-behavior-x:contain}
+.movers .mv small b.lwline{color:#f5c542;font-weight:600}
+.mvw{display:inline-block;min-width:300px;max-width:560px;white-space:normal;line-height:1.5}.mvw .lgc{margin-right:16px}
+td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 </style>
 
 <div class="wrap">
@@ -618,6 +621,7 @@ body.pm-open .wrap *,body.pm-open .wrap *::after,body.pm-open .wrap *::before{an
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
       <button role="tab" data-tab="shots" id="tab-shots">Shots</button>
       <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
+      <button role="tab" data-tab="movers" id="tab-movers">Movers</button>
       <button role="tab" data-tab="lineups" id="tab-lineups">Lineups</button>
       <button role="tab" data-tab="matchup" id="tab-matchup">Matchup</button>
       <button role="tab" data-tab="player" id="tab-player">Player</button>
@@ -837,12 +841,6 @@ function matchups(day){
 function dayLog(day,p){var L=(D.locks||{})[day];return (L&&L.log&&L.log[p])||[]} // what changed for him between refreshes today, oldest first
 function logLine(e){var mv=[];if(e.c&&Math.abs(e.c[1]-e.c[0])>=.0005)mv.push('<span class="lgm '+(e.c[1]>e.c[0]?"up":"dn")+'">chance '+p1(e.c[0])+' → '+p1(e.c[1])+'</span>');if(e.x&&Math.abs(e.x[1]-e.x[0])>=.01)mv.push('<span class="lgm '+(e.x[1]>e.x[0]?"up":"dn")+'">xSOG '+f2(e.x[0])+' → '+f2(e.x[1])+'</span>');
   return '<div class="lgr"><span class="o">'+esc(fmtClock(e.at).replace(" ET",""))+'</span><span>'+e.ch.map(function(c){return '<span class="lgc"><b>'+esc(c[0])+'</b> '+(c[1]?esc(c[1])+' → ':'')+esc(c[2])+'</span>'}).join("")+'</span><span>'+mv.join("")+'</span></div>'}
-function moversHtml(day,rows){ // the players whose chance has moved most since the day's first refresh
-  var L=(D.locks||{})[day];if(!L||!L.log)return "";var by={};rows.forEach(function(r){by[r.p]=r});
-  var l=Object.keys(L.log).map(function(p){var ev=L.log[p].filter(function(e){return e.c}),r=by[p];if(!ev.length||!r)return null;var a=ev[0].c[0],b=ev[ev.length-1].c[1],why={};L.log[p].forEach(function(e){e.ch.forEach(function(c){why[c[0]]=1})});
-    return{r:r,a:a,b:b,d:b-a,why:Object.keys(why)}}).filter(function(x){return x&&Math.abs(x.d)>=.01}).sort(function(x,y){return Math.abs(y.d)-Math.abs(x.d)}).slice(0,8);
-  if(!l.length)return "";
-  return '<section class="panel"><div class="phead"><h2>Movers today</h2><span class="tag nt">'+l.length+' biggest changes in chance since the first refresh</span></div><div class="movers">'+l.map(function(x){return '<span class="pick mv" data-player="'+x.r.p+'" tabindex="0"><b>'+esc(x.r.name)+'</b> <span class="o">'+x.r.t+'</span><span class="lgm '+(x.d>0?"up":"dn")+'">'+p1(x.a)+' → '+p1(x.b)+'</span><small>'+esc(x.why.slice(0,3).join(" · "))+'</small></span>'}).join("")+'</div></section>'}
 function frozenOf(day,key,m){ // the table numbers saved before a game's puck drop, used from the moment it starts until the finished game is in the archive
   var L=(D.locks||{})[day],z=L&&L.fz&&L.fz[key];if(!z)return null;
   return (m.ts&&Date.parse(m.ts)<=Date.now())||m.gl||/OFF|FINAL|LIVE|CRIT/.test(m.st||"")?z:null}
@@ -1070,7 +1068,7 @@ function vPicks(){
   var lsHtml=priced?'<section class="panel"><div class="phead"><h2>Likely scorers</h2><div class="pickers">'+(lsG.length?'<span class="tag nt'+(lsU>0?" w":lsU<0?" l":"")+'">'+lsG.filter(function(r){return r.res[1]>0}).length+' of '+lsG.length+' · '+(lsU>=0?"+":"−")+Math.abs(lsU).toFixed(2)+'u</span>':'')+'<span class="tag nt">'+lsl.length+(lsl.length===1?" pick":" picks")+'</span></div></div>'+
     '<p class="note">A second, shorter-priced list, kept as an experiment: players with a 25% or better chance (model and market averaged) whose best price sits at least 2 points above its break-even chance, at three or more books. Ranked by that margin, one a team, under the same nightly cap. Books price the likeliest scorers tightly, so most nights there are one or two and some nights none. It is graded on the Tracker but left out of the combined net units until it has a record.</p>'+
     (lsl.length?'<div class="rcards">'+lsl.map(function(r,i){return pickCard(r,i+1,"np")}).join("")+'</div>':'<p class="empty">'+(S.pos!=="all"?"Set Position to All to see this list.":"No likely scorer is priced above fair on this slate.")+'</p>')+'</section>':'';
-  view.innerHTML=hd+body+lsHtml+moversHtml(day,rows)+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
+  view.innerHTML=hd+body+lsHtml+(games?'<section class="panel"><div class="phead"><h2>Game by game</h2></div>'+
     '<div class="bar"><label class="f">Sort each team by '+seg("seg-gc",gopt,gs)+'</label><label class="f">Show '+seg("seg-gcn",[[6,"Top six"],[0,"All skaters"]],S.gcN)+'</label></div>'+
     '<p class="note">Games run in order of start time. Within each team, skaters are ordered by '+({vs:"value score (edge divided by payout)",pr:"the model\'s chance to score",px:"price, shortest first",ev:"edge over the best price",toi:"expected ice time"})[gs]+', best first'+(gs==="vs"||gs==="ev"||gs==="px"?"; anyone without a price goes to the bottom":"")+'. Clicking a column heading on any card sorts every card by that column.</p></section><div class="lgrid">'+games+'</div>':'');
 }
@@ -1872,15 +1870,59 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
   view.innerHTML=head+'<section class="panel bets"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
     '<label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label><button class="btn2" id="betParlay"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. The ticked bets move into the parlay.">Make parlay'+(nSel?" · "+nSel:"")+'</button><button class="btn2" id="betParlayK"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. Makes the parlay and leaves the ticked bets as singles too.">Parlay + keep singles</button><button class="btn2" id="betCustom">Add custom bet</button><button class="btn2" id="betExport"'+(S.bets.length?"":" disabled")+'>Export</button><button class="btn2" id="betImport">Import</button><input type="file" id="betFile" accept="application/json,.json" hidden></div></div>'+
     (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon"+(x.b.m==="g"?" glit":""):"")+(byN&&x.first?" bday":"")+(x.cont?" bcont":"")+(x.grp?" bgrp":"")+'"':' class="'+(x.b.legs?"bpar":"bman")+(byN&&x.first?" bday":"")+'"'}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at, or use Add custom bet.</p>')+'</section>'}
-var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,games:vGames};
+/* ================= Movers: everything that changed between refreshes today ================= */
+var MVG={"Shots line":1},MVS={"Best goal price":1,"Opposing goalie":1,"Books' team goal total":1,"Nightly Picks":1,"Likely Scorers":1}; // causes that do not bear on goals, and on shots
+function vMovers(){
+  var dl=dayList(),day=S.day,rows=slate(day),by={},SH=S.mvView==="s",EV=S.mvRows==="e",skip=SH?MVS:MVG,k=SH?"x":"c";rows.forEach(function(r){by[r.p]=r});
+  var L=(D.locks||{})[day],log=(L&&L.log)||{},list=[];
+  function why(ch){return ch.filter(function(c){return !skip[c[0]]})}
+  function chips(ch){return ch.length?'<span class="mvw">'+ch.map(function(c){return '<span class="lgc"><b>'+esc(c[0])+'</b> '+(c[1]?esc(c[1])+' → ':'')+esc(c[2])+'</span>'}).join("")+'</span>':'<span class="o">–</span>'}
+  Object.keys(log).forEach(function(p){p=+p;var all=log[p],r=by[p]||null,base={p:p,r:r,name:r?r.name:pname(p),t:r?r.t:(IX.P[p]?IX.P[p].team:""),opp:r?r.opp:"",home:r?r.home:null};
+    if(EV)all.forEach(function(e){var ch=why(e.ch),mvd=e[k]?e[k][1]-e[k][0]:0;if(!ch.length&&Math.abs(mvd)<(SH?.01:.0005))return;
+      list.push(Object.assign({},base,{at:e.at,a:e[k]?e[k][0]:null,b:e[k]?e[k][1]:null,d:mvd,ch:ch,n:1}))});
+    else{var ev=all.filter(function(e){return e[k]}),a=ev.length?ev[0][k][0]:null,b=ev.length?ev[ev.length-1][k][1]:null,m={},ord=[],n=0,last="";
+      all.forEach(function(e){var ch=why(e.ch);if(ch.length||(e[k]&&Math.abs(e[k][1]-e[k][0])>=(SH?.01:.0005))){n++;last=e.at}
+        ch.forEach(function(c){if(m[c[0]])m[c[0]][2]=c[2];else{m[c[0]]=[c[0],c[1],c[2]];ord.push(c[0])}})}); // one line a cause: where it started the day and where it is now
+      var ch2=ord.map(function(q){return m[q]}).filter(function(c){return c[1]!==c[2]||!c[1]});if(!n)return;
+      list.push(Object.assign({},base,{at:last,a:a,b:b,d:a!=null?b-a:0,ch:ch2,n:n}))}});
+  function num(v){return v==null?'<span class="o">–</span>':SH?f2(v):p1(v)}
+  function dlt(x){if(x.a==null||Math.abs(x.d)<(SH?.005:.0005))return '<span class="o">–</span>';return '<b class="'+(x.d>0?"bup":"bdn")+'">'+(x.d>0?"+":"−")+(SH?Math.abs(x.d).toFixed(2):(Math.abs(x.d)*100).toFixed(1)+" pts")+'</b>'}
+  var cols=[
+    {k:"t",l:"Team",v:function(x){return x.t},f:function(x){return x.t?tmL(x.t):"–"}},
+    {k:"name",l:"Player",v:function(x){return x.name},f:function(x){var r=x.r;return (r?'<span class="o lposi">'+esc(r.pos)+'</span> ':'')+'<b>'+esc(x.name)+'</b> '+(r?unitTag(r.unit)+injTag(r):'<span class="tag l">NOT EXPECTED</span>')}},
+    {k:"opp",l:"Opponent",v:function(x){return x.opp},f:function(x){return x.opp?'<span class="o">'+(x.home?"vs ":"@ ")+'</span>'+x.opp:""}},
+    {k:"at",l:EV?"When":"Last change",v:function(x){return x.at},f:function(x){return '<span class="o">'+esc(fmtClock(x.at).replace(" ET",""))+'</span>'}},
+    {k:"a",l:SH?"xSOG before":"Chance before",num:1,v:function(x){return x.a},f:function(x){return '<span class="o">'+num(x.a).replace(/<[^>]+>/g,"")+'</span>'}},
+    {k:"b",l:SH?"xSOG after":"Chance after",num:1,v:function(x){return x.b},f:function(x){return x.b==null?'<span class="o">–</span>':'<b>'+num(x.b)+'</b>'}},
+    {k:"d",l:"Moved",num:1,v:function(x){return Math.abs(x.d)},f:dlt},
+    {k:"dir",l:"Direction",num:1,v:function(x){return x.d},f:function(x){return Math.abs(x.d)<(SH?.005:.0005)?"":x.d>0?'<span class="bup">▲ up</span>':'<span class="bdn">▼ down</span>'}}];
+  if(SH)cols.push(
+    {k:"ln",l:"Line",num:1,v:function(x){return x.r&&x.r.sh?x.r.sh.line:null},f:function(x){return x.r&&x.r.sh?'<span class="lwline">'+f1(x.r.sh.line)+'</span>':'<span class="o">–</span>'}},
+    {k:"gap",l:"xSOG − line",num:1,v:function(x){return x.r&&x.r.sh?x.r.xs-x.r.sh.line:null},f:function(x){if(!x.r||!x.r.sh)return "";var g=x.r.xs-x.r.sh.line;return '<span class="'+(g>=1?"vst p3":g>0?"vst p1":"o")+'">'+(g>0?"+":"")+f2(g)+'</span>'}},
+    {k:"opx",l:"Best over",num:1,v:function(x){var h=x.r&&x.r.sh;return h&&h.o?payout(h.o.price):null},f:function(x){var h=x.r&&x.r.sh,q=h&&h.o;return q?'<b>'+pxH({price:q.price,book:q.book,all:q.all},x.name+" over "+h.line,[x.p,"o",h.line])+'</b><span class="bk">'+esc(bkAb(q.bk))+'</span>':'<span class="o">–</span>'}},
+    {k:"upx",l:"Best under",num:1,v:function(x){var h=x.r&&x.r.sh;return h&&h.u?payout(h.u.price):null},f:function(x){var h=x.r&&x.r.sh,q=h&&h.u;return q?'<b>'+pxH({price:q.price,book:q.book,all:q.all},x.name+" under "+h.line,[x.p,"u",h.line])+'</b><span class="bk">'+esc(bkAb(q.bk))+'</span>':'<span class="o">–</span>'}});
+  else cols.push(
+    {k:"price",l:"Best price",num:1,v:function(x){return x.r&&x.r.px?x.r.pay:null},f:function(x){return x.r&&x.r.px?'<b>'+pxH(x.r.px,x.name,[x.p,"g"])+'</b>'+bkTag(x.r.px):'<span class="o">–</span>'}},
+    {k:"ev",l:"Edge now",num:1,v:function(x){return x.r?x.r.ev:null},f:function(x){return x.r&&x.r.px?edgeTag(x.r):""}},
+    {k:"vs",l:"Value now",num:1,v:function(x){return x.r?x.r.vs:null},f:function(x){return x.r&&x.r.vs!=null?vsTxt(x.r.vs):""}});
+  if(!EV)cols.push({k:"n",l:"Changes",num:1,v:function(x){return x.n},f:function(x){return x.n}});
+  cols.push({k:"why",l:EV?"What changed":"What changed today",v:function(x){return x.ch.map(function(c){return c[0]}).join(" ")},f:function(x){return chips(x.ch)}});
+  var up=list.filter(function(x){return x.d>0}).length,dn=list.filter(function(x){return x.d<0}).length;
+  view.innerHTML='<section class="panel"><div class="phead"><h2>Movers · '+fmtD(day)+'</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+    '<div class="bar"><label class="f">Show '+seg("seg-mvv",[["g","Goals"],["s","Shots"]],SH?"s":"g")+'</label><label class="f">Rows '+seg("seg-mvr",[["p","One a player"],["e","Every change"]],EV?"e":"p")+'</label>'+
+      '<span class="tag nt">'+list.length+(EV?" changes":" players")+'</span>'+(list.length?'<span class="tag nt w">'+up+' up</span><span class="tag nt l">'+dn+' down</span>':'')+'</div>'+
+    '<p class="note">Every refresh compares each skater with the refresh before, for games still to start, and records what changed. <b>'+(SH?"Shots":"Goals")+'</b> view shows '+(SH?"expected shots on goal":"his chance to score (model and market averaged)")+' before and after, how far it moved, and the causes that bear on it. <b>One a player</b> nets the whole day into one row, from the first refresh to now; <b>Every change</b> lists each refresh on its own row with its time. A cause with no move is real: a goalie change is often cancelled by the team-total scaling. '+
+    'Prices shown are the latest fetched, so a role change after the last fetch is the thing to check at your book. The log covers today and the two days before; nothing is recorded once a game has started.</p>'+
+    (list.length?table("mv"+(SH?"s":"g")+(EV?"e":"p"),cols,list,{k:EV?"at":"d",dir:-1},{pin:1,row:function(x){return IX.P[x.p]?' class="pick" data-player="'+x.p+'"':""}}):'<p class="empty">'+(L&&L.log?"Nothing has changed "+(SH?"for shots ":"")+"between refreshes on this day.":"No change log is saved for this day. It is kept for today and the two days before, starting from the second refresh after the feature was added.")+'</p>')+'</section>'}
+var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,movers:vMovers,games:vGames};
 function render(){
   if(!D)return;
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
   [["#seg-ssn",S.ssn],["#seg-po",S.po],["#seg-n",S.n]].forEach(function(x){[].forEach.call(document.querySelectorAll(x[0]+" button"),function(b){b.setAttribute("aria-pressed",b.dataset.v===String(x[1]))})});
   [].forEach.call(document.querySelectorAll("#tabs button"),function(b){b.setAttribute("aria-selected",b.dataset.tab===S.tab)});
-  $("filters").hidden=["picks","slate","shots","feed","lineups","tracker","bets","player"].indexOf(S.tab)>=0;
+  $("filters").hidden=["picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
-  if(!G.length&&["picks","slate","shots","feed","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
+  if(!G.length&&["picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
   TABS[S.tab]();pinFix();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
@@ -1936,7 +1978,7 @@ document.addEventListener("click",function(e){
   var b=e.target.closest(".seg button");
   if(b){var id=b.parentNode.id,v=b.dataset.v;
     if(id==="seg-po")S.po=v;else if(id==="seg-n")S.n=+v;else if(id==="seg-ssn")S.ssn=v;else if(id==="seg-rank"){S.rank=v;S.topN=12;save()}
-    else if(id==="seg-pos")S.pos=v;else if(id==="seg-mkt")S.mkt=+v;else if(id==="seg-all")S.slateAll=+v;else if(id==="seg-ldpos")S.ldPos=v;else if(id==="seg-trks"){S.trkS=+v;S.trkN=30}else if(id==="seg-lu")S.luSort=v;else if(id==="seg-luv"){S.luView=v;S.luSort="lines"}else if(id==="seg-gc")S.gcSort=v;else if(id==="seg-gcn")S.gcN=+v;else return;
+    else if(id==="seg-pos")S.pos=v;else if(id==="seg-mkt")S.mkt=+v;else if(id==="seg-all")S.slateAll=+v;else if(id==="seg-ldpos")S.ldPos=v;else if(id==="seg-trks"){S.trkS=+v;S.trkN=30}else if(id==="seg-lu")S.luSort=v;else if(id==="seg-luv"){S.luView=v;S.luSort="lines"}else if(id==="seg-mvv")S.mvView=v;else if(id==="seg-mvr")S.mvRows=v;else if(id==="seg-gc")S.gcSort=v;else if(id==="seg-gcn")S.gcN=+v;else return;
     return render()}
   var id2=e.target.id;
   if(id2==="dayPrev"||id2==="dayNext"){var dl=dayList(),i=dl.all.indexOf(S.day)+(id2==="dayPrev"?1:-1);if(dl.all[i]){S.day=dl.all[i];S.topN=12;render()}return}
