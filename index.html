@@ -596,6 +596,8 @@ body.pm-open .wrap *,body.pm-open .wrap *::after,body.pm-open .wrap *::before{an
 .movers .mv small b.lwline{color:#f5c542;font-weight:600}
 .mvw{display:inline-block;min-width:300px;max-width:560px;white-space:normal;line-height:1.5}.mvw .lgc{margin-right:16px}
 td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
+
+.bets select.bbs{width:118px;max-width:118px}
 </style>
 
 <div class="wrap">
@@ -1835,6 +1837,11 @@ function betCustom(){S.bets.push({id:betId(),at:new Date().toISOString(),d:S.day
 function betExport(){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S.bets,null,1)],{type:"application/json"}));a.download="goal-ledger-my-bets-"+todayET()+".json";document.body.appendChild(a);a.click();a.remove()}
 function betImport(inp){var f=inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var l=JSON.parse(rd.result),have={},n=0;if(!Array.isArray(l))throw 0;S.bets.forEach(function(b){have[b.id]=1});
     l.forEach(function(b){if(b&&b.id&&b.d&&b.price&&!have[b.id]){S.bets.push(b);n++}});saveBets();toast(n+(n===1?" bet":" bets")+" brought in");render()}catch(_){toast("That file is not a My bets export")}};rd.readAsText(f)}
+var BKS=null;
+function bookList(){ // every book the odds feed has quoted, plus the usual ones, for the book picker in My bets
+  if(BKS)return BKS;var m={};["FanDuel","DraftKings","BetMGM","Caesars","Fanatics","BetRivers","ESPN BET","bet365","Bovada","Hard Rock Bet"].forEach(function(k){m[k]=1});
+  Object.keys(D.odds||{}).forEach(function(k){var g=D.odds[k];(g.p||[]).forEach(function(x){if(typeof x[2]==="string")m[x[2]]=1});(g.s||[]).forEach(function(x){Object.keys(x[1]||{}).forEach(function(b){m[b]=1})})});
+  return BKS=Object.keys(m).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1})}
 function vBets(){BSL.tick=(BSL.tick||0)+1;
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
@@ -1842,7 +1849,8 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
   var bdir=(S.sort.bets||{dir:-1}).dir;
   function skey(b){ // a night's bets on one player sit together, placed by the first of them, and read goal, then 2+, 3+, 4+ upward, then unders, whichever way the nights run
     var rk=b.m==="g"?0:Math.round((b.m==="u"?500:10)+(b.line||0)*10),o=bdir<0?9999-rk:rk;
-    return b.d+"|"+(b.legs||b.man?b.at+"|"+b.id:grp[b.d+"|"+b.p]+"|"+b.p)+"|"+("0000"+o).slice(-4)+"|"+b.at}
+    var par=b.legs||(b.man&&b.m==="cp")?1:0,tier=bdir<0?par:1-par; // parlays sit together at the top of each night, singles below them, whichever way the nights run
+    return b.d+"|"+tier+"|"+(b.legs||b.man?b.at+"|"+b.id:grp[b.d+"|"+b.p]+"|"+b.p)+"|"+("0000"+o).slice(-4)+"|"+b.at}
   var all=S.bets.map(function(b){return{b:b,g:betGrade(b)}}),T={n:0,w:0,l:0,p:0,u:0,stk:0,open:0,ostk:0},kinds={g:{l:"Anytime goals",n:0,w:0,u:0,stk:0},o:{l:"Shots overs and rungs",n:0,w:0,u:0,stk:0},u:{l:"Shots unders",n:0,w:0,u:0,stk:0},p:{l:"Parlays and custom",n:0,w:0,u:0,stk:0}},byDay={};
   all.forEach(function(x){var g=x.g,b=x.b;if(g.st==="void")return;if(g.pl==null){T.open++;T.ostk+=b.u;return}
     T.n++;T.stk+=b.u;T.u+=g.pl;if(g.w>0)T.w++;else if(g.w<0)T.l++;else T.p++;var K=b.legs||b.man?kinds.p:kinds[b.m]||kinds.o;K.n++;K.stk+=b.u;K.u+=g.pl;if(g.w>0)K.w++;byDay[b.d]=(byDay[b.d]||0)+g.pl});
@@ -1862,7 +1870,10 @@ function vBets(){BSL.tick=(BSL.tick||0)+1;
       return '<b>'+esc(b.nm)+'</b>'+(b.opp?' <span class="o">'+(b.home?"vs":"@")+" "+esc(b.opp)+'</span>':'')}},
     {k:"m",l:"Bet",v:function(x){return x.b.m+(x.b.line==null?"":x.b.line)},f:function(x){var b=x.b;if(b.man)return '<select class="bsel" data-be="'+b.id+'|m" aria-label="Bet type">'+Object.keys(BKIND).map(function(k){return '<option value="'+k+'"'+(b.m===k?" selected":"")+'>'+BKIND[k]+'</option>'}).join("")+'</select>';
       return '<span class="bty '+(b.legs?"bp":b.m==="u"?"bu":b.m==="o"?"bo":"bg")+'">'+esc(betWhat(b))+'</span>'}},
-    {k:"book",l:"Book",v:function(x){return x.b.book},f:function(x){return x.b.man||x.b.legs?'<input type="text" class="pxin btx bbk" data-be="'+x.b.id+'|book" value="'+esc(x.b.book)+'" placeholder="Book" aria-label="Book">':esc(x.b.book)}},
+    {k:"book",l:"Book",v:function(x){return x.b.book},f:function(x){var b=x.b,l=bookList();
+      if(b.bko)return '<input type="text" class="pxin btx bbk" data-be="'+b.id+'|book" value="'+esc(b.book)+'" placeholder="Book" aria-label="Book">';
+      if(b.book&&l.indexOf(b.book)<0)l=l.concat([b.book]);
+      return '<select class="bsel bbs" data-be="'+b.id+'|book" aria-label="Book for '+esc(b.nm)+'">'+(b.book?'':'<option value="" selected>Book</option>')+l.map(function(k){return '<option'+(k===b.book?" selected":"")+'>'+esc(k)+'</option>'}).join("")+'<option value="__other">Other…</option></select>'}},
     {k:"price",l:"Odds",num:1,v:function(x){return payout(x.b.price)},f:function(x){return '<input type="text" inputmode="numeric" class="pxin" data-be="'+x.b.id+'|price" value="'+fmtP(x.b.price)+'" aria-label="Odds for '+esc(x.b.nm)+'">'}},
     {k:"p0",l:"Listed",num:1,v:function(x){return x.b.price0&&x.b.price0!==x.b.price?payout(x.b.price0):null},f:function(x){return x.b.price0&&x.b.price0!==x.b.price&&!x.b.man?'<span class="o bwas" title="'+(x.b.legs?"The legs multiplied together":"The price listed when you added it, before your change")+'">'+fmtP(x.b.price0)+'</span>':''}},
     {k:"u",l:"Units",num:1,v:function(x){return x.b.u},f:function(x){return '<input type="text" inputmode="decimal" class="pxin bun" data-be="'+x.b.id+'|u" value="'+x.b.u+'" aria-label="Units on '+esc(x.b.nm)+'">'}},
@@ -2031,7 +2042,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
     if(bp[1]==="price"){var bn=parseInt(String(v).replace(/[^0-9+-]/g,""),10);if(bn&&Math.abs(bn)>=100)bb.price=bn}
     else if(bp[1]==="u"){var bu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(bu>0)bb.u=Math.round(bu*100)/100}
     else if(bp[1]==="res")bb.res=v;
-    else if(bp[1]==="nm")bb.nm=String(v).slice(0,80);else if(bp[1]==="book")bb.book=String(v).slice(0,30);else if(bp[1]==="m"&&BKIND[v])bb.m=v;else if(bp[1]==="d"&&/^\d{4}-\d\d-\d\d$/.test(v))bb.d=v;
+    else if(bp[1]==="nm")bb.nm=String(v).slice(0,80);else if(bp[1]==="book"){if(v==="__other"){bb.bko=1;bb.book=""}else bb.book=String(v).slice(0,30)}else if(bp[1]==="m"&&BKIND[v])bb.m=v;else if(bp[1]==="d"&&/^\d{4}-\d\d-\d\d$/.test(v))bb.d=v;
     saveBets();return render()}
   if(id==="betFile")return betImport(t);
   if(t.dataset.bsel){S.bsel=S.bsel||{};S.bsel[t.dataset.bsel]=t.checked;return render()}
