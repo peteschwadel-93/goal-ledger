@@ -360,6 +360,9 @@ def upcoming(sched, days=7):
 
 
 # ---------- current rosters ----------
+NUMS = {}   # sweater numbers: from today's game rosters when posted, otherwise the team's current roster
+
+
 def load_rosters(teams):
     """Each team's current roster from the NHL: ({team: [player ids]}, {id: [name, position]}), or (None, {}) if it cannot be read."""
     out, who = {}, {}
@@ -373,6 +376,8 @@ def load_rosters(teams):
                     ids_.append(pid)
                     nm = f"{(p.get('firstName') or {}).get('default', '')} {(p.get('lastName') or {}).get('default', '')}".strip()
                     who[pid] = [nm, "G" if grp == "goalies" else p.get("positionCode") or ("D" if grp == "defensemen" else "C")]
+                    if isinstance(p.get("sweaterNumber"), int):
+                        NUMS.setdefault(pid, p["sweaterNumber"])
             if len(ids_) >= 18:
                 out[t] = ids_
         return (out or None), who
@@ -396,6 +401,8 @@ def parse_lineup(pbp, box):
             continue
         pid, pos = int(r["playerId"]), r.get("positionCode") or ""
         who[pid] = [f"{(r.get('firstName') or {}).get('default', '')} {(r.get('lastName') or {}).get('default', '')}".strip(), pos]
+        if isinstance(r.get("sweaterNumber"), int):
+            NUMS[pid] = r["sweaterNumber"]
         lu[t]["g" if pos == "G" else "sk"].append(pid)
     for side in ("awayTeam", "homeTeam"):
         t = (box or {}).get(side, {}).get("abbrev")
@@ -1063,6 +1070,9 @@ def make(seasons=3, season=None, html=None, live=True):
         for pid, v in load_lineups(sched).items():
             if str(pid) not in out["players"] or out["players"][str(pid)][0].startswith("#"):
                 out["players"][str(pid)] = v
+        nums = {str(k): v for k, v in NUMS.items() if str(k) in out["players"]}
+        if nums:
+            out["num"] = nums
         dfg = load_daily_faceoff()
         if dfg:
             out["dfg"] = {"d": datetime.now(ET).strftime("%Y-%m-%d"), "t": dfg}

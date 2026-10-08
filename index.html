@@ -598,6 +598,7 @@ body.pm-open .wrap *,body.pm-open .wrap *::after,body.pm-open .wrap *::before{an
 td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 
 .bets select.bbs{width:118px;max-width:118px}
+.pm-sub b.pm-num{color:#fff;font-weight:700;letter-spacing:.04em}
 </style>
 
 <div class="wrap">
@@ -1502,7 +1503,7 @@ function playerModal(p){ // the player card that opens over the page
   return '<div class="pm" role="dialog" aria-modal="true" aria-label="'+nm(p)+'" style="--tc:'+(TCOL[t]||"#2b6b99")+';--tc2:'+(TCOL2[t]||TCOL[t]||"#2b6b99")+'">'+
     '<div class="pm-head"><img class="pm-wm" alt="" src="'+base+'logos/nhl/svg/'+t+'_dark.svg" onerror="this.remove()">'+
       '<div class="pm-mug"><span aria-hidden="true">'+esc(ini)+'</span><img alt="" src="'+base+'mugs/nhl/'+y+(y+1)+'/'+t+'/'+p+'.png" data-alt="'+base+'mugs/nhl/latest/'+p+'.png" onload="this.parentNode.classList.add(\'has\')" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\'}else this.remove()"></div>'+
-      '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+esc(ppos(p))+' · '+slab+'</span></div></div>'+
+      '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+((D.num||{})[p]!=null?'<b class="pm-num">#'+D.num[p]+'</b> · ':'')+esc(ppos(p))+' · '+slab+'</span></div></div>'+
       '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
     '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
       tiles+(row?'':next)+odds+gtbl+stbl+(function(){var lg=dayLog(S.day,p);return lg.length?'<h4>Changes on '+fmtD(S.day)+' <span>'+lg.length+' between refreshes, newest first</span></h4><div class="pm-chg">'+lg.slice().reverse().map(logLine).join("")+'</div>':''})()+'<h4>Game log</h4>'+tbl+
