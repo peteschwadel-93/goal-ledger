@@ -599,6 +599,39 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 
 .bets select.bbs{width:118px;max-width:118px}
 .pm-sub b.pm-num{color:#fff;font-weight:700;letter-spacing:.04em}
+/* Scoreboard */
+.sbgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:14px}
+.sbc{background:var(--raise);border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s}
+.sbc:hover,.sbc:focus-visible{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));outline:none}
+.sbc.live{border-color:color-mix(in srgb,var(--goal,#e8705f) 55%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--goal,#e8705f) 25%,transparent),0 0 22px -10px var(--goal,#e8705f)}
+.sbh{display:flex;align-items:center;gap:8px;font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin-bottom:2px}
+.sbh .sbbx{margin-left:auto;font:500 11px var(--body);letter-spacing:0;text-transform:none;opacity:0;transition:opacity .15s}.sbc:hover .sbbx,.sbc:focus-visible .sbbx{opacity:1}
+.sblive{display:inline-block;padding:2px 7px;border-radius:999px;background:var(--goal,#e8705f);color:#fff;font:700 10.5px var(--body);letter-spacing:.08em;animation:lpulse 1.6s ease-in-out infinite}
+.sbt{display:grid;grid-template-columns:24px 46px 1fr auto 40px;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.sbt .tlogo{width:24px;height:24px}.sbab{font:700 19px var(--display);letter-spacing:.04em}.sbrec{font-size:11.5px}
+.sbsog{font:500 11.5px var(--body);color:var(--muted)}.sbsc{font:700 28px/1 var(--body);text-align:right;color:var(--ink)}
+.sbt.lose .sbab,.sbt.lose .sbsc{color:var(--muted)}
+.sbls{width:100%;border-collapse:collapse;font:500 11.5px var(--body);font-variant-numeric:tabular-nums;color:var(--soft);margin-top:4px}
+.sbls th,.sbls td{padding:3px 4px;text-align:center;border-top:1px solid var(--line)}.sbls th{color:var(--muted);font-weight:500;border-top:0}.sbls td:first-child,.sbls th:first-child{text-align:left}
+.sbg{list-style:none;margin:2px 0 0;padding:6px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.sbg li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.sbg .tlogo{width:16px;height:16px}.sbg b{cursor:pointer}.sbg .o{font-size:11.5px}
+.sbpre{display:flex;flex-direction:column;gap:3px;font-size:12.5px;padding-top:6px;border-top:1px solid var(--line)}
+.sbm{display:flex;flex-wrap:wrap;gap:5px;padding-top:7px;border-top:1px solid var(--line)}
+.sbmine{font:500 11.5px var(--body);padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--soft)}
+.sbmine i{font-style:normal;color:var(--muted);margin-right:2px}.sbmine.w{border-color:color-mix(in srgb,var(--made) 60%,var(--line));color:var(--made)}.sbmine.l{border-color:color-mix(in srgb,var(--neg) 55%,var(--line));color:var(--miss)}
+.sbmine.bt{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.sbat{margin-left:auto;font-size:12px}
+.pm.bx{width:min(980px,100%)}
+.bxh{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:18px 56px 16px 24px;background:var(--surface);border-bottom:1px solid var(--line)}
+.bxh .pm-x{position:absolute;right:14px;top:14px}
+.bxt{display:flex;align-items:center;gap:10px}.bxt.r{justify-content:flex-end}.bxt .tlogo{width:38px;height:38px}.bxt b{font:700 26px var(--display);letter-spacing:.04em}
+.bxs{font:700 36px/1 var(--body);font-variant-numeric:tabular-nums}.bxmid{font:600 13px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--soft);text-align:center}
+.bxtbl{font-variant-numeric:tabular-nums}.bxpl td:first-child{white-space:nowrap}.bxpl tr.pick{cursor:pointer}
+.bxgoals{display:flex;flex-direction:column;gap:6px;font-size:13.5px}.bxgoals>div{display:grid;grid-template-columns:72px 22px 1fr;align-items:center;gap:8px}.bxgoals .tlogo{width:20px;height:20px}.bxgoals b{cursor:pointer}
+.bxts{display:flex;flex-direction:column;gap:2px;max-width:520px;font-variant-numeric:tabular-nums}.bxts>div{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);text-align:center}.bxts>div>:first-child{text-align:left}.bxts>div>:last-child{text-align:right}.bxtsh{border-bottom:0!important}
+.tag.bxp{color:var(--made);border-color:color-mix(in srgb,var(--made) 50%,var(--line))}.tag.bxb{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+@media(max-width:760px){.bxh{padding:14px 48px 12px 14px;gap:8px}.bxt .tlogo{width:26px;height:26px}.bxt b{font-size:20px}.bxs{font-size:26px}.sbgrid{grid-template-columns:1fr}}
+.sblg{display:inline-flex;align-items:center;justify-content:center;min-width:16px}
 </style>
 
 <div class="wrap">
@@ -621,6 +654,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
   <div class="bar">
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="picks" id="tab-picks">Picks</button>
+      <button role="tab" data-tab="scores" id="tab-scores">Scoreboard</button>
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
       <button role="tab" data-tab="shots" id="tab-shots">Shots</button>
       <button role="tab" data-tab="movers" id="tab-movers">Movers</button>
@@ -1953,15 +1987,106 @@ function vMovers(){
     '<p class="note">Every refresh compares each skater with the refresh before, for games still to start, and records what changed. <b>'+(SH?"Shots":"Goals")+'</b> view shows '+(SH?"what moves for shots during the day, which is the market: the line, the best over and under prices, and with them the over's chance (model and market averaged) and the edge on the better side. Expected shots moves only when the lineup around him does: a regular scratched or returning changes his share of the ice time and his power-play unit, and that shows as an <b>Expected shots</b> cause. <b>Up</b> and <b>down</b> count the players whose edge got better or worse":"his chance to score (model and market averaged) before and after, how far it moved, and the causes that bear on it; <b>Value before</b>, <b>after</b> and <b>moved</b> are his value score across the same stretch, each worked out at the price of its moment")+'. <b>One a player</b> nets the whole day into one row, from the first refresh to now; <b>Every change</b> lists each refresh on its own row with its time. A cause with no move is real: a goalie change is often cancelled by the team-total scaling. '+
     'Prices shown are the latest fetched, so a role change after the last fetch is the thing to check at your book. The log covers today and the two days before; nothing is recorded once a game has started.</p>'+
     (list.length?table("mv"+(SH?"s":"g")+(EV?"e":"p"),cols,list,{k:EV?"at":"d",dir:-1},{pin:1,row:function(x){return IX.P[x.p]?' class="pick" data-player="'+x.p+'"':""}}):'<p class="empty">'+(L&&L.log?"Nothing has changed "+(SH?"for shots ":"")+"between refreshes on this day.":"No change log is saved for this day. It is kept for today and the two days before, starting from the second refresh after the feature was added.")+'</p>')+'</section>'}
-var TABS={picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,movers:vMovers,games:vGames};
+/* ================= Scoreboard: every game of the night as a card, live from ESPN, with a box score on click ================= */
+var SB={day:{},box:{},busy:{}},BX={key:null,el:null};
+function sbParse(b,day){var ev={};(b.events||[]).forEach(function(e){var c=(e.competitions||[])[0]||{},s=c.status||e.status||{},ty=s.type||{},h=null,a=null,
+    x={eid:e.id,state:ty.state||"pre",det:ty.shortDetail||ty.detail||"",per:+s.period||0,clk:s.displayClock||"",ls:{},sc:{},rec:{},sog:{},tv:((c.broadcasts||[])[0]||{names:[]}).names.join(", ")};
+  (c.competitors||[]).forEach(function(q){var ab=eab((q.team||{}).abbreviation);if(q.homeAway==="home")h=ab;else a=ab;x.sc[ab]=+q.score||0;
+    x.ls[ab]=(q.linescores||[]).map(function(l){return +(l.value!=null?l.value:l.displayValue)||0});x.rec[ab]=((q.records||[])[0]||{}).summary||"";
+    (q.statistics||[]).forEach(function(st){if(/^shots/i.test(st.name||"")||st.abbreviation==="SOG")x.sog[ab]=+st.displayValue})});
+  if(h&&a){x.h=h;x.a=a;ev[day+"|"+a+"|"+h]=x}});return ev}
+function sbLoad(day){ // the night's scoreboard, then each started game's full summary; a finished game's summary is kept once fetched
+  if(SB.busy[day]||!/^https?:$/.test(location.protocol))return;SB.busy[day]=1;
+  fetch(ESPN+"scoreboard?dates="+day.replace(/-/g,""),{cache:"no-store"}).then(function(r){return r.json()}).then(function(b){
+    var ev=sbParse(b,day);SB.day[day]={at:Date.now(),ev:ev};
+    return Promise.all(Object.keys(ev).map(function(k){var x=ev[k],old=SB.box[x.eid];if(x.state==="pre"||(old&&old.fin))return null;
+      return fetch(ESPN+"summary?event="+x.eid,{cache:"no-store"}).then(function(r){return r.json()}).then(function(doc){SB.box[x.eid]={at:Date.now(),doc:doc,fin:x.state==="post"}}).catch(function(){})}))})
+  .catch(function(){SB.day[day]={at:Date.now(),ev:{},err:1}}).then(function(){SB.busy[day]=0;
+    var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
+    if(S.tab==="scores"&&S.day===day&&!typing){var y=window.scrollY;render();window.scrollTo(0,y)}
+    if(BX.key&&BX.key.indexOf(day+"|")===0)openBox(BX.key,1)})}
+function sbStale(day){var X=SB.day[day];if(!X)return true;var age=Date.now()-X.at,ev=Object.keys(X.ev).map(function(k){return X.ev[k]});
+  if(ev.some(function(x){return x.state==="in"}))return age>45000;
+  if(day===todayET()&&(!ev.length||ev.some(function(x){return x.state!=="post"})))return age>120000;
+  return false}
+function sbGame(m){ // one game's state from the best source at hand: ESPN, the page's live check, the refresh, or the archive
+  var key=gameKey(m),X=(SB.day[m.d]||{ev:{}}).ev[key],B=X&&SB.box[X.eid],o={key:key,m:m,a:m.a,h:m.h,src:X?"espn":"own",x:X,doc:B?B.doc:null,ls:{},sc:{},sog:{},rec:{},ge:null};
+  if(X){o.state=X.state;o.det=X.det;o.sc=X.sc;o.ls=X.ls;o.rec=X.rec;o.tv=X.tv;o.sog=X.sog}
+  else if(m.g){o.state="post";o.det="Final"+(m.g.ot?"/OT":"");o.sc[m.a]=m.g.sc[0];o.sc[m.h]=m.g.sc[1]}
+  else if(m.sc&&/LIVE|CRIT|OFF|FINAL/.test(m.st||"")){o.state=/OFF|FINAL/.test(m.st)?"post":"in";o.det=o.state==="post"?"Final":"Live";o.sc[m.a]=m.sc[0];o.sc[m.h]=m.sc[1]}
+  else{o.state="pre";o.det=m.t||""}
+  if(o.doc){(((o.doc.boxscore||{}).teams)||[]).forEach(function(tm){var ab=eab((tm.team||{}).abbreviation);(tm.statistics||[]).forEach(function(s){if(o.sog[ab]==null&&(s.name==="shotsTotal"||s.name==="shots"||/^shots$/i.test(s.label||"")))o.sog[ab]=+s.displayValue})});o.ge=livePlays(o.doc,m)}
+  else if(m.g){o.sog[m.a]=m.g.t[m.a][1];o.sog[m.h]=m.g.t[m.h][1];
+    o.ge=(m.g.ge||[]).map(function(e){var per=Math.floor(e[2]/1200)+1,s=e[2]-(per-1)*1200;return{p:e[0],t:e[1]?m.h:m.a,per:per,clk:(per>3?"OT":"P"+per)+" "+Math.floor(s/60)+":"+("0"+s%60).slice(-2),kind:e[3],a:[e[4],e[5]].filter(Boolean).map(pname)}})}
+  else if(LIVE[key]&&LIVE[key].ge)o.ge=LIVE[key].ge;
+  if(o.ge&&!Object.keys(o.ls).length&&o.state!=="pre"){[m.a,m.h].forEach(function(t){o.ls[t]=[0,0,0]});o.ge.forEach(function(g){var i=Math.min(g.per,4)-1;[m.a,m.h].forEach(function(t){while(o.ls[t].length<=i)o.ls[t].push(0)});o.ls[g.t][i]++})}
+  if(o.sog[m.a]==null&&m.sg){var s={};s[m.a]=0;s[m.h]=0;var any=0;Object.keys(m.sg).forEach(function(p){var t=IX.P[p]&&IX.P[p].team;if(t in s){s[t]+=m.sg[p];any=1}});if(any){o.sog=s}}
+  return o}
+function sbMine(m,done){ // what you have riding on a game: your bets and the page's saved picks in it
+  var day=m.d,ts=[m.a,m.h],L=(D.locks||{})[day]||{},out=[],cnt=function(p,k){if(m.g){var r=m.g.p[m.a].concat(m.g.p[m.h]).filter(function(r){return r[0]===+p})[0];return r?r[k==="g"?1:2]:null}
+      var v=k==="g"?(m.gl||{})[p]:(m.sg||{})[p];return v==null?(m.gl&&k==="g"?0:null):v};
+  (L.picks||[]).forEach(function(x){if(ts.indexOf(x.t)<0)return;var n=cnt(x.p,"g");out.push({c:"pk",l:"Pick",p:x.p,w:x.n.split(" ").slice(-1)[0]+" goal",st:n?"w":done||m.g||/FINAL|OFF/.test(m.st||"")?"l":""})});
+  (L.ls||[]).forEach(function(x){if(ts.indexOf(x.t)<0)return;var n=cnt(x.p,"g");out.push({c:"pk",l:"Likely",p:x.p,w:x.n.split(" ").slice(-1)[0]+" goal",st:n?"w":done||m.g||/FINAL|OFF/.test(m.st||"")?"l":""})});
+  (L.shots||[]).forEach(function(x){if(ts.indexOf(x.t)<0)return;var n=cnt(x.p,"s"),fin=done||m.g||/FINAL|OFF/.test(m.st||"");out.push({c:"sp",l:"Shot pick",p:x.p,w:x.n.split(" ").slice(-1)[0]+" "+(x.side==="o"?"o":"u")+x.line+(n!=null?" · "+n:""),st:n==null?"":x.side==="o"?(n>x.line?"w":fin?"l":""):(n>x.line?"l":fin?"w":"")})});
+  var bets=S.bets.filter(function(b){return b.d===day&&(b.legs?b.legs.some(function(l){return ts.indexOf(l.t)>=0}):ts.indexOf(b.t)>=0)}),o=0,u=0,s=0;
+  bets.forEach(function(b){var g=betGrade(b);if(g.st==="void")return;if(g.pl==null)o++;else{s++;u+=g.pl}});
+  return{list:out,bets:bets.length,open:o,settled:s,u:u}}
+function vScores(){var dl=dayList(),day=S.day,ms=matchups(day);if(sbStale(day))sbLoad(day);
+  var G=ms.map(sbGame),nl=G.filter(function(o){return o.state==="in"}).length,nf=G.filter(function(o){return o.state==="post"}).length,X=SB.day[day];
+  function team(o,t,win){var r=o.rec[t],sg=o.sog[t];return '<div class="sbt'+(win===false?" lose":"")+'"><span class="sblg">'+lg(t)+'</span><b class="sbab">'+t+'</b><span class="o sbrec">'+esc(r||"")+'</span>'+(sg!=null&&o.state!=="pre"?'<span class="sbsog" title="Shots on goal">'+sg+' SOG</span>':'<span></span>')+'<span class="sbsc">'+(o.state==="pre"?"":o.sc[t]!=null?o.sc[t]:"")+'</span></div>'}
+  function card(o){var m=o.m,fin=o.state==="post",live=o.state==="in",aw=fin?o.sc[m.a]>o.sc[m.h]:null,me=sbMine(m,fin);
+    var per=Math.max((o.ls[m.a]||[]).length,(o.ls[m.h]||[]).length,o.state==="pre"?0:3),ls=per?'<table class="sbls"><thead><tr><th></th>'+Array.apply(null,{length:per}).map(function(_,i){return '<th>'+(i<3?i+1:i===3?"OT":"SO")+'</th>'}).join("")+'<th>T</th></tr></thead><tbody>'+[m.a,m.h].map(function(t){return '<tr><td>'+t+'</td>'+Array.apply(null,{length:per}).map(function(_,i){var v=(o.ls[t]||[])[i];return '<td>'+(v==null?"–":v)+'</td>'}).join("")+'<td><b>'+(o.sc[t]!=null?o.sc[t]:"–")+'</b></td></tr>'}).join("")+'</tbody></table>':"";
+    var goals=(o.ge||[]).map(function(g){return '<li class="'+(g.t===m.h?"h":"a")+'"><span class="o">'+esc(g.clk)+'</span> '+lg(g.t)+'<b data-player="'+g.p+'">'+esc(pname(g.p))+'</b>'+(g.kind===1?' <span class="tag">PP</span>':g.kind===2?' <span class="tag">SH</span>':g.kind===3?' <span class="tag">EN</span>':'')+(g.a&&g.a.length?' <span class="o">('+esc(g.a.join(", "))+')</span>':'')+'</li>'}).join("");
+    var pre=o.state==="pre"?(function(){var ms2=slate(day).filter(function(r){return r.info.key===o.key}),gk={};ms2.forEach(function(r){var s=r.info.side[r.t];if(s&&s.gk&&s.gk.p)gk[r.t]=s.gk.p});
+      return '<div class="sbpre">'+[m.a,m.h].map(function(t){return gk[t]?'<span><span class="o">'+t+' goalie</span> '+esc(pname(gk[t]))+'</span>':''}).join("")+(o.tv?'<span><span class="o">TV</span> '+esc(o.tv)+'</span>':'')+'</div>'})():"";
+    var mine=me.list.map(function(x){return '<span class="sbmine '+x.c+(x.st?" "+x.st:"")+'" data-player="'+x.p+'"><i>'+x.l+'</i> '+esc(x.w)+'</span>'}).join("")+(me.bets?'<span class="sbmine bt'+(me.settled&&!me.open?(me.u>0?" w":me.u<0?" l":""):"")+'"><i>My bets</i> '+me.bets+(me.open?' · '+me.open+' open':'')+(me.settled?' · '+(me.u>=0?"+":"−")+Math.abs(me.u).toFixed(2)+'u':'')+'</span>':'');
+    return '<div class="sbc'+(live?" live":fin?" fin":" pre")+'" data-box="'+o.key+'" tabindex="0" role="button" aria-label="Box score, '+m.a+' at '+m.h+'">'+
+      '<div class="sbh">'+(live?'<span class="sblive">LIVE</span>':'')+'<span class="sbst">'+esc(o.state==="pre"?(m.t||o.det||"Scheduled"):o.det)+'</span><span class="o sbbx">Box score ›</span></div>'+
+      team(o,m.a,fin?aw:null)+team(o,m.h,fin?!aw:null)+ls+(goals?'<ul class="sbg">'+goals+'</ul>':'')+pre+(mine?'<div class="sbm">'+mine+'</div>':'')+'</div>'}
+  view.innerHTML='<section class="panel"><div class="phead"><h2>Scoreboard · '+fmtD(day)+'</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
+    '<div class="bar"><span class="tag nt">'+G.length+(G.length===1?" game":" games")+'</span>'+(nl?'<span class="tag nt w">'+nl+' live</span>':'')+(nf?'<span class="tag nt">'+nf+' final</span>':'')+'<span class="o sbat">'+(X&&!X.err?'Checked '+new Date(X.at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})+(nl?' · every minute while games are on':''):SB.busy[day]?'Checking ESPN…':X&&X.err?'ESPN could not be reached: showing the page\'s own data':'')+'</span></div>'+
+    '<p class="note">Scores, periods and the clock come from ESPN, checked every minute while a game is on. Click a game for its box score. Tags along the bottom are what you have riding on it: the page\'s saved picks with their live count (green once won, red once lost) and your bets from My bets.</p>'+
+    (G.length?'<div class="sbgrid">'+G.map(card).join("")+'</div>':'<p class="empty">No games on this day.</p>')+'</section>'}
+function boxHtml(key){var day=key.slice(0,10),m=matchups(day).filter(function(x){return gameKey(x)===key})[0];if(!m)return "";var o=sbGame(m),doc=o.doc,me=sbMine(m,o.state==="post"),mark={};
+  me.list.forEach(function(x){(mark[x.p]=mark[x.p]||[]).push(x.l)});S.bets.forEach(function(b){if(b.d!==day)return;(b.legs||[b]).forEach(function(l){if(l.p&&(mark[l.p]||[]).indexOf("Bet")<0)(mark[l.p]=mark[l.p]||[]).push("Bet")})});
+  function who(name,t){var hit=null;(IX.names[normName(name)]||[]).forEach(function(p){if(!hit||(IX.P[p]&&IX.P[p].team===t))hit=p});return hit}
+  function tags(p){return (mark[p]||[]).map(function(l){return '<span class="tag '+(l==="Bet"?"bxb":"bxp")+'">'+esc(l.toUpperCase())+'</span>'}).join("")}
+  var head='<div class="bxh"><div class="bxt">'+lg(m.a)+'<b>'+m.a+'</b><span class="bxs">'+(o.state==="pre"?"":o.sc[m.a])+'</span></div><div class="bxmid"><span class="'+(o.state==="in"?"sblive":"")+'">'+esc(o.state==="pre"?(m.t||"Scheduled"):o.det)+'</span></div><div class="bxt r"><span class="bxs">'+(o.state==="pre"?"":o.sc[m.h])+'</span><b>'+m.h+'</b>'+lg(m.h)+'</div><button class="pm-x" id="bxClose" aria-label="Close">×</button></div>';
+  var body="";
+  var per=Math.max((o.ls[m.a]||[]).length,(o.ls[m.h]||[]).length);
+  if(per)body+='<h4>By period</h4><div class="tw"><table class="bxtbl"><thead><tr><th></th>'+Array.apply(null,{length:per}).map(function(_,i){return '<th class="n">'+(i<3?i+1:i===3?"OT":"SO")+'</th>'}).join("")+'<th class="n">Total</th>'+(o.sog[m.a]!=null?'<th class="n">Shots</th>':'')+'</tr></thead><tbody>'+[m.a,m.h].map(function(t){return '<tr><td>'+tmL(t)+'</td>'+Array.apply(null,{length:per}).map(function(_,i){var v=(o.ls[t]||[])[i];return '<td class="n">'+(v==null?"–":v)+'</td>'}).join("")+'<td class="n"><b>'+o.sc[t]+'</b></td>'+(o.sog[m.a]!=null?'<td class="n">'+(o.sog[t]!=null?o.sog[t]:"–")+'</td>':'')+'</tr>'}).join("")+'</tbody></table></div>';
+  if(o.ge&&o.ge.length)body+='<h4>Scoring</h4><div class="bxgoals">'+o.ge.map(function(g){return '<div><span class="o">'+esc(g.clk)+'</span><span class="sblg">'+lg(g.t)+'</span><span><b class="pick" data-player="'+g.p+'">'+esc(pname(g.p))+'</b>'+(g.kind===1?' <span class="tag">PP</span>':g.kind===2?' <span class="tag">SH</span>':g.kind===3?' <span class="tag">EN</span>':'')+(g.a&&g.a.length?' <span class="o">assisted by '+esc(g.a.join(", "))+'</span>':' <span class="o">unassisted</span>')+'</span></div>'}).join("")+'</div>';
+  if(doc&&doc.boxscore){
+    var ts=(doc.boxscore.teams||[]);if(ts.length===2){var ta=ts.filter(function(x){return eab((x.team||{}).abbreviation)===m.a})[0]||ts[0],th=ts.filter(function(x){return x!==ta})[0],keys=[];
+      (ta.statistics||[]).forEach(function(s){if(s.label&&s.displayValue!=null)keys.push(s)});
+      if(keys.length)body+='<h4>Team stats</h4><div class="bxts"><div class="bxtsh"><span>'+tmL(m.a)+'</span><span></span><span>'+tmL(m.h)+'</span></div>'+keys.slice(0,14).map(function(s){var v=((th.statistics||[]).filter(function(q){return q.name===s.name})[0]||{}).displayValue;return '<div><b>'+esc(s.displayValue)+'</b><span class="o">'+esc(s.label)+'</span><b>'+esc(v==null?"–":v)+'</b></div>'}).join("")+'</div>'}
+    var PREF=["G","A","PTS","+/-","S","SOG","SM","BS","HT","PIM","TK","GV","FW","FL","FO%","TOI","PPTOI"];
+    [m.a,m.h].forEach(function(t){var tm=(doc.boxscore.players||[]).filter(function(x){return eab((x.team||{}).abbreviation)===t})[0];if(!tm)return;
+      (tm.statistics||[]).forEach(function(grp){var lb=grp.labels||[],isG=lb.indexOf("SV")>=0||lb.indexOf("SA")>=0||lb.indexOf("SV%")>=0,idx=lb.map(function(l,i){return i});
+        if(!isG){var pick=PREF.map(function(l){return lb.indexOf(l)}).filter(function(i){return i>=0});if(pick.length>=3)idx=pick}
+        var nmG=String(grp.name||grp.text||(isG?"Goalies":"Skaters"));nmG=nmG.charAt(0).toUpperCase()+nmG.slice(1);
+        body+='<h4>'+tmL(t)+' '+esc(nmG)+'</h4><div class="tw"><table class="bxtbl bxpl"><thead><tr><th>Player</th>'+idx.map(function(i){return '<th class="n">'+esc(lb[i])+'</th>'}).join("")+'</tr></thead><tbody>'+
+          (grp.athletes||[]).map(function(a){var x=a.athlete||{},p=who(x.displayName||"",t);return '<tr'+(p&&IX.P[p]?' class="pick" data-player="'+p+'"':'')+'><td><span class="o">'+esc(x.jersey||"")+'</span> <b>'+esc(x.displayName||"")+'</b> <span class="o">'+esc((x.position||{}).abbreviation||"")+'</span> '+(p?tags(p):'')+'</td>'+idx.map(function(i){var v=(a.stats||[])[i];return '<td class="n">'+(v==null||v===""?"–":esc(v))+'</td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>'})})}
+  else if(m.g){[m.a,m.h].forEach(function(t){var rows=m.g.p[t].slice();
+      body+='<h4>'+tmL(t)+' Skaters</h4><div class="tw"><table class="bxtbl bxpl"><thead><tr><th>Player</th><th class="n">G</th><th class="n">S</th><th class="n">TOI</th><th class="n">PP TOI</th></tr></thead><tbody>'+rows.map(function(r){var mm=function(s){return Math.floor(s/60)+":"+("0"+s%60).slice(-2)};return '<tr class="pick" data-player="'+r[0]+'"><td><b>'+esc(pname(r[0]))+'</b> <span class="o">'+esc(ppos(r[0]))+'</span> '+tags(r[0])+'</td><td class="n">'+(r[1]||"–")+'</td><td class="n">'+r[2]+'</td><td class="n">'+mm(r[6])+'</td><td class="n">'+(r[7]?mm(r[7]):"–")+'</td></tr>'}).join("")+'</tbody></table></div>';
+      var gk=m.g.g[t];if(gk.length)body+='<h4>'+tmL(t)+' Goalies</h4><div class="tw"><table class="bxtbl"><thead><tr><th>Goalie</th><th class="n">Shots against</th><th class="n">Goals against</th><th class="n">Save %</th></tr></thead><tbody>'+gk.map(function(k){return '<tr><td><b>'+esc(pname(k[0]))+'</b></td><td class="n">'+k[1]+'</td><td class="n">'+k[2]+'</td><td class="n">'+(k[1]?((k[1]-k[2])/k[1]).toFixed(3).replace(/^0/,""):"–")+'</td></tr>'}).join("")+'</tbody></table></div>'})}
+  else if(o.state==="pre")body+='<p class="empty">The box score fills in once the puck drops.</p>';
+  else body+='<p class="empty">'+(SB.busy[day]?"Loading the box score from ESPN…":"The box score could not be loaded from ESPN just now. It will try again within a minute.")+'</p>';
+  return '<div class="pm bx" role="dialog" aria-label="Box score">'+head+'<div class="pm-body">'+body+'</div></div>'}
+function openBox(key,keep){BX.key=key;var el=BX.el||(BX.el=document.body.appendChild(Object.assign(document.createElement("div"),{id:"bxRoot",className:"pm-back"}))),sc=keep&&el.querySelector(".pm")?el.querySelector(".pm").scrollTop:0;
+  el.innerHTML=boxHtml(key);el.style.display="flex";document.body.style.overflow="hidden";if(keep&&el.querySelector(".pm"))el.querySelector(".pm").scrollTop=sc;else{var x=document.getElementById("bxClose");if(x)x.focus()}
+  if(!keep){var day=key.slice(0,10);if(sbStale(day))sbLoad(day)}}
+function closeBox(){if(BX.el){BX.el.style.display="none";BX.el.innerHTML=""}BX.key=null;document.body.style.overflow=""}
+if(typeof window!=="undefined"&&/^https?:$/.test((typeof location!=="undefined"&&location.protocol)||""))setInterval(function(){if(!D||document.hidden)return;var d=BX.key?BX.key.slice(0,10):S.tab==="scores"?S.day:null;if(d&&sbStale(d))sbLoad(d)},30000);
+var TABS={scores:vScores,picks:vPicks,slate:vSlate,shots:vShots,feed:vFeed,lineups:vLineups,matchup:vMatchup,player:vPlayer,leaders:vLeaders,teams:vTeams,tracker:vTracker,bets:vBets,movers:vMovers,games:vGames};
 function render(){
   if(!D)return;
   G=D.games.filter(function(g){return (S.po==="all"||String(g.po)===S.po)&&(S.ssn==="all"||String(g.s)===S.ssn)});
   [["#seg-ssn",S.ssn],["#seg-po",S.po],["#seg-n",S.n]].forEach(function(x){[].forEach.call(document.querySelectorAll(x[0]+" button"),function(b){b.setAttribute("aria-pressed",b.dataset.v===String(x[1]))})});
   [].forEach.call(document.querySelectorAll("#tabs button"),function(b){b.setAttribute("aria-selected",b.dataset.tab===S.tab)});
-  $("filters").hidden=["picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)>=0;
+  $("filters").hidden=["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)>=0;
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
-  if(!G.length&&["picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
+  if(!G.length&&["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
   TABS[S.tab]();pinFix();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
@@ -2006,6 +2131,10 @@ document.addEventListener("click",function(e){
   var bcp=e.target.closest("[data-bcopy]");if(bcp)return betCopy(bcp.dataset.bcopy);
   if(e.target.id==="betImport"){var fi=$("betFile");if(fi)fi.click();return}
   var bf=e.target.closest("[data-bf]");if(bf){S.betF=bf.dataset.bf;return render()}
+  if(BX.key&&e.target.closest("#bxRoot")){ // the box score: close on the ×, or a click on the dimmed page behind it; a player opens his card
+    if(e.target.id==="bxRoot"||e.target.closest("#bxClose"))return closeBox();
+    var bpl=e.target.closest("[data-player]");if(bpl){closeBox();return openPlayer(+bpl.dataset.player)}return}
+  var sbx=e.target.closest("[data-box]");if(sbx&&!e.target.closest("[data-player]"))return openBox(sbx.dataset.box);
   if(PM.p!=null&&e.target.closest("#pmRoot")){ // the player card: close on the ×, or a click on the dimmed page behind it
     if(e.target.id==="pmRoot"||e.target.closest("#pmClose"))return closePlayer();
     var ps=e.target.closest("[data-pms]");if(ps){S.pmS=ps.dataset.pms==="all"?"all":+ps.dataset.pms;return openPlayer(PM.p)}
@@ -2029,8 +2158,9 @@ document.addEventListener("click",function(e){
   var th=e.target.closest("th[data-sort]");if(th)return sortBy(th);
   var r=e.target.closest("[data-player]");if(r)return openPlayer(+r.dataset.player);
 });
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&TIP.pin)return hideTip();if(e.key==="Escape"&&PM.p!=null)return closePlayer();if(e.key!=="Enter"&&e.key!==" ")return;
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&TIP.pin)return hideTip();if(e.key==="Escape"&&PM.p!=null)return closePlayer();if(e.key==="Escape"&&BX.key)return closeBox();if(e.key!=="Enter"&&e.key!==" ")return;
   var ka=e.target.closest&&e.target.closest(".bktip [data-add]");if(ka){e.preventDefault();return ka.click()}
+  var kb=e.target.matches&&e.target.matches("[data-box]")?e.target:null;if(kb){e.preventDefault();return openBox(kb.dataset.box)}
   var kp=e.target.matches&&e.target.matches(".pxh[data-bet]")?e.target:null;if(kp){e.preventDefault();return showTip(kp,1)}
   var th=e.target.closest("th[data-sort]");if(th){e.preventDefault();return sortBy(th)}
   var hs=e.target.closest&&e.target.closest(".hs");if(hs){e.preventDefault();if(hs.dataset.gcs)S.gcSort=hs.dataset.gcs;else S.luSort=hs.dataset.lus;return render()}
@@ -2143,7 +2273,7 @@ function liveTick(){
     return Promise.all(jobs)}).then(function(){
       var now=new Date(),hh=now.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});$("liveMsg").hidden=false;$("liveMsg").textContent="Live goals checked "+hh;
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
-      if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
+      if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets","scores"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
 if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
