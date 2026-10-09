@@ -737,7 +737,12 @@ var C={gm:.99,   // each older game counts 1% less than the one after it (half w
           things the model does not. The market's chance is the middle price across books with the bookmaker margin taken out:
           over the first 21 games of 2026-27 the middle price implied 1.16 goals for every one scored. Both numbers should be
           re-measured once a few hundred games of prices are stored. */
-       np:{w:.5,vig:1.15,minP:.15,books:3,out:.85,cap:5}};
+       np:{w:.5,vig:1.15,minP:.15,books:3,out:.85,cap:5,
+         /* From Oct 9 2026 the market's chance comes from the middle price raised to a power rather than divided by a flat 1.15: books take a far bigger cut
+            on long shots than on likely scorers (over Sep 29-Oct 6, a unit at the best price on players the books put under 10% came back 0.77, against 1.06
+            the flat cut implied), so the flat cut made long shots look like value. The power was fitted on those 1,806 priced skaters. Shots are untouched. */
+         pow:1.1133,powFrom:"2026-10-09"}};
+function mktChance(mid,day){return Math.min(.95,day>=C.np.powFrom?Math.pow(mid,C.np.pow):mid/C.np.vig)} // a goal price's chance with the books' cut taken out
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function pname(p){var x=D.players[p];return x?x[0]:"#"+p}
 function ppos(p){var x=D.players[p];return x?x[1]:""}
@@ -942,7 +947,7 @@ function slate(day){
       info.side[t]={f:f,gk:gk,model:z?z.model:sum,scale:scale,mkt:z?z.mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t]),frozen:z?1:0};
       rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);
         var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
-          var mid=1/payout(px.mid||px.price);r.mk=Math.min(.95,mid/C.np.vig);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
+          var mid=1/payout(px.mid||px.price);r.mk=mktChance(mid,day);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
           r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books);
           r.evM=r.ev;r.vsM=r.vs;r.ev=r.evS;r.vs=r.vsS} // edge and value score everywhere are judged on the pick chance (model and market averaged); the model-only figures are kept as evM and vsM
         r.sh=shotsOf(o,r.name);
@@ -1123,7 +1128,7 @@ function vPicks(){
     '<label class="f">Skaters '+seg("seg-pos",[["all","All"],["F","Forwards"],["D","Defense"]],S.pos)+'</label>'+
     (hasLines?'<label class="f">Team goals '+seg("seg-mkt",[[1,"Market"],[0,"Model"]],S.mkt)+'</label>':'')+bookPicker(day)+'</div>'+
     '<p class="note">'+(S.book?'<b>Showing '+esc(S.book)+' prices only.</b> Edges and value scores use the price at that book; a player it has not posted has no price. The market\'s chance still comes from the middle of all books. ':'')+(ms.length?ms.length+" game"+(ms.length>1?"s":"")+", "+rows.length+" skaters. ":"No games on this day. ")+
-    (np?lockNote.replace(/^ /,"")+(lockNote?" ":"")+'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
+    (np?lockNote.replace(/^ /,"")+(lockNote?" ":"")+'<b>Nightly Picks</b> are the strongest bets that survive four tests, best first: '+capW+' tonight, because the list allows one pick for every three games on the slate and never more than five'+(npAll>cap?" ("+npAll+" skaters passed; the rest are on the Slate table)":"")+'. The model\'s chance is averaged evenly with the market\'s (the middle price across books, with the bookmaker margin taken out: a bigger cut on long shots than on likely scorers, since that is how books price them), since the market knows things the model does not. A pick then needs that averaged chance to be 15% or better, a positive edge at the best price, and at least three books quoting. They are ranked by value score on the averaged chance and the cap keeps the bar about equally high on a two-game night and a thirteen-game night. A CHECK PRICE tag means the best price is well out of line with the other books: a slow book if you can still get it, a bad feed if you cannot. The other choices in the Show list drop these tests and let you rank by the model alone. ':'')+
     (np?'':'<b>Likelihood</b> is the model\'s chance the player scores at least once (empty-netters count, shootout goals do not). <b>Value</b> is the edge over the best price on offer: chance × payout − 1. <b>Blend</b> ranks by value score, the edge divided by the payout, so a modest edge on a likely scorer outranks the same edge on a long shot. ')+
     'Chevrons mark likelihood: one at 25%, two at 30%, three at 35%, four at 40%. In the 2025-26 backtest, players rated 30% or better scored in 35% of games and 40% or better in 45%.'+
     (priced?"":' <b>No prices are loaded for this day</b>, so every ranking falls back to likelihood. Prices arrive when the local helper runs with your Odds API key; you can also type a price for any player on the Slate table tab.')+
