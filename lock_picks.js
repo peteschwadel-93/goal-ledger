@@ -137,6 +137,9 @@ if (games.length) {
       seenL[r.p].last = stamp;
     });
   }
+  /* Parlay ideas: each one is fixed once the first game in it starts; the open places are refilled from games still to start. */
+  let pz = (prevDay.pz || []).filter(e => e.ts && Date.parse(e.ts) <= now);
+  if (api.pzPick) pz = pz.concat(api.pzPick(day, Object.values(byP), pz, true));
   /* Table numbers freeze at puck drop too: every skater's projection as of the last run before his game starts.
      Unstarted games are rewritten each run; a started game keeps what it had. The page reads these until the
      finished game arrives in the archive, so nothing moves while a game is on. */
@@ -225,7 +228,7 @@ if (games.length) {
   });
   Object.assign(fz, fresh);
   if (picks.length || shots.length || ls.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, fz, log };
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, pz, fz, log };
   }
 }
 Object.keys(store).forEach(k => { if (store[k] && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) { delete store[k].fz; delete store[k].log; } });   // the archive has those games by now
