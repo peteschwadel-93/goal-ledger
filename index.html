@@ -636,6 +636,16 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .bxpl{width:100%;table-layout:auto}.bxpl th,.bxpl td{padding:7px 6px!important;font-size:13px}.bxpl th{letter-spacing:.06em}.bxpl th:first-child,.bxpl td:first-child{padding-left:14px!important}
 .bxpl td:first-child{white-space:normal;min-width:150px}
 @media(max-width:600px){.bxpl .bxlo{display:none}.bxpl td:first-child{min-width:120px}.bxpl th,.bxpl td{padding:6px 4px!important;font-size:12.5px}}
+.sbbets{display:flex;flex-direction:column;gap:4px;padding-top:7px;border-top:1px solid var(--line)}
+.sbbh{display:flex;justify-content:space-between;gap:8px;font:600 11.5px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin-bottom:1px}.sbbh .o{font:500 11.5px var(--body);letter-spacing:0;text-transform:none}
+.sbb{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:7px;font-size:12.5px;padding:3px 6px;border-radius:7px;background:var(--surface);border:1px solid transparent}
+.sbb .bty{width:8px;height:8px;border-radius:50%;padding:0;display:inline-block;background:var(--muted)}.sbb .bty.bg{background:var(--goal-hot)}.sbb .bty.bo{background:var(--made,#4ade80)}.sbb .bty.bu{background:#f5c542}.sbb .bty.bp{background:var(--accent)}
+.sbb .bty:before{display:none}
+.sbbw{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sbbo{font-variant-numeric:tabular-nums;white-space:nowrap}.sbb .res{font-size:9.5px;padding:3px 7px;white-space:nowrap}
+.sbb.won{border-color:color-mix(in srgb,var(--made) 45%,transparent)}.sbb.lost{border-color:color-mix(in srgb,var(--neg) 40%,transparent)}.sbb.lost .sbbw{opacity:.75}
+.sbbl{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:11.5px;padding:0 6px 3px 23px;color:var(--soft)}.sbbl .lw{color:var(--made)}.sbbl .ll{color:var(--miss);text-decoration:line-through}
+.pm-bets{display:flex;flex-direction:column;gap:5px;max-width:720px}.pm-bets .sbb{font-size:13.5px;padding:6px 10px}.pmbd{font-size:11.5px;margin:4px 0 0 2px}
+.sbbw{white-space:normal;overflow:visible}.pm-bets .sbb{background:var(--raise);border-color:var(--line)}.pm-bets .sbb.won{border-color:color-mix(in srgb,var(--made) 45%,transparent)}
 </style>
 
 <div class="wrap">
@@ -658,10 +668,10 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
   <div class="bar">
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="picks" id="tab-picks">Picks</button>
-      <button role="tab" data-tab="scores" id="tab-scores">Scoreboard</button>
       <button role="tab" data-tab="slate" id="tab-slate">Slate table</button>
       <button role="tab" data-tab="shots" id="tab-shots">Shots</button>
       <button role="tab" data-tab="movers" id="tab-movers">Movers</button>
+      <button role="tab" data-tab="scores" id="tab-scores">Scoreboard</button>
       <button role="tab" data-tab="feed" id="tab-feed">Goals feed</button>
       <button role="tab" data-tab="lineups" id="tab-lineups">Lineups</button>
       <button role="tab" data-tab="matchup" id="tab-matchup">Matchup</button>
@@ -1544,7 +1554,7 @@ function playerModal(p){ // the player card that opens over the page
       '<div class="pm-id"><h2>'+nm(p)+'</h2><div class="pm-sub">'+tmL(t)+' <span>· '+((D.num||{})[p]!=null?'<b class="pm-num">#'+D.num[p]+'</b> · ':'')+esc(ppos(p))+' · '+slab+'</span></div></div>'+
       '<button class="pm-x" id="pmClose" aria-label="Close">×</button></div>'+
     '<div class="pm-body">'+(seasons.length>1?'<div class="pm-seas"><span class="seg">'+seasons.map(function(o){return '<button data-pms="'+o[0]+'" aria-pressed="'+(String(o[0])===String(sel))+'">'+o[1]+'</button>'}).join("")+'</span></div>':'')+
-      tiles+(row?'':next)+odds+gtbl+stbl+(function(){var lg=dayLog(S.day,p);return lg.length?'<h4>Changes on '+fmtD(S.day)+' <span>'+lg.length+' between refreshes, newest first</span></h4><div class="pm-chg">'+lg.slice().reverse().map(logLine).join("")+'</div>':''})()+'<h4>Game log</h4>'+tbl+
+      tiles+(row?'':next)+odds+(function(){var mb=S.bets.filter(function(b){if(!(b.p===p||(b.legs&&b.legs.some(function(l){return l.p===p}))))return false;var g=betGrade(b);return g.st==="open"||g.st==="live"}).sort(function(x,y){return x.d.localeCompare(y.d)||x.at-y.at});return mb.length?'<h4>Your open bets <span>'+mb.length+' open or live, from My bets</span></h4><div class="pm-bets">'+mb.map(function(b){return (b.d!==S.day?'<div class="o pmbd">'+fmtD(b.d)+'</div>':'')+betLine(b,null,b.legs?0:1)}).join('')+'</div>':''})()+gtbl+stbl+(function(){var lg=dayLog(S.day,p);return lg.length?'<h4>Changes on '+fmtD(S.day)+' <span>'+lg.length+' between refreshes, newest first</span></h4><div class="pm-chg">'+lg.slice().reverse().map(logLine).join("")+'</div>':''})()+'<h4>Game log</h4>'+tbl+
       '<button class="more pm-more" id="pmWork" aria-expanded="'+(S.pmW?"true":"false")+'">'+(S.pmW?"Hide how his number is built":"How his number is built")+'</button>'+
       '<div class="pm-work"'+(S.pmW?"":" hidden")+'>'+work+'</div></div></div>';
 }
@@ -2034,7 +2044,15 @@ function sbMine(m,done){ // what you have riding on a game: your bets and the pa
   (L.shots||[]).forEach(function(x){if(ts.indexOf(x.t)<0)return;var n=cnt(x.p,"s"),fin=done||m.g||/FINAL|OFF/.test(m.st||"");out.push({c:"sp",l:"Shot pick",p:x.p,w:x.n.split(" ").slice(-1)[0]+" "+(x.side==="o"?"o":"u")+x.line+(n!=null?" · "+n:""),st:n==null?"":x.side==="o"?(n>x.line?"w":fin?"l":""):(n>x.line?"l":fin?"w":"")})});
   var bets=S.bets.filter(function(b){return b.d===day&&(b.legs?b.legs.some(function(l){return ts.indexOf(l.t)>=0}):ts.indexOf(b.t)>=0)}),o=0,u=0,s=0;
   bets.forEach(function(b){var g=betGrade(b);if(g.st==="void")return;if(g.pl==null)o++;else{s++;u+=g.pl}});
-  return{list:out,bets:bets.length,open:o,settled:s,u:u}}
+  bets.sort(function(x,y){var px=x.legs?0:1,py=y.legs?0:1;return px-py||String(x.t).localeCompare(String(y.t))||String(x.nm).localeCompare(String(y.nm))||(x.m==="g"?0:x.m==="o"?1:2)-(y.m==="g"?0:y.m==="o"?1:2)||(x.line||0)-(y.line||0)});
+  return{list:out,list2:bets,bets:bets.length,open:o,settled:s,u:u}}
+function betLine(b,ts,hiP){ // one bet as a compact line for the scoreboard card and the player card; ts: the game's two teams, so a parlay can show which legs are in it
+  var g=betGrade(b),ST={won:"WON",lost:"LOST",push:"PUSH",void:"VOID",open:"OPEN",live:"LIVE"},cls=g.st==="won"?"m":g.st==="lost"?"x":g.st==="live"?"live":"";
+  function cnt(l,gg){return gg.act!=null&&!l.man?gg.act+(l.m==="g"?(gg.act===1?" goal":" goals"):(gg.act===1?" shot":" shots"))+" · ":""}
+  var dot=b.legs?"bp":b.m==="u"?"bu":b.m==="o"?"bo":"bg",last=function(n){return String(n||"").split(" ").slice(-1)[0]};
+  var head='<div class="sbb '+g.st+'"><span class="bty '+dot+'"></span><span class="sbbw">'+(b.legs?'<b>Parlay</b> <span class="o">'+b.legs.length+' legs</span>':b.man?'<b>'+esc(b.nm||"Custom bet")+'</b>':'<b>'+esc(hiP?betWhat(b):last(b.nm))+'</b> '+(hiP?'':'<span>'+esc(betWhat(b))+'</span>'))+'</span><span class="sbbo">'+fmtP(b.price)+' <span class="o">'+esc(bkAb(b.book||""))+' · '+b.u+'u</span></span><span class="res '+cls+'">'+(b.legs?(g.legs.filter(function(q){return q.w>0}).length+" of "+b.legs.length+" · "):cnt(b,g))+ST[g.st]+'</span></div>';
+  if(b.legs)head+='<div class="sbbl">'+b.legs.map(function(l,i){var q=g.legs[i],inG=!ts||ts.indexOf(l.t)>=0;return '<span class="'+(inG?"":"o ")+(q.w>0?"lw":q.w<0?"ll":"")+'">'+esc(last(l.nm))+' '+esc(betWhat(l))+(q.act!=null&&l.m!=="g"?' ('+q.act+')':q.act&&l.m==="g"?' ✓':'')+'</span>'}).join("")+'</div>';
+  return head}
 function vScores(){var dl=dayList(),day=S.day,ms=matchups(day);if(sbStale(day))sbLoad(day);
   var G=ms.map(sbGame),nl=G.filter(function(o){return o.state==="in"}).length,nf=G.filter(function(o){return o.state==="post"}).length,X=SB.day[day];
   function team(o,t,win){var r=o.rec[t],sg=o.sog[t];return '<div class="sbt'+(win===false?" lose":"")+'"><span class="sblg">'+lg(t)+'</span><b class="sbab">'+t+'</b><span class="o sbrec">'+esc(r||"")+'</span>'+(sg!=null&&o.state!=="pre"?'<span class="sbsog" title="Shots on goal">'+sg+' SOG</span>':'<span></span>')+'<span class="sbsc">'+(o.state==="pre"?"":o.sc[t]!=null?o.sc[t]:"")+'</span></div>'}
@@ -2043,10 +2061,10 @@ function vScores(){var dl=dayList(),day=S.day,ms=matchups(day);if(sbStale(day))s
     var goals=(o.ge||[]).map(function(g){return '<li class="'+(g.t===m.h?"h":"a")+'"><span class="o">'+esc(g.clk)+'</span> '+lg(g.t)+'<b data-player="'+g.p+'">'+esc(pname(g.p))+'</b>'+(g.kind===1?' <span class="tag">PP</span>':g.kind===2?' <span class="tag">SH</span>':g.kind===3?' <span class="tag">EN</span>':'')+(g.a&&g.a.length?' <span class="o">('+esc(g.a.join(", "))+')</span>':'')+'</li>'}).join("");
     var pre=o.state==="pre"?(function(){var ms2=slate(day).filter(function(r){return r.info.key===o.key}),gk={};ms2.forEach(function(r){var s=r.info.side[r.t];if(s&&s.gk&&s.gk.p)gk[r.t]=s.gk.p});
       return '<div class="sbpre">'+[m.a,m.h].map(function(t){return gk[t]?'<span><span class="o">'+t+' goalie</span> '+esc(pname(gk[t]))+'</span>':''}).join("")+(o.tv?'<span><span class="o">TV</span> '+esc(o.tv)+'</span>':'')+'</div>'})():"";
-    var mine=me.list.map(function(x){return '<span class="sbmine '+x.c+(x.st?" "+x.st:"")+'" data-player="'+x.p+'"><i>'+x.l+'</i> '+esc(x.w)+'</span>'}).join("")+(me.bets?'<span class="sbmine bt'+(me.settled&&!me.open?(me.u>0?" w":me.u<0?" l":""):"")+'"><i>My bets</i> '+me.bets+(me.open?' · '+me.open+' open':'')+(me.settled?' · '+(me.u>=0?"+":"−")+Math.abs(me.u).toFixed(2)+'u':'')+'</span>':'');
+    var mine=me.list.map(function(x){return '<span class="sbmine '+x.c+(x.st?" "+x.st:"")+'" data-player="'+x.p+'"><i>'+x.l+'</i> '+esc(x.w)+'</span>'}).join("");var myb=me.bets?'<div class="sbbets"><div class="sbbh"><span>My bets · '+me.bets+'</span><span class="o">'+(me.open?me.open+' open':'')+(me.settled?(me.open?' · ':'')+(me.u>=0?'+':'−')+Math.abs(me.u).toFixed(2)+'u settled':'')+'</span></div>'+me.list2.map(function(b){return betLine(b,[m.a,m.h])}).join('')+'</div>':'';
     return '<div class="sbc'+(live?" live":fin?" fin":" pre")+'" data-box="'+o.key+'" tabindex="0" role="button" aria-label="Box score, '+m.a+' at '+m.h+'">'+
       '<div class="sbh">'+(live?'<span class="sblive">LIVE</span>':'')+'<span class="sbst">'+esc(o.state==="pre"?(m.t||o.det||"Scheduled"):o.det)+'</span><span class="o sbbx">Box score ›</span></div>'+
-      team(o,m.a,fin?aw:null)+team(o,m.h,fin?!aw:null)+ls+(goals?'<ul class="sbg">'+goals+'</ul>':'')+pre+(mine?'<div class="sbm">'+mine+'</div>':'')+'</div>'}
+      team(o,m.a,fin?aw:null)+team(o,m.h,fin?!aw:null)+ls+(goals?'<ul class="sbg">'+goals+'</ul>':'')+pre+(mine?'<div class="sbm">'+mine+'</div>':'')+myb+'</div>'}
   view.innerHTML='<section class="panel"><div class="phead"><h2>Scoreboard · '+fmtD(day)+'</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
     '<div class="bar"><span class="tag nt">'+G.length+(G.length===1?" game":" games")+'</span>'+(nl?'<span class="tag nt w">'+nl+' live</span>':'')+(nf?'<span class="tag nt">'+nf+' final</span>':'')+'<span class="o sbat">'+(X&&!X.err?'Checked '+new Date(X.at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})+(nl?' · every minute while games are on':''):SB.busy[day]?'Checking ESPN…':X&&X.err?'ESPN could not be reached: showing the page\'s own data':'')+'</span></div>'+
     '<p class="note">Scores, periods and the clock come from ESPN, checked every minute while a game is on. Click a game for its box score. Tags along the bottom are what you have riding on it: the page\'s saved picks with their live count (green once won, red once lost) and your bets from My bets.</p>'+
