@@ -658,6 +658,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .pzh{display:flex;align-items:center;gap:8px;font:600 13px var(--body)}.pzh .pzp{font:700 20px var(--body);margin-left:2px}.pzh .res{margin-left:auto}
 .pzl{display:flex;flex-direction:column;gap:5px;font-size:13px}.pzl>div{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}.pzl i{font-style:normal;font-weight:700;margin-left:auto}.pzl .lw b,.pzl .lw i{color:var(--made)}.pzl .ll{opacity:.6;text-decoration:line-through}
 .pzf{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding-top:8px;border-top:1px solid var(--line);font-size:12.5px;color:var(--soft)}.pzf b{color:var(--ink)}.pzf .pzadd{margin-left:auto;padding:4px 10px;font-size:12px}
+.bdl{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}.bdl span{color:var(--muted);font-size:11px;opacity:.7}.bdl:hover span{opacity:1;color:var(--accent)}
 </style>
 
 <div class="wrap">
@@ -2020,7 +2021,7 @@ function vBets(){
   var ST={won:["m","WON"],lost:["x","LOST"],push:["","PUSH"],void:["","VOID"],open:["","OPEN"],live:["live","LIVE"]};
   var cols=[
     {k:"sel",l:"",v:function(x){return S.bsel&&S.bsel[x.b.id]?1:0},f:function(x){return x.b.legs||x.b.man?'':'<input type="checkbox" class="bchk" data-bsel="'+x.b.id+'"'+(S.bsel&&S.bsel[x.b.id]?" checked":"")+' aria-label="Pick '+esc(x.b.nm)+' for a parlay">'}},
-    {k:"d",l:"Night",v:function(x){return skey(x.b)},f:function(x){return x.b.man?'<input type="date" class="pxin bdt" data-be="'+x.b.id+'|d" value="'+esc(x.b.d)+'" aria-label="Night">':fmtD(x.b.d)}},
+    {k:"d",l:"Night",v:function(x){return skey(x.b)},f:function(x){return x.b.man&&S.bdEdit===x.b.id?'<input type="date" class="pxin bdt" data-be="'+x.b.id+'|d" value="'+esc(x.b.d)+'" aria-label="Night">':x.b.man?'<button class="bdl" data-bdate="'+x.b.id+'" title="Change the night">'+fmtD(x.b.d)+' <span>✎</span></button>':fmtD(x.b.d)}}, // a custom bet's night reads like the others; a click opens the date box
     {k:"t",l:"Team",v:function(x){return x.b.t||""},f:function(x){return x.b.t?tmL(x.b.t):"–"}},
     {k:"nm",l:"Player",v:function(x){return x.b.nm},f:function(x){var b=x.b;if(b.man)return '<input type="text" class="pxin btx" data-be="'+b.id+'|nm" value="'+esc(b.nm)+'" placeholder="What the bet is" aria-label="What the bet is">';
       if(b.legs)return '<div class="legs">'+b.legs.map(function(l,i){var g=x.g.legs?x.g.legs[i]:betGrade(l);return '<span class="leg '+g.st+'" data-pl="'+l.p+'" title="'+esc(l.book)+' '+fmtP(l.price)+(g.act!=null?" · "+g.act+(l.m==="g"?" goals":" shots")+" so far":"")+'"><b>'+esc(l.nm)+'</b> '+esc(betWhat(l))+(g.act!=null&&l.m!=="g"?' <i>'+g.act+'</i>':'')+'</span>'}).join("")+'</div>';
@@ -2268,6 +2269,7 @@ document.addEventListener("click",function(e){
   if(e.target.id==="betParlayK")return betParlay(1);
   if(e.target.id==="betCustom")return betCustom();
   var pza=e.target.closest("[data-pz]");if(pza)return pzAdd(+pza.dataset.pz);
+  var bdt=e.target.closest("[data-bdate]");if(bdt){S.bdEdit=bdt.dataset.bdate;render();var di=document.querySelector('input[data-be="'+S.bdEdit+'|d"]');if(di){di.focus();try{di.showPicker&&di.showPicker()}catch(_){}}return}
   var bsp=e.target.closest("[data-bsplit]");if(bsp)return betSplit(bsp.dataset.bsplit);
   var bcp=e.target.closest("[data-bcopy]");if(bcp)return betCopy(bcp.dataset.bcopy);
   if(e.target.id==="betImport"){var fi=$("betFile");if(fi)fi.click();return}
@@ -2316,7 +2318,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
     if(bp[1]==="price"){var bn=parseInt(String(v).replace(/[^0-9+-]/g,""),10);if(bn&&Math.abs(bn)>=100)bb.price=bn}
     else if(bp[1]==="u"){var bu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(bu>0)bb.u=Math.round(bu*100)/100}
     else if(bp[1]==="res")bb.res=v;
-    else if(bp[1]==="nm")bb.nm=String(v).slice(0,80);else if(bp[1]==="book"){if(v==="__other"){bb.bko=1;bb.book=""}else bb.book=String(v).slice(0,30)}else if(bp[1]==="m"&&BKIND[v])bb.m=v;else if(bp[1]==="d"&&/^\d{4}-\d\d-\d\d$/.test(v))bb.d=v;
+    else if(bp[1]==="nm")bb.nm=String(v).slice(0,80);else if(bp[1]==="book"){if(v==="__other"){bb.bko=1;bb.book=""}else bb.book=String(v).slice(0,30)}else if(bp[1]==="m"&&BKIND[v])bb.m=v;else if(bp[1]==="d"&&/^\d{4}-\d\d-\d\d$/.test(v)){bb.d=v;S.bdEdit=null}
     saveBets();return render()}
   if(id==="betFile")return betImport(t);
   if(t.dataset.bsel){S.bsel=S.bsel||{};S.bsel[t.dataset.bsel]=t.checked;return render()}
@@ -2418,6 +2420,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets","scores"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
+if(typeof document!=="undefined"&&document.addEventListener)document.addEventListener("focusout",function(e){var t=e.target;if(t&&t.classList&&t.classList.contains("bdt")&&S.bdEdit)setTimeout(function(){if(S.bdEdit){S.bdEdit=null;render()}},200)}); // leaving the date box without a change closes it again
 if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
