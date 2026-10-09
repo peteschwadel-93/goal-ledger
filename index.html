@@ -358,11 +358,11 @@ tbody tr.glit .res.m{background:var(--goal);color:#fff}
 .tag.pk{background:var(--goal);border-color:var(--goal);color:#fff}
 .tag.nt.pkc{border-color:var(--goal);color:var(--goal-hot)}
 tbody tr.ffirst>td:first-child{box-shadow:inset 3px 0 0 var(--goal)}
-tbody tr.fpick>td,tbody tr.fpick:nth-child(odd)>td{position:relative;background:color-mix(in srgb,var(--goal) 14%,var(--bg))}
-tbody tr.fpick>td::after{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--goal) 22%,transparent);opacity:0;animation:rowlight 1.6s ease-in-out infinite;will-change:opacity}
+tbody tr.fpick>td,tbody tr.fpick:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 20%,var(--bg));animation:feedlight 1.6s ease-in-out infinite}
+
 tbody tr.fpick>td:first-child{box-shadow:inset 4px 0 0 var(--goal-hot)}
 @keyframes feedlight{0%,100%{background-color:color-mix(in srgb,var(--goal) 14%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 32%,var(--bg))}}
-@media(prefers-reduced-motion:reduce){tbody tr.fpick>td::after{animation:none}}
+@media(prefers-reduced-motion:reduce){tbody tr.fpick>td{animation:none}}
 td .bk{margin-left:6px}
 
 /* shots tab */
@@ -530,7 +530,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .brec{font:500 12.5px var(--mono);white-space:nowrap}.brec .o{font-family:var(--body)}
 .bets .res.x{border-color:color-mix(in srgb,var(--goal) 60%,var(--line))}
 .bets tbody tr.glit>td:not(:last-child){position:relative}
-.bets tbody tr.glit>td:not(:last-child)::after{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--goal) 36%,transparent);box-shadow:inset 0 2px 0 -1px var(--goal-hot),inset 0 -2px 0 -1px var(--goal-hot);opacity:0;animation:rowlight 1.6s ease-in-out infinite;will-change:opacity}
+.bets tbody tr.glit>td:not(:last-child)::after{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--goal) 36%,transparent);box-shadow:inset 0 2px 0 -1px var(--goal-hot),inset 0 -2px 0 -1px var(--goal-hot);opacity:0;animation:rowlight 1.6s ease-in-out infinite}
 .bets tbody tr.glit .bty{color:#fff}
 @media(prefers-reduced-motion:reduce){.bets tbody tr.glit>td::after{animation:none}}
 .bets tbody tr.glit>td:last-child,.bets tbody tr.glit:nth-child(odd)>td:last-child{background:color-mix(in srgb,var(--surface) 55%,var(--bg))}
@@ -592,7 +592,7 @@ td .sside{font-size:13px;padding:3px 9px}
 .movers .mv .lgm{margin-left:8px}.movers .mv small{display:block;margin-top:3px;font-size:11.5px;color:var(--muted)}
 @media(max-width:760px){.lgr{grid-template-columns:54px minmax(0,1fr)}.lgr>span:last-child{grid-column:2}.lgc{white-space:normal}}
 /* the player card: nothing behind it animates while it is open, and its scrolling areas paint on their own */
-body.pm-open .wrap *,body.pm-open .wrap *::after,body.pm-open .wrap *::before{animation-play-state:paused!important}
+body.pm-open .rcard.win::after,body.pm-open tr.fpick>td,body.pm-open .lteam li.prow.win::after,body.pm-open .bets tr.glit>td::after,body.pm-open .ldot,body.pm-open .sblive{animation-play-state:paused!important} /* named, not every element: a rule that starts from * is checked against the whole page on every redraw */
 .pm{overscroll-behavior:contain;contain:layout paint}
 .pm .tw{contain:paint;overscroll-behavior-x:contain}
 .movers .mv small b.lwline{color:#f5c542;font-weight:600}
@@ -1907,7 +1907,7 @@ function bookList(){ // every book the odds feed has quoted, plus the usual ones
   if(BKS)return BKS;var m={};["FanDuel","DraftKings","BetMGM","Caesars","Fanatics","BetRivers","ESPN BET","bet365","Bovada","Hard Rock Bet"].forEach(function(k){m[k]=1});
   Object.keys(D.odds||{}).forEach(function(k){var g=D.odds[k];(g.p||[]).forEach(function(x){if(typeof x[2]==="string")m[x[2]]=1});(g.s||[]).forEach(function(x){Object.keys(x[1]||{}).forEach(function(b){m[b]=1})})});
   return BKS=Object.keys(m).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1})}
-function vBets(){BSL.tick=(BSL.tick||0)+1;
+function vBets(){
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
   var grp={};S.bets.forEach(function(b){if(b.legs||b.man)return;var k=b.d+"|"+b.p;if(!grp[k]||b.at<grp[k])grp[k]=b.at});
@@ -2186,7 +2186,9 @@ document.addEventListener("click",function(e){
     var hp=e.target.closest(".pxh");if(hp)return TIP.at===hp&&(TIP.pin||!hp.dataset.bet)?hideTip():showTip(hp,1);hideTip();return}
   var ph=e.target.closest(".pxh");if(ph){e.stopPropagation();return TIP.el&&TIP.at===ph&&(TIP.pin||!ph.dataset.bet)?hideTip():showTip(ph,1)}hideTip();
   var jp=e.target.closest("[data-jump]");if(jp){var to=document.getElementById(jp.dataset.jump);if(to)to.scrollIntoView({behavior:"smooth",block:"start"});return}
-  var t=e.target.closest("[data-tab]");if(t){S.tab=t.dataset.tab;try{history.replaceState(null,"","#"+S.tab)}catch(_){}return render()}
+  var t=e.target.closest("[data-tab]");if(t){S.tab=t.dataset.tab;try{history.replaceState(null,"","#"+S.tab)}catch(_){}
+    [].forEach.call(document.querySelectorAll("#tabs button"),function(b){b.setAttribute("aria-selected",b.dataset.tab===S.tab)}); // the tab lights up the moment it is clicked; the page under it is drawn on the next frame
+    var want=S.tab;requestAnimationFrame(function(){setTimeout(function(){if(S.tab===want)render()},0)});return}
   var b=e.target.closest(".seg button");
   if(b){var id=b.parentNode.id,v=b.dataset.v;
     if(id==="seg-po")S.po=v;else if(id==="seg-n")S.n=+v;else if(id==="seg-ssn")S.ssn=v;else if(id==="seg-rank"){S.rank=v;S.topN=12;save()}
@@ -2271,7 +2273,7 @@ if(served){
 var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
 function eab(x){return EAB[x]||x}
 function applyLive(){var ch=0;(D.sched||[]).forEach(function(m){var L=LIVE[gameKey(m)];if(!L)return;
-  var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length,L.sg]);if(m._live!==sig){m._live=sig;m.gl=L.gl;m.sc=L.sc;m.st=L.st;if(L.sg)m.sg=L.sg;ch=1}});return ch}
+  var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length,L.sg]);if(m._live!==sig){m._live=sig;BSL.tick=(BSL.tick||0)+1;m.gl=L.gl;m.sc=L.sc;m.st=L.st;if(L.sg)m.sg=L.sg;ch=1}});return ch}
 function liveShots(doc,t){ // shots on goal by player id for one team, from ESPN's box score; an empty object if the column cannot be found
   var out={};((doc.boxscore||{}).players||[]).forEach(function(tm){if(eab((tm.team||{}).abbreviation)!==t)return;
     (tm.statistics||[]).forEach(function(grp){var ks=grp.keys||[],si=-1;["shotsTotal","shotsOnGoal","shots","totalShots"].forEach(function(k){if(si<0)si=ks.indexOf(k)});
