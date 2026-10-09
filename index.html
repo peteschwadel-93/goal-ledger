@@ -1051,8 +1051,8 @@ function pzLegs(day,rows,openOnly){var out=[],now=Date.now();
     var best=null;cands.forEach(function(c){c.ev=c.ps*payout(c.price)-1;c.ks=c.ev/(payout(c.price)-1);if(c.ps<c.min||c.ev<PZ.minEdge||c.ev>PZ.maxEdge)return;if(!best||c.ks>best.ks)best=c});
     if(best){best.r=r;best.p=r.p;best.g=r.info.key;best.ts=ts||day;out.push(best)}});
   return out.sort(function(a,b){return b.ks-a.ks}).slice(0,PZ.cand)}
-function pzPrice(L){ // the best book that posts every leg, with each leg still beating its price there
-  var best=null;Object.keys(L[0].bk).forEach(function(b){var pay=1,ok=true;L.forEach(function(l){var pr=l.bk[b];if(pr==null||l.ps*payout(pr)-1<=0){ok=false;return}pay*=payout(pr)});
+function pzPrice(L){ // the best book that posts every leg, with every leg 3% or more over its price at that book (the same test a leg passes to be considered at all)
+  var best=null;Object.keys(L[0].bk).forEach(function(b){var pay=1,ok=true;L.forEach(function(l){var pr=l.bk[b];if(pr==null||l.ps*payout(pr)-1<PZ.minEdge){ok=false;return}pay*=payout(pr)});
     if(ok&&(!best||pay>best.pay))best={book:b,pay:pay}});return best}
 function pzPick(day,rows,kept,openOnly){ // tonight's ideas: the best three-leg and the best two two-leg parlays, ranked by edge over payout, no player used twice
   var legs=pzLegs(day,rows,openOnly),used={},combos=[];(kept||[]).forEach(function(k){k.legs.forEach(function(l){used[l.p]=1})});
@@ -1067,8 +1067,14 @@ function pzPick(day,rows,kept,openOnly){ // tonight's ideas: the best three-leg 
   return out.map(function(c){var ts=null;c.L.forEach(function(l){if(!ts||l.ts<ts)ts=l.ts});
     return{legs:c.L.map(function(l){return{p:l.p,n:l.r.name,t:l.r.t,o:l.r.opp,side:l.side,line:l.line,price:l.bk[c.book],ps:+l.ps.toFixed(4)}}),book:c.book,price:amer(c.pay),P:+c.P.toFixed(4),ev:+c.ev.toFixed(4),ts:ts}})}
 function pzUnits(z){var pay=payout(z.price),f=(z.P*pay-1)/(pay-1);if(!(f>0))return 0;return Math.min(PZ.ucap,Math.max(PZ.umin,Math.round(f*100*PZ.frac/.05)*.05))}
-function pzIdeas(day,rows){var sv=((D.locks||{})[day]||{}).pz,by={};rows.forEach(function(r){by[r.p]=r});
-  var list=sv&&sv.length&&(!S.book||S.bookOff)?sv.map(function(z){return Object.assign({saved:1},z)}):pzPick(day,rows,[],false);
+function pzIdeas(day,rows){var sv=((D.locks||{})[day]||{}).pz,by={},one=S.book&&!S.bookOff?S.book:null;rows.forEach(function(r){by[r.p]=r});
+  function tracked(rs){return sv&&sv.length?sv.map(function(z){return Object.assign({saved:1},z)}):pzPick(day,rs,[],false)}
+  var list;
+  if(!one)list=tracked(rows);
+  else{ // one book chosen: the tracked ideas priced at that book first, then any more that book's own prices allow
+    var keep=S.book;S.book="";var base=tracked(slate(day)).filter(function(z){return z.book===keep});S.book=keep;
+    var key=function(z){return z.legs.map(function(l){return l.p+l.side+l.line}).sort().join()},seen={};base.forEach(function(z){seen[key(z)]=1});
+    list=base.concat(pzPick(day,rows,[],false).filter(function(z){return !seen[key(z)]}).map(function(z){z.extra=1;return z}))}
   list.forEach(function(z){var w=1,open=0;z.legs.forEach(function(l){var r=by[l.p],act=r?shotAct(r):null,g=shotGrade(l.side,l.line,act);l.act=act?act[0]:null;l.g=g;if(g===-1)w=-1;else if(g==null&&w>0){w=0;open=1}});
     z.win=w===-1?-1:open?null:1;z.u=z.win==null?null:z.win>0?payout(z.price)-1:-1;z.units=pzUnits(z)});
   return list}
@@ -1076,12 +1082,14 @@ function pzLegTxt(l){return l.side==="u"?"Under "+l.line+" shots":l.line%1?Math.
 function pzHtml(day,rows){var list=pzIdeas(day,rows);PZV=list;var gr=list.filter(function(z){return z.win!=null}),u=0,w=0;gr.forEach(function(z){u+=z.u;if(z.win>0)w++});
   function card(z,i){var pay=payout(z.price);
     return '<div class="pzc'+(z.win>0?" won":z.win<0?" lost":"")+'"><div class="pzh"><b>'+z.legs.length+'-leg</b> <span class="o">at</span> '+esc(z.book)+' <b class="pzp">'+fmtP(z.price)+'</b>'+
+(z.extra?'<span class="tag">'+esc(z.book).toUpperCase()+' ONLY</span>':'')+
       (z.win!=null?'<span class="res '+(z.win>0?"m":"x")+'">'+(z.win>0?"WON":"LOST")+'</span>':z.legs.some(function(l){return l.act!=null})?'<span class="res live">LIVE</span>':'')+'</div>'+
       '<div class="pzl">'+z.legs.map(function(l){return '<div class="'+(l.g>0?"lw":l.g<0?"ll":"")+'"><span class="pick" data-player="'+l.p+'"><b>'+esc(l.n)+'</b></span> <span class="o">'+esc(l.t)+'</span> <span>'+pzLegTxt(l)+'</span><span class="o">'+fmtP(l.price)+' · '+p1(l.ps)+'</span>'+(l.act!=null?'<i>'+l.act+'</i>':'')+'</div>'}).join("")+'</div>'+
       '<div class="pzf"><span>Chance <b>'+p1(z.P)+'</b></span><span>Fair <b>'+fairOdds(z.P)+'</b></span><span>Edge <b class="'+(z.ev>0?"bup":"bdn")+'">'+(z.ev>0?"+":"")+Math.round(z.ev*100)+'%</b></span><span>Stake <b>'+(z.units?z.units.toFixed(2)+'u':'–')+'</b></span>'+
       (z.u!=null?'<span>Result <b class="'+(z.u>0?"bup":"bdn")+'">'+(z.u>=0?"+":"−")+Math.abs(z.u).toFixed(2)+'u</b></span>':'<button class="btn2 pzadd" data-pz="'+i+'">+ Add to My bets</button>')+'</div></div>'}
-  return '<section class="panel"><div class="phead"><h2>Parlay ideas</h2><div class="pickers">'+(gr.length?'<span class="tag nt'+(u>0?" w":u<0?" l":"")+'">'+w+' of '+gr.length+' · '+(u>=0?"+":"−")+Math.abs(u).toFixed(2)+'u</span>':'')+'<span class="tag nt">experiment · not in net units</span></div></div>'+
-    '<p class="note">Shot legs that each beat their own price, one a player and each from a different game, so the book pays the full multiplied price and the legs do not lean on each other. A leg is a main-line over or under with a 45% or better chance, or a ladder rung (one or two above the line) with 30% or better, each 3% to 25% over its price. Each idea is priced at the one book that posts every leg and pays the most, with every leg still beating its price there. The chance multiplies the legs\' chances; edges compound, and so do misses, so the stake is an eighth of Kelly, 0.1u to 0.5u. The ideas lock when their first game starts. Tracked on the Tracker, left out of the net units.</p>'+
+  var bkNote=S.book&&!S.bookOff?'<p class="note"><b>Showing '+esc(S.book)+' only:</b> the tracked ideas priced at '+esc(S.book)+' first, then any more its own prices allow (marked '+esc(S.book).toUpperCase()+' ONLY, not tracked). The full tracked list is under Best of all books.</p>':'';
+  return '<section class="panel"><div class="phead"><h2>Parlay ideas</h2><div class="pickers">'+(gr.length?'<span class="tag nt'+(u>0?" w":u<0?" l":"")+'">'+w+' of '+gr.length+' · '+(u>=0?"+":"−")+Math.abs(u).toFixed(2)+'u</span>':'')+'<span class="tag nt">experiment · not in net units</span></div></div>'+bkNote+
+    '<p class="note">Shot legs that each beat their own price, one a player and each from a different game, so the book pays the full multiplied price and the legs do not lean on each other. A leg is a main-line over or under with a 45% or better chance, or a ladder rung (one or two above the line) with 30% or better, each 3% to 25% over its price. Each idea is priced at the one book that posts every leg and pays the most, with every leg 3% or more over its price at that book, so choosing that book in the Book menu shows the same idea. The chance multiplies the legs\' chances; edges compound, and so do misses, so the stake is an eighth of Kelly, 0.1u to 0.5u. The ideas lock when their first game starts. Tracked on the Tracker, left out of the net units.</p>'+
     (list.length?'<div class="pzgrid">'+list.map(card).join("")+'</div>':'<p class="empty">No combination of legs beats its price at a single book on this slate.</p>')+'</section>'}
 var PZV=[];
 function pzAdd(i){var z=PZV[i];if(!z)return;var day=S.day,at=new Date().toISOString(),by={};slate(day).forEach(function(r){by[r.p]=r});
@@ -2410,7 +2418,7 @@ function liveTick(){
       var el=document.activeElement,typing=el&&/^(INPUT|SELECT)$/.test(el.tagName);
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets","scores"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
