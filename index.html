@@ -1845,9 +1845,12 @@ function table(id,cols,rows,def,opts){
   rows=rows.slice().sort(function(a,b){var x=c.v(a),y=c.v(b),nx=x==null||x!==x,ny=y==null||y!==y;if(nx&&ny)return 0;if(nx)return 1;if(ny)return -1;
     var d=typeof x==="string"?x.localeCompare(y):x-y;return st.dir*d||0});
   if(opts.limit)rows=rows.slice(0,opts.limit);
-  var h='<div class="tw"><table'+(opts.pin?' class="pin3"':'')+'><thead><tr>'+cols.map(function(x){
+  var pw=opts.pin&&PINW[id]; // the pinned columns' offsets from the last time this table was drawn, so it can be laid out once instead of twice
+  var h='<div class="tw"><table'+(opts.pin?' class="pin3" data-tid="'+id+'"'+(pw?' style="--p1:'+pw[0]+'px;--p2:'+pw[1]+'px"':''):'')+'><thead><tr>'+cols.map(function(x){
     return '<th tabindex="0" data-sort="'+id+'|'+x.k+'"'+(x.num?' class="n"':'')+(x.k===st.k?' aria-sort="'+(st.dir<0?"descending":"ascending")+'"':'')+'>'+x.l+'</th>'}).join("")+'</tr></thead><tbody>';
-  h+=rows.map(function(r){var a=opts.row?opts.row(r):"";return '<tr'+a+'>'+cols.map(function(x){return '<td'+(x.num?' class="n"':'')+'>'+(x.f?x.f(r):esc(x.v(r)))+'</td>'}).join("")+'</tr>'}).join("");
+  var rowH=function(r){var a=opts.row?opts.row(r):"";return '<tr'+a+'>'+cols.map(function(x){return '<td'+(x.num?' class="n"':'')+'>'+(x.f?x.f(r):esc(x.v(r)))+'</td>'}).join("")+'</tr>'};
+  if(LAZY.on&&rows.length>LAZY.first){h+=rows.slice(0,LAZY.first).map(rowH).join("");LAZY.q.push({id:id,rows:rows.slice(LAZY.first),f:rowH})} // a fresh tab shows its first rows at once and the rest a moment later
+  else h+=rows.map(rowH).join("");
   if(!rows.length)h+='<tr><td colspan="'+cols.length+'" class="empty">Nothing matches these filters.</td></tr>';
   return h+'</tbody></table></div>'}
 
@@ -2125,14 +2128,18 @@ function render(){
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
-  TABS[S.tab]();pinFix();view._tab=S.tab;betCount();
+  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;pinFix();lazyRest();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
+var PINW={},LAZY={on:0,first:45,q:[]};
+function lazyRest(){var q=LAZY.q;LAZY.q=[];if(!q.length)return;requestAnimationFrame(function(){setTimeout(function(){q.forEach(function(j){
+  var tb=view.querySelector('th[data-sort^="'+j.id+'|"]');tb=tb&&tb.closest("table");tb=tb&&tb.tBodies[0];if(tb)tb.insertAdjacentHTML("beforeend",j.rows.map(j.f).join(""))})},0)})}
 function pinFix(){ // team, player and opponent stay put while the rest of a wide table scrolls sideways: each needs to know how wide the ones before it are
   [].forEach.call(document.querySelectorAll("table.pin3"),function(t){var th=t.querySelectorAll("thead th");if(th.length<3)return;
-    function fit(){var a=th[0].getBoundingClientRect().width,b=th[1].getBoundingClientRect().width;t.style.setProperty("--p1",a+"px");t.style.setProperty("--p2",(a+b)+"px")}
-    fit();if(!t._ro&&typeof ResizeObserver!=="undefined"){t._ro=new ResizeObserver(fit);t._ro.observe(th[0]);t._ro.observe(th[1])}})} // logos and fonts arrive after the first draw and change the widths
+    function fit(){var a=th[0].getBoundingClientRect().width,b=th[1].getBoundingClientRect().width,id=t.dataset.tid,o=PINW[id];if(o&&Math.abs(o[0]-a)<.5&&Math.abs(o[1]-a-b)<.5&&t.style.getPropertyValue("--p1"))return;
+      if(id)PINW[id]=[a,a+b];t.style.setProperty("--p1",a+"px");t.style.setProperty("--p2",(a+b)+"px")}
+    if(typeof ResizeObserver==="undefined")fit();if(!t._ro&&typeof ResizeObserver!=="undefined"){t._ro=new ResizeObserver(fit);t._ro.observe(th[0]);t._ro.observe(th[1])}})} // logos and fonts arrive after the first draw and change the widths
 if(typeof window!=="undefined"&&window.addEventListener)window.addEventListener("resize",pinFix);
 function save(){try{localStorage.setItem("gol",JSON.stringify({a:S.a,b:S.b,px:S.px,goalie:S.goalie,rank:S.rank,unit:S.unit,book:S.book}))}catch(_){}}
 function go(tab){S.tab=tab;try{history.replaceState(null,"","#"+tab)}catch(_){}render();window.scrollTo(0,0)}
