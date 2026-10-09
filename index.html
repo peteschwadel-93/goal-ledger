@@ -291,7 +291,8 @@ svg.logo{color:var(--ink);background:var(--bg)}
 
 /* goal light: a pick card whose player has scored glows and pulses red, like the lamp behind the net */
 :root{--goal:#ff3b30;--goal-hot:#ff6a5e;--goal-soft:#3d100d;--goal-ink:#1a0504}
-.rcard.win{border-color:var(--goal);background:linear-gradient(180deg,var(--goal-soft),var(--bg) 60%);box-shadow:0 0 0 1px var(--goal),0 0 26px -4px var(--goal);animation:goallight 1.5s ease-in-out infinite}
+.rcard.win{position:relative;border-color:var(--goal);background:linear-gradient(180deg,var(--goal-soft),var(--bg) 60%);box-shadow:0 0 0 1px var(--goal),0 0 14px -6px var(--goal)}
+.rcard.win::after{content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;box-shadow:0 0 0 2px var(--goal-hot),0 0 46px 2px var(--goal);opacity:0;animation:rowlight 1.5s ease-in-out infinite;will-change:opacity} /* the glow pulses by fading a fixed layer in and out, which the graphics card does on its own, rather than redrawing a blur every frame */
 @keyframes goallight{0%,100%{box-shadow:0 0 0 1px var(--goal),0 0 14px -6px var(--goal)}50%{box-shadow:0 0 0 2px var(--goal-hot),0 0 46px 2px var(--goal)}}
 .rcard.win .rhead .tm,.rcard.win .rhead .tm .at{color:var(--goal-hot)}
 .rcard.win .rname{color:var(--goal-hot);text-shadow:0 0 18px color-mix(in srgb,var(--goal) 60%,transparent)}
@@ -301,7 +302,7 @@ svg.logo{color:var(--ink);background:var(--bg)}
 .rcard.win .chev polyline.on{stroke:var(--goal-hot);filter:drop-shadow(0 0 4px var(--goal))}
 .rcard.win:hover{border-color:var(--goal-hot)}
 .rcard.win .edge{background:var(--goal);color:#fff}
-@media(prefers-reduced-motion:reduce){.rcard.win{animation:none;box-shadow:0 0 0 1px var(--goal),0 0 30px -4px var(--goal)}}
+@media(prefers-reduced-motion:reduce){.rcard.win::after{animation:none}.rcard.win{box-shadow:0 0 0 1px var(--goal),0 0 30px -4px var(--goal)}}
 
 /* game-card rows: chance, best price with the book, fair price, edge, value score; and a header line naming the columns */
 .prow .pv4.pvg,.phd .pv4.pvg{grid-template-columns:56px 92px 64px 58px 46px}
@@ -357,10 +358,11 @@ tbody tr.glit .res.m{background:var(--goal);color:#fff}
 .tag.pk{background:var(--goal);border-color:var(--goal);color:#fff}
 .tag.nt.pkc{border-color:var(--goal);color:var(--goal-hot)}
 tbody tr.ffirst>td:first-child{box-shadow:inset 3px 0 0 var(--goal)}
-tbody tr.fpick>td,tbody tr.fpick:nth-child(odd)>td{background:color-mix(in srgb,var(--goal) 20%,var(--bg));animation:feedlight 1.6s ease-in-out infinite}
+tbody tr.fpick>td,tbody tr.fpick:nth-child(odd)>td{position:relative;background:color-mix(in srgb,var(--goal) 14%,var(--bg))}
+tbody tr.fpick>td::after{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--goal) 22%,transparent);opacity:0;animation:rowlight 1.6s ease-in-out infinite;will-change:opacity}
 tbody tr.fpick>td:first-child{box-shadow:inset 4px 0 0 var(--goal-hot)}
 @keyframes feedlight{0%,100%{background-color:color-mix(in srgb,var(--goal) 14%,var(--bg))}50%{background-color:color-mix(in srgb,var(--goal) 32%,var(--bg))}}
-@media(prefers-reduced-motion:reduce){tbody tr.fpick>td{animation:none}}
+@media(prefers-reduced-motion:reduce){tbody tr.fpick>td::after{animation:none}}
 td .bk{margin-left:6px}
 
 /* shots tab */
@@ -650,6 +652,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 @media(max-width:1180px){.sbgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.sbgrid{grid-template-columns:1fr}}
 .bxts{max-width:none;width:100%}
 .sbt{grid-template-columns:40px 64px 1fr auto 48px;gap:10px;min-height:46px}.sbt .tlogo{width:38px;height:38px}.sbab{font-size:28px;letter-spacing:.05em}.sbsc{font-size:34px}.sbrec{font-size:12.5px}
+.tlogo{filter:drop-shadow(0 0 1px rgba(255,255,255,.75))} /* one soft outline instead of two: logos are drawn dozens of times in the big tables */
 </style>
 
 <div class="wrap">
@@ -763,7 +766,11 @@ function fairOdds(p){return p>0&&p<1?fmtP(p<=.5?Math.round((1/p-1)*100/5)*5:-Mat
    so a fair price on a likely scorer ranks above the same percentage edge on a long shot, where a small error in the
    estimate matters most. This is the "blend" of likelihood and value. */
 function valScore(p,pay){return (p*pay-1)/(pay-1)*100}
-function normName(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\b(jr|sr|ii|iii)\b/g,"").replace(/[^a-z]/g,"")}
+var NN={},NNn=0; // names are matched thousands of times a render: each one is cleaned once and remembered
+function normName(s){s=String(s||"");var v=NN[s];if(v!==undefined)return v;if(++NNn>30000){NN={};NNn=1}
+  return NN[s]=s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\b(jr|sr|ii|iii)\b/g,"").replace(/[^a-z]/g,"")}
+function nameIx(a){ // a price list's rows by cleaned name, built once per list: the first row for a name wins, as the old loops did
+  if(!a._ix){var m={};for(var i=0;i<a.length;i++){var k=normName(a[i][0]);if(!(k in m))m[k]=i}try{Object.defineProperty(a,"_ix",{value:m})}catch(_){return m}}return a._ix}
 function level(p){return p>=.40?4:p>=.35?3:p>=.30?2:p>=.25?1:0}
 function chev(lv,cls){var s='<svg class="chev lv'+lv+' '+(cls||"")+'" viewBox="0 0 86 28" aria-hidden="true">';
   for(var i=0;i<4;i++)s+='<polyline points="'+(8+i*20)+',4 '+(20+i*20)+',14 '+(8+i*20)+',24"'+(i<lv?' class="on"':'')+'/>';return s+'</svg>'}
@@ -836,7 +843,9 @@ function overShare(mu,line){var o=0,u=0,p;for(var k=0;k<=25;k++){p=pois(k,mu);if
 function homeWin(lh,la){var w=0,t=0;for(var i=0;i<=14;i++){var pi=pois(i,lh);for(var j=0;j<=14;j++){var q=pi*pois(j,la);if(i>j)w+=q;else if(i===j)t+=q}}return w+t/2}
 function bis(f,lo,hi){for(var i=0;i<40;i++){var mid=(lo+hi)/2;if(f(mid)>0)hi=mid;else lo=mid}return (lo+hi)/2}
 function marketTotals(ln){ // {a,h}: goals each side is priced to score by skaters (the shootout winner's bonus goal is taken out)
-  if(!ln||!ln.tot)return null;
+  if(!ln||!ln.tot)return null;var ck=ln.tot[0]+"|"+ln.tot[1]+"|"+ln.wp;if(ln._mt&&ln._mt.k===ck)return ln._mt.v; // worked out once per set of lines, not on every render
+  var v=mtCalc(ln);try{Object.defineProperty(ln,"_mt",{value:{k:ck,v:v},writable:true})}catch(_){}return v}
+function mtCalc(ln){
   var mu=bis(function(m){return overShare(m,ln.tot[0])-ln.tot[1]},2,11)-.08,wp=ln.wp==null?.5:ln.wp;
   var s=bis(function(x){return homeWin((mu+x)/2,(mu-x)/2)-wp},-3,3);
   return{h:(mu+s)/2,a:(mu-s)/2,mu:mu}}
@@ -847,7 +856,7 @@ function gameKey(m){return m.d+"|"+m.a+"|"+m.h}
 function oddsOf(m){var o=(D.odds||{})[gameKey(m)];return o||null}
 function priceOf(o,name,day,pid){var man=S.px[day+"|"+pid];if(man)return{price:man,book:"your price",n:0,manual:1};
   if(!o||!o.p)return null;var k=normName(name);
-  for(var i=0;i<o.p.length;i++)if(normName(o.p[i][0])===k){var x=o.p[i],q=x[5];
+  var i=nameIx(o.p)[k];if(i!=null){var x=o.p[i],q=x[5];
     if(S.book&&!S.bookOff){ // one book only: his price there, or nothing if that book has not posted him
       if(!q||q[S.book]==null)return null;
       return{price:q[S.book],book:S.book,n:x[3],mid:x[4],best:x[1],bestBook:x[2],one:1,all:q}}
@@ -940,7 +949,7 @@ function slate(day){
         out.push(r)})})});
   return out}
 function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line across books and the best price each way on it, or one book's own line
-  if(!o||!o.s)return null;var k=normName(name),q=null;for(var i=0;i<o.s.length;i++)if(normName(o.s[i][0])===k){q=o.s[i][1];break}
+  if(!o||!o.s)return null;var k=normName(name),q=null;var si=nameIx(o.s)[k];if(si!=null)q=o.s[si][1];
   if(!q)return null;var all=Object.keys(q);if(!all.length)return null;
   var cnt={},cons=null;all.forEach(function(b){cnt[q[b][0]]=(cnt[q[b][0]]||0)+1});Object.keys(cnt).forEach(function(l){if(cons==null||cnt[l]>cnt[cons]||(cnt[l]===cnt[cons]&&+l<+cons))cons=l});cons=+cons;
   // the market's own over chance on that line: each book's two prices with its margin taken out, then the middle book
@@ -956,8 +965,8 @@ function altOf(o,name){ // best over price on every line a book offers for him: 
   var out={},k=normName(name),one=S.book&&!S.bookOff?S.book:null;
   function put(b,line,price){if(price==null||(one&&b!==one))return;var x=out[line]||(out[line]={all:{}}),lab=b+" · "+line+"+";lab=b;x.all[lab]=x.all[lab]==null||payout(price)>payout(x.all[lab])?price:x.all[lab];
     if(x.price==null||payout(price)>payout(x.price)){x.price=price;x.bk=b;x.book=b}}
-  if(o&&o.sa)for(var i=0;i<o.sa.length;i++)if(normName(o.sa[i][0])===k){var q=o.sa[i][1];Object.keys(q).forEach(function(b){q[b].forEach(function(lp){put(b,lp[0],lp[1])})});break}
-  if(o&&o.s)for(var n=0;n<o.s.length;n++)if(normName(o.s[n][0])===k){var m=o.s[n][1];Object.keys(m).forEach(function(b){put(b,m[b][0],m[b][1])});break}
+  var ai=o&&o.sa?nameIx(o.sa)[k]:null;if(ai!=null){var q=o.sa[ai][1];Object.keys(q).forEach(function(b){q[b].forEach(function(lp){put(b,lp[0],lp[1])})})}
+  var ni=o&&o.s?nameIx(o.s)[k]:null;if(ni!=null){var m=o.s[ni][1];Object.keys(m).forEach(function(b){put(b,m[b][0],m[b][1])})}
   return out}
 /* ---- Rung value: a higher rung priced too long on a player the model and the market otherwise agree about ---- */
 var RV={hair:.92,minPts:.04,minP:.15,gap:.12};
