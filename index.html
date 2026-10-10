@@ -663,6 +663,9 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .bets td{padding:4px 6px}.bets th{padding:9px 6px;letter-spacing:.04em}.bets td:first-child,.bets th:first-child{padding-left:10px}.bets .bty{white-space:nowrap}
 .bets select.bbs{width:112px;max-width:112px}
 .bets td .bsel[data-be$="|res"]{min-width:68px}.bets .pxin.bun{width:50px}.bets .pxin{min-width:64px}.bets .pxin.bun{min-width:50px}
+.bktip .bkc{font-size:12px;color:var(--muted);margin:-2px 0 6px}.bktip .bkc b{color:var(--ink);font-weight:600}
+.bktip .bkr em{font:600 11.5px var(--body);font-style:normal;margin-left:auto;margin-right:-8px;min-width:38px;text-align:right}.bktip .bkr em.ok{color:var(--made,#4ade80)}.bktip .bkr em.lo{color:var(--muted)}.bktip .bkr em.neg{color:var(--neg)}
+.bktip .bkr.thin span,.bktip .bkr.thin b{opacity:.5}.bktip .bkr.thin.top span,.bktip .bkr.thin.top b{color:var(--muted)}
 </style>
 
 <div class="wrap">
@@ -2248,8 +2251,13 @@ function go(tab){S.tab=tab;try{history.replaceState(null,"","#"+tab)}catch(_){}r
 var TIP={el:null,at:null,pin:0};
 function showTip(h,pin){var el=TIP.el||(TIP.el=document.body.appendChild(Object.assign(document.createElement("div"),{className:"bktip"})));
   var l=h.dataset.bk.split("|").map(function(x){var i=x.lastIndexOf(":");return[x.slice(0,i),+x.slice(i+1)]}).sort(function(a,b){return payout(b[1])-payout(a[1])}),best=l[0][1],bet=h.dataset.bet;pin=pin&&bet?1:0;
-  el.innerHTML='<div class="bkh">'+esc(h.dataset.nm)+' <span>'+l.length+(l.length>1?" books":" book")+'</span></div>'+l.map(function(x){return '<div class="bkr'+(x[1]===best?" top":"")+(x[0]===h.dataset.at?" at":"")+'"'+(pin?' data-add="'+esc(x[0]+"|"+x[1])+'" role="button" tabindex="0"':'')+'><span>'+esc(x[0])+'</span><b>'+fmtP(x[1])+'</b>'+(pin?'<i>+ add</i>':'')+'</div>'}).join("")+
-    (bet?'<div class="bkf">'+(pin?"Pick the book you bet it at. You can change the odds afterwards in My bets.":"Click the price to add it to My bets")+'</div>':'');
+  var bt=bet?bet.split("|"):null,MIN=.03; // each book's edge at the chance the tables use; under +3% is shown as too thin
+  function chAt(lbl){if(!bt)return null;var mm=/^(.*) · (\d+(?:\.\d+)?)$/.exec(lbl),line=bt[3]===""?null:+bt[3];if(mm&&bt[2]!=="g")line=+mm[2];try{return legChance({d:bt[1],p:+bt[0],m:bt[2],line:line})}catch(_){return null}}
+  var ch0=chAt(""),need=ch0&&ch0>0&&ch0<.97?amer((1+MIN)/ch0):null;
+  el.innerHTML='<div class="bkh">'+esc(h.dataset.nm)+' <span>'+l.length+(l.length>1?" books":" book")+'</span></div>'+
+    (ch0!=null?'<div class="bkc">Chance <b>'+p1(ch0)+'</b>'+(need!=null&&(1+MIN)/ch0>1.01?' · +3% needs <b>'+fmtP(need)+'</b> or better':'')+'</div>':'')+
+    l.map(function(x){var c=chAt(x[0]),e=c==null?null:c*payout(x[1])-1;return '<div class="bkr'+(x[1]===best?" top":"")+(x[0]===h.dataset.at?" at":"")+(e!=null&&e<MIN?" thin":"")+'"'+(pin?' data-add="'+esc(x[0]+"|"+x[1])+'" role="button" tabindex="0"':'')+'><span>'+esc(x[0])+'</span>'+(e!=null?'<em class="'+(e>=MIN?"ok":e>=0?"lo":"neg")+'">'+(e>=0?"+":"−")+Math.abs(Math.round(e*100))+'%</em>':'')+'<b>'+fmtP(x[1])+'</b>'+(pin?'<i>+ add</i>':'')+'</div>'}).join("")+
+    (bet?'<div class="bkf">'+(ch0!=null?"Edge at each book; under +3% is dimmed. ":"")+(pin?"Pick the book you bet it at. You can change the odds afterwards in My bets.":"Click the price to add it to My bets")+'</div>':'');
   el.className="bktip"+(pin?" pin":"");TIP.pin=pin;TIP.bet=bet||null;TIP.nm=h.dataset.nm;
   el.style.display="block";var r=h.getBoundingClientRect(),w=el.offsetWidth,ht=el.offsetHeight,x=Math.min(window.innerWidth-w-8,Math.max(8,r.left+r.width/2-w/2)),y=r.bottom+6+ht>window.innerHeight?r.top-ht-6:r.bottom+6;
   el.style.left=x+"px";el.style.top=Math.max(8,y)+"px";TIP.at=h}
