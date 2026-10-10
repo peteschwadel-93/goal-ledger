@@ -75,13 +75,22 @@ if (games.length) {
      drops off the list before it locks stays here, so the Tracker can grade what was on offer earlier in the day and
      see whether the price then moved toward it (the "closing line"). */
   const stamp = new Date(now).toISOString(), prevDay = store[day] || {};
-  const seenG = prevDay.seenG || {}, seenS = prevDay.seenS || {};
+  const seenG = prevDay.seenG || {}, seenS = prevDay.seenS || {}, seenLS = prevDay.seenLS || {};
   const byP = {}; api.slate(day).forEach(r => { byP[r.p] = r; });
   picks.forEach(k => {
     if (!seenG[k.p]) seenG[k.p] = { p: k.p, n: k.n, t: k.t, o: k.o, ts: k.ts, price0: k.price, book0: k.book, at0: stamp };
     if (!k.lk) seenG[k.p].last = stamp;
   });
   Object.values(seenG).forEach(e => {
+    if (!e.ts || Date.parse(e.ts) <= now) return;
+    const r = byP[e.p];
+    if (r && r.px) { e.close = r.px.price; e.closeBook = r.px.book; }
+  });
+  ls.forEach(k => {                                   // Likely Scorers, the main goal list: first price and the last before the game, as for the picks above
+    if (!seenLS[k.p]) seenLS[k.p] = { p: k.p, n: k.n, t: k.t, o: k.o, ts: k.ts, price0: k.price, book0: k.book, at0: stamp };
+    if (!k.lk) seenLS[k.p].last = stamp;
+  });
+  Object.values(seenLS).forEach(e => {
     if (!e.ts || Date.parse(e.ts) <= now) return;
     const r = byP[e.p];
     if (r && r.px) { e.close = r.px.price; e.closeBook = r.px.book; }
@@ -137,6 +146,15 @@ if (games.length) {
       seenL[r.p].last = stamp;
     });
   }
+  /* Each ladder first listed keeps the latest best price on its rungs until its game starts: the "close" its first prices are judged against. */
+  if (api.altOf) Object.values(seenL).forEach(e => {
+    if (!e.ts || Date.parse(e.ts) <= now) return;
+    const r = byP[e.p];
+    if (!r || !r.info) return;
+    const alt = api.altOf(r.info.o, r.name), cl = {};
+    Object.keys(e.c || {}).forEach(k => { const a = alt[+k - 0.5]; if (a) cl[k] = a.price; });
+    e.cl = cl;
+  });
   /* Parlay ideas: each one is fixed once the first game in it starts; the open places are refilled from games still to start. */
   let pz = (prevDay.pz || []).filter(e => e.ts && Date.parse(e.ts) <= now);
   if (api.pzPick) pz = pz.concat(api.pzPick(day, Object.values(byP), pz, true));
@@ -228,7 +246,7 @@ if (games.length) {
   });
   Object.assign(fz, fresh);
   if (picks.length || shots.length || ls.length || Object.keys(lad).length || rv.length || lw.length || Object.keys(fz).length || store[day]) {
-    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, pz, fz, log };
+    store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, pz, fz, log, seenLS };
   }
 }
 Object.keys(store).forEach(k => { if (store[k] && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) { delete store[k].fz; delete store[k].log; } });   // the archive has those games by now
