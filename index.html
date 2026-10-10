@@ -1120,8 +1120,13 @@ function pzRecord(season,lab){ // every finished night's ideas, one unit each at
     R.days.slice(0,S.trkN).map(function(x){return '<tr><td>'+fmtD(x.d)+", "+x.d.slice(0,4)+(x.lock?' <span class="tag">LOCKED</span>':' <span class="o">replayed</span>')+'</td><td class="n">'+x.l.length+'</td><td class="n"><b>'+x.w+'</b></td><td class="n">'+pill2(x.u)+'</td><td class="n"><b>'+usd(x.run)+'</b></td><td class="cell"><div class="tlist">'+
       x.l.map(function(z){return '<span class="tl"><b>'+z.legs.map(function(l){return esc(l.n.split(" ").pop())+' '+pzLegTxt(l).replace(" shots","")+(l.g>0?" ✓":l.g<0?" ✗":"")}).join(" + ")+'</b><span class="o"><span class="tlr">'+fmtP(z.price)+' '+esc(bkAb(z.book))+'</span><span class="tlr">chance '+p1(z.P)+'</span></span><span class="res '+(z.win>0?"m":"x")+'">'+(z.win>0?"WON":"LOST")+'</span></span>'}).join("")+'</div></td></tr>'}).join("")+'</tbody></table></div></section>'}
 /* ---- a bet's chance and edge, from the same numbers the tables use: the leg chances multiplied for a parlay ---- */
-function legChance(l){var c=BSL[l.d];if(!c||c.at!==D.built+"|"+(BSL.tick||0)){var by={};try{slate(l.d).forEach(function(r){by[r.p]=r})}catch(_){}c=BSL[l.d]={at:D.built+"|"+(BSL.tick||0),by:by}}
-  var r=c.by[l.p];if(!r)return null;if(l.m==="g")return fairP(r);var h=r.sh;if(!h||r.xs==null||l.line==null)return null;
+var BCD=0; // set when a bet's saved chance changed, so My bets is written back to the browser
+function legChance(l){ // the chance a bet (or one leg) is worth, kept on the bet up to puck drop: once the game starts the saved figure stands, so a price list that changes or drops him later cannot erase it
+  var c=BSL[l.d];if(!c||c.at!==D.built+"|"+(BSL.tick||0)){var by={};try{slate(l.d).forEach(function(r){by[r.p]=r})}catch(_){}c=BSL[l.d]={at:D.built+"|"+(BSL.tick||0),by:by}}
+  var r=c.by[l.p],live=legLive(l,r),m=r&&r.info&&r.info.m,started=!r||m.g||(m.ts&&Date.parse(m.ts)<=Date.now())||/LIVE|CRIT|OFF|FINAL/.test(m.st||"");
+  if(started)return l.pc!=null?l.pc:live;
+  if(live!=null){var v=+live.toFixed(4);if(l.pc!==v){l.pc=v;BCD=1}}return live}
+function legLive(l,r){if(!r)return null;if(l.m==="g")return fairP(r);var h=r.sh;if(!h||r.xs==null||l.line==null)return null;
   var po=l.line===h.line?(h.fairO!=null?SP.w*nbOver(r.xs,h.line)+(1-SP.w)*h.fairO:nbOver(r.xs,h.line)):l.line>h.line?rungChance(r,Math.ceil(l.line)):nbOver(r.xs,l.line);
   return l.m==="u"?1-po:po}
 function betChance(b){if(b.man)return null;if(!b.legs)return legChance(b);var P=1;for(var i=0;i<b.legs.length;i++){var q=legChance(b.legs[i]);if(q==null)return null;P*=q}return P}
@@ -2236,7 +2241,7 @@ function render(){
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
-  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;pinFix();lazyRest();view._tab=S.tab;betCount();
+  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;var td=todayET();S.bets.forEach(function(b){if(b.d>=td&&!b.man)try{betChance(b)}catch(_){}});if(BCD){BCD=0;saveBets()}pinFix();lazyRest();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
