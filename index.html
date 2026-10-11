@@ -678,6 +678,8 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .pbw{margin:0;font-size:13px;color:var(--soft)}.pbwarn{margin:0;padding-left:18px;font-size:12px;color:var(--soft);display:flex;flex-direction:column;gap:4px}.pbact{display:flex;gap:8px}
 .bktip .pbadd{margin-top:8px;width:100%;font-size:12px;padding:6px 10px}
 @media(max-width:760px){.slipbox{width:100%}}
+.mdl{border:1px solid var(--line);border-radius:12px;background:var(--raise);margin-top:10px}.mdl summary{cursor:pointer;padding:12px 16px;font:600 14px var(--body);color:var(--ink);list-style:none}.mdl summary::-webkit-details-marker{display:none}
+.mdl summary::before{content:"▸";color:var(--accent);margin-right:8px;display:inline-block;transition:transform .15s}.mdl[open] summary::before{transform:rotate(90deg)}.mdl>div{padding:0 18px 12px;font-size:13.5px;line-height:1.55;color:var(--soft);max-width:900px}.mdl p{margin:0 0 9px}.mdl b{color:var(--ink)}
 </style>
 
 <div class="wrap">
@@ -1863,6 +1865,37 @@ function firstRecord(season,lab){ // every pick graded at the price it was first
     rows.map(function(R){return '<tr><td>'+R.lab+'</td><td class="n">'+R.n+'</td><td class="n">'+R.g+'</td><td class="n"><b>'+R.w+'</b>'+(R.g?' · '+pct(R.w,R.g):'')+'</td><td class="n">'+(R.g?pill2(R.u):"–")+'</td><td class="n">'+(R.g?pill(R.u/R.g):"–")+'</td><td class="n">'+(R.cn?'<b>'+R.cb+' of '+R.cn+'</b> · '+pct(R.cb,R.cn):"–")+'</td><td class="n">'+(R.pn?(R.pts/R.pn>=0?"+":"")+(100*R.pts/R.pn).toFixed(1)+' pts':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'+
     '<div class="tw" style="margin-top:14px"><table><thead><tr><th>Day</th><th>Pick</th><th class="n">First price</th><th>First listed</th><th>Last price before the game</th><th>Result</th></tr></thead><tbody>'+
     all.slice(0,S.trkN).map(function(x){var e=x.e;return '<tr class="pick" data-player="'+e.p+'"><td>'+fmtD(x.d)+'</td><td>'+seenLabel(e,x.k)+' <span class="o">'+({s:"shots",w:"ladder",l:"goal",g:"goal · experiment"})[x.k]+'</span></td><td class="n">'+(x.k==="w"?ladRungs(e).map(function(r){return '<b>'+fmtP(r.price)+'</b>'}).join(" · "):'<b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+'</span>')+'</td><td>'+esc(fmtClock(e.at0).replace(" ET",""))+'</td><td>'+seenClose(e,x.k)+'</td><td>'+(x.g==null?'<span class="o">open</span>':'<span class="res '+(x.g>0?"m":"x")+'">'+(x.k==="w"?(function(){var by={};slate(x.d).forEach(function(r){by[r.p]=r});var u=ladUnits(e,by);return (u>=0?"+":"−")+Math.abs(u).toFixed(2)+"u"})():x.g>0?"WON":x.g<0?"LOST":"PUSH")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+function modelHtml(){ // how the numbers on the page are made, in plain words, at the foot of the Tracker
+  function D_(t,b,open){return '<details class="mdl"'+(open?' open':'')+'><summary>'+t+'</summary><div>'+b+'</div></details>'}
+  return '<section class="panel"><div class="phead"><h2>How the model works</h2></div>'+
+  '<p class="note">Everything on the page comes from three things: what each player has done in past games, the matchup tonight, and the books\' own prices. The model forms its own view, the market is used as a check on it, and a bet is only flagged when the price is better than the two of them together say it should be.</p>'+
+  D_('Goals: a player\'s chance to score',
+    '<p><b>His scoring rate.</b> Expected goals per minute at even strength and on the power play, from shot locations and types in the NHL\'s play-by-play, times how well he finishes (goals per expected goal). Every older game counts a little less: half weight about 70 games back. Each rate is mixed with a slice of league average (600 seconds of even-strength shooting, 800 of power play, 30 expected goals of finishing), so a hot start over a few games does not swamp his history.</p>'+
+    '<p><b>His role tonight.</b> Expected ice time (half weight about 8 games back, so role changes show quickly), with a small lift for players who get more than 15 minutes, a nudge for his linemates\' playmaking, and his power-play unit.</p>'+
+    '<p><b>The matchup.</b> Home ice, how many expected goals the opponent allows, the opposing goalie\'s goals against relative to expected, and back-to-backs for either side.</p>'+
+    '<p><b>The market\'s team totals.</b> Each team\'s skaters are scaled so their expected goals add up to what the moneyline and total imply, unless Team goals is set to Model. His chance to score at least once then follows from his expected goals (empty-netters count, shootout goals do not).</p>',1)+
+  D_('Shots on goal: expected shots and the over/under',
+    '<p><b>xSOG</b> is his shots-on-goal rate per minute, leaning 70% on unblocked attempts (steadier than shots that happen to reach the net) and 30% on shots on goal, weighted to recent games and mixed with two hours of league-average ice. That is multiplied by his ice time, adjusted for home ice and how many shots the opponent allows.</p>'+
+    '<p><b>Tonight\'s role</b> (from Oct 8): his ice time is shared out among who is actually dressed, so a scratched regular\'s minutes go to the others, and his power-play unit in tonight\'s lineup counts. Fitted on 2024-25 and checked on 2025-26.</p>'+
+    '<p><b>Over and under chances</b> come from xSOG through a negative binomial, which allows for shot counts being a bit more spread out than pure chance. <b>Rungs</b> (3+, 4+ and up) above the main line have their chance trimmed 8%, because the model is least sure out in the tail.</p>')+
+  D_('Blending with the market, and edge',
+    '<p>The books know things the model does not (late news, sharp money), so the page\'s <b>Chance</b> is the model and the market averaged half and half.</p>'+
+    '<p><b>The market\'s chance on goals:</b> the middle price across books with the books\' cut removed. Books take a much bigger cut on long shots than on likely scorers, so from Oct 9 the cut is taken out with a power curve (fitted on 1,806 priced skaters) rather than a flat 15%, which had been making long shots look like value. <b>On shots:</b> each book\'s over and under prices with its margin removed, then the middle book.</p>'+
+    '<p><b>Edge</b> is chance × payout − 1: what a unit is worth on average at that price. <b>Value score</b> is the edge divided by the profit if it wins, the share of bankroll Kelly would stake, so a modest edge on a likely result can outrank a big edge on a long shot.</p>')+
+  D_('The lists',
+    '<p><b>Shot Picks:</b> main-line overs and unders at least 2 points of chance above the price\'s break-even, three or more books, and no pick where the model and the market disagree by more than 12 points (that usually means the model is missing news). One a team, one pick for every three games, five at most.</p>'+
+    '<p><b>Ladder Watch:</b> players with two or more rungs between 2+ and 5+ that each beat their price (2% to 20% edge, 20%+ chance), reaching 3+ or higher. One unit is split across the rungs by edge over payout, so likelier rungs carry most of it.</p>'+
+    '<p><b>Likely Scorers</b> (the main goal list): a 25%+ chance and the best price at least 2 points above break-even, three or more books, one a team. <b>Nightly Picks</b> (the experiment): 15%+ chance, positive edge, ranked by value score.</p>'+
+    '<p><b>Parlay ideas:</b> shot legs from different games, each 3%+ over its price at the one book that posts them all; a 3-leg and two 2-leg ideas a night.</p>')+
+  D_('Stakes, parlays and locking',
+    '<p><b>Suggested units:</b> a quarter of the Kelly stake, taking one unit as 1% of bankroll, rounded to 0.25u and capped at 1.5u. Parlay ideas use an eighth of Kelly, 0.1u to 0.5u.</p>'+
+    '<p><b>Parlay chances</b> multiply the legs\' chances, adjusted for legs that land together more or less often than chance: shots overs of linemates 6% more, other teammates the same, opponents 2% less; goals of linemates 17% more, other teammates 7% more, opponents 5% more.</p>'+
+    '<p><b>Locking:</b> each pick freezes when its own game starts, with the price and chances of that moment, and the table numbers freeze at puck drop too. The records grade the locked lists; <b>Picks as first listed</b> grades every pick at the price it first appeared at.</p>'+
+    '<p><b>Prices</b> are fetched three times a day per game (a day out, midday and two hours before), so a role change after the last fetch may not be in the price yet.</p>')+
+  D_('How well it holds up',
+    '<p>The weights were fitted on 2024-25 and 2025-26, so those seasons flatter it a little; 2026-27 is the true test. The goal chances beat a flat league-average guess by about 8% every month of last season, with no warm-up needed early on, since each player\'s history carries over. Against this season\'s prices the model alone does not out-predict the books on goals, which is why goals carry so little weight in the plan, while on shots it adds information the market misses, mostly on unders.</p>'+
+    '<p>Due for a re-check in early November, once a few thousand priced games are stored: the role adjustment to xSOG, the margin curve on goals, and the Ladder Watch and parlay thresholds.</p>')+
+  '</section>'}
 var REC={s:null,w:null}; // the last Shot Picks and Ladder Watch totals worked out, for the combined tracker
 function watchRecord(season,lab){ // Ladder Watch graded: one unit a player, split across his shaded rungs
   var days={};Object.keys(D.locks||{}).forEach(function(d){if(((D.locks[d]||{}).lw||[]).length)days[d]=1});
@@ -2013,7 +2046,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    lsRec+sHtml+npHtml+firstRecord(cur,lab)+wHtml+pzRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>';
+    lsRec+sHtml+npHtml+firstRecord(cur,lab)+wHtml+pzRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>'+modelHtml();
 }
 
 /* ================= Game log ================= */
