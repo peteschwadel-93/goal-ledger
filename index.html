@@ -666,6 +666,18 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .bktip .bkc{font-size:12px;color:var(--muted);margin:-2px 0 6px}.bktip .bkc b{color:var(--ink);font-weight:600}
 .bktip .bkr em{font:600 11.5px var(--body);font-style:normal;margin-left:auto;margin-right:-8px;min-width:38px;text-align:right}.bktip .bkr em.ok{color:var(--made,#4ade80)}.bktip .bkr em.lo{color:var(--muted)}.bktip .bkr em.neg{color:var(--neg)}
 .bktip .bkr.thin span,.bktip .bkr.thin b{opacity:.5}.bktip .bkr.thin.top span,.bktip .bkr.thin.top b{color:var(--muted)}
+/* Parlay builder slip */
+.slip{position:fixed;right:16px;bottom:16px;z-index:45;max-width:calc(100vw - 32px)}
+.slipchip{font:600 13px var(--body);padding:10px 16px;border-radius:999px;background:var(--accent);color:var(--accent-ink);border:0;box-shadow:0 10px 30px -10px rgba(0,0,0,.7);cursor:pointer}
+.slipbox{width:440px;max-width:100%;max-height:78vh;overflow-y:auto;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:16px;padding:14px 16px 16px;box-shadow:0 24px 60px -16px #000;display:flex;flex-direction:column;gap:10px}
+.sliph{display:flex;align-items:center;justify-content:space-between}.sliph h3{margin:0;font:700 18px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}.pm-x.sm{position:static;width:30px;height:30px;font-size:16px}
+.slipctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12.5px}.slipctl .pxin{width:56px}.slipctl .bsel{max-width:150px}
+.pbl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.pbl li{display:grid;grid-template-columns:1fr auto auto 44px 24px;gap:8px;align-items:center;font-size:13px;padding:5px 8px;border-radius:8px;background:var(--raise);font-variant-numeric:tabular-nums}.pbl li>span:nth-child(4){text-align:right;font-weight:600}
+.pbn{min-width:0}.pbtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pbt{background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.pbt small{font:600 10.5px var(--body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}.pbt b{font:700 19px var(--body);font-variant-numeric:tabular-nums}.pbt b i{font-style:normal;font-size:13px}.pbt span{font-size:11.5px;color:var(--muted)}
+.pbw{margin:0;font-size:13px;color:var(--soft)}.pbwarn{margin:0;padding-left:18px;font-size:12px;color:var(--soft);display:flex;flex-direction:column;gap:4px}.pbact{display:flex;gap:8px}
+.bktip .pbadd{margin-top:8px;width:100%;font-size:12px;padding:6px 10px}
+@media(max-width:760px){.slipbox{width:100%}}
 </style>
 
 <div class="wrap">
@@ -1129,7 +1141,70 @@ function legChance(l){ // the chance a bet (or one leg) is worth, kept on the be
 function legLive(l,r){if(!r)return null;if(l.m==="g")return fairP(r);var h=r.sh;if(!h||r.xs==null||l.line==null)return null;
   var po=l.line===h.line?(h.fairO!=null?SP.w*nbOver(r.xs,h.line)+(1-SP.w)*h.fairO:nbOver(r.xs,h.line)):l.line>h.line?rungChance(r,Math.ceil(l.line)):nbOver(r.xs,l.line);
   return l.m==="u"?1-po:po}
-function betChance(b){if(b.man)return null;if(!b.legs)return legChance(b);var P=1;for(var i=0;i<b.legs.length;i++){var q=legChance(b.legs[i]);if(q==null)return null;P*=q}return P}
+function betChance(b){if(b.man)return null;if(!b.legs)return legChance(b);return parChance(b.legs)} // a parlay: the legs' chances multiplied, with the allowance for legs in the same game that move together
+/* ---- Parlay builder: a slip in the corner that any price can feed. It prices the ticket at one book, works out the model's chance of every leg landing
+   (with an allowance for legs that move together) and the edge, with or without a profit boost. ----
+   How often two legs land together against what their separate chances say, measured on 2024-25 to 2026-27 games:
+   shots overs: linemates 6% more often, other teammates about the same, opponents 2% less; goals: linemates 17% more, other teammates 7% more, opponents 5% more. */
+var PCO={sl:1.06,st:1,so:.98,gl:1.17,gt:1.07,go:1.05};
+function legRow(l){legChance(l);var c=BSL[l.d];return c&&c.by?c.by[l.p]:null}
+function legPrices(l){var r=legRow(l),out={};if(!r)return out;
+  if(l.m==="g"){var q=r.px&&r.px.all||{};Object.keys(q).forEach(function(b){out[b]=q[b]});return out}
+  var h=r.sh;function main(all){Object.keys(all||{}).forEach(function(lb){var i=lb.lastIndexOf(" · ");if(i>0&&+lb.slice(i+3)===l.line&&out[lb.slice(0,i)]==null)out[lb.slice(0,i)]=all[lb]})}
+  if(h)main(l.m==="o"?h.allO:h.allU);
+  if(l.m==="o"){var a=altOf(r.info.o,r.name)[l.line];if(a&&a.all)Object.keys(a.all).forEach(function(b){if(out[b]==null)out[b]=a.all[b]})}
+  return out}
+function pairF(a,b,pa,pb){var ra=legRow(a),rb=legRow(b);if(!ra||!rb||ra.info.key!==rb.info.key)return 1;
+  var same=ra.t===rb.t,mates=same&&((IX.P[a.p]||{}).mates||[]).indexOf(b.p)>=0;
+  if(a.m==="g"&&b.m==="g")return same?(mates?PCO.gl:PCO.gt):PCO.go;
+  if(a.m!=="g"&&b.m!=="g"){var r=same?(mates?PCO.sl:PCO.st):PCO.so,qa=a.m==="o"?pa:1-pa,qb=b.m==="o"?pb:1-pb,jo=r*qa*qb,
+    j=a.m==="o"&&b.m==="o"?jo:a.m==="o"?qa-jo:b.m==="o"?qb-jo:1-qa-qb+jo;return pa*pb>0?Math.max(0,j)/(pa*pb):1}
+  return 1}
+function parChance(L){var ps=L.map(legChance);if(ps.some(function(q){return q==null}))return null;var P=1,lo=1;ps.forEach(function(q){P*=q;lo=Math.min(lo,q)});
+  for(var i=0;i<L.length;i++)for(var j=i+1;j<L.length;j++)P*=pairF(L[i],L[j],ps[i],ps[j]);return Math.min(P,lo)}
+var PB=(function(){try{return JSON.parse(localStorage.getItem("golParlay"))||null}catch(_){return null}})()||{legs:[],book:"FanDuel",boost:0,units:.3,open:false};
+function savePB(){try{localStorage.setItem("golParlay",JSON.stringify(PB))}catch(_){}}
+function pbAdd(bet,nm){if(!bet)return;var k=bet.split("|"),l={p:+k[0],d:k[1],m:k[2],line:k[3]===""?null:+k[3],nm:pname(+k[0])};
+  if(PB.legs.some(function(x){return x.p===l.p&&x.d===l.d})){toast(l.nm+" is already in the parlay. Remove that leg first to swap it.");return}
+  var r=legRow(l);if(r){l.t=r.t;l.opp=r.opp;l.home=r.home?1:0}
+  PB.legs.push(l);savePB();toast("Parlay: added "+l.nm+" · "+betWhat(l)+" · "+PB.legs.length+" leg"+(PB.legs.length===1?"":"s"));renderSlip()}
+function pbCalc(){var L=PB.legs,bk=PB.book,d=1,miss=0,warn=[],sg={},now=Date.now();
+  L.forEach(function(l){var pr=legPrices(l)[bk];l._pr=pr==null?null:pr;if(pr==null)miss++;else d*=payout(pr);l._ch=legChance(l);l._ev=l._ch!=null&&pr!=null?l._ch*payout(pr)-1:null;
+    var r=legRow(l);if(r){var m=r.info.m;l._st=!!(m.g||(m.ts&&Date.parse(m.ts)<=now));(sg[r.info.key]=sg[r.info.key]||[]).push(l)}});
+  var P=L.length?parChance(L):null,same=Object.keys(sg).filter(function(k){return sg[k].length>1});
+  if(same.length)warn.push("Some legs share a game, so this is a same-game parlay. Books shave those well below the multiplied price (FanDuel paid +1436 on a pair that multiplied to +1832), usually by more than the legs really move together. Type the slip's own price into My bets after adding.");
+  same.forEach(function(k){var g=sg[k];for(var i=0;i<g.length;i++)for(var j=i+1;j<g.length;j++){var f=pairF(g[i],g[j],g[i]._ch||.5,g[j]._ch||.5);if(Math.abs(f-1)>=.02)warn.push(g[i].nm+" and "+g[j].nm+": these land together about "+Math.abs(Math.round((f-1)*100))+"% "+(f>1?"more":"less")+" often than their separate chances say; the chance allows for it.")}});
+  L.forEach(function(l){if(l._st)warn.push(l.nm+": his game has started, so the pre-game price is gone.");else if(l._ev!=null&&l._ev<.03)warn.push(l.nm+" "+betWhat(l)+" is "+(l._ev>=0?"only +":"−")+Math.abs(Math.round(l._ev*100))+"% at "+bk+": under the +3% a leg should carry.")});
+  if(L.length===1)warn.push("One leg is a single, not a parlay.");
+  var res={P:P,d:miss?null:d,miss:miss,warn:warn};
+  if(res.d&&P!=null){var bo=(+PB.boost||0)/100;res.ev=P*d-1;res.bd=1+(d-1)*(1+bo);res.bev=P*res.bd-1;res.be=P>0?(1/P-d)/(d-1):null}
+  return res}
+function slipBooks(){var m={};PB.legs.forEach(function(l){Object.keys(legPrices(l)).forEach(function(b){m[b]=(m[b]||0)+1})});var n=PB.legs.length;
+  var full=Object.keys(m).filter(function(b){return m[b]===n}),rest=bookList().filter(function(b){return full.indexOf(b)<0});if(full.indexOf(PB.book)<0&&rest.indexOf(PB.book)<0)rest.unshift(PB.book);return{full:full,rest:rest}}
+function renderSlip(){if(typeof document==="undefined"||!document.body||!D)return;var el=document.getElementById("slip");if(!el){el=document.createElement("div");el.id="slip";el.className="slip";document.body.appendChild(el)}
+  var n=PB.legs.length,c=n?pbCalc():null;
+  if(!PB.open){el.innerHTML='<button class="slipchip" type="button" id="pbTog">Parlay'+(n?' · '+n+' leg'+(n===1?'':'s')+(c&&c.d?' · '+fmtP(amer(PB.boost>0?c.bd:c.d)):''):' builder')+'</button>';return}
+  var B=slipBooks(),bo=+PB.boost>0;
+  function T(a,b,s,cls){return '<div class="pbt"><small>'+a+'</small><b'+(cls?' class="'+cls+'"':'')+'>'+b+'</b><span>'+s+'</span></div>'}
+  var h='<div class="slipbox" role="dialog" aria-label="Parlay builder"><div class="sliph"><h3>Parlay builder</h3><button class="pm-x sm" type="button" id="pbX" aria-label="Close">×</button></div>'+
+    '<div class="slipctl"><label class="f">Book <select id="pbBook" class="bsel">'+(B.full.length?'<optgroup label="Prices every leg">'+B.full.map(function(b){return '<option'+(b===PB.book?' selected':'')+'>'+esc(b)+'</option>'}).join("")+'</optgroup>':'')+'<optgroup label="'+(B.full.length?"Missing a leg":"Books")+'">'+B.rest.map(function(b){return '<option'+(b===PB.book?' selected':'')+'>'+esc(b)+'</option>'}).join("")+'</optgroup></select></label>'+
+    '<label class="f">Boost <input type="text" inputmode="decimal" id="pbBoost" class="pxin" value="'+(PB.boost||"")+'" placeholder="0">%</label><label class="f">Units <input type="text" inputmode="decimal" id="pbUnits" class="pxin bun" value="'+PB.units+'"></label></div>';
+  if(!n)h+='<p class="note">Click any price on the page and choose <b>+ Add to parlay</b>. Legs from different games pay the full multiplied price; the slip shows each leg\'s edge at the book you pick.</p>';
+  else{h+='<ul class="pbl">'+PB.legs.map(function(l,i){return '<li><span class="pbn"><b>'+esc(l.nm)+'</b> <span class="o">'+esc(betWhat(l))+(l.d!==S.day?' · '+fmtD(l.d):'')+'</span></span><span class="o" title="Chance">'+(l._ch==null?"–":p1(l._ch))+'</span><span>'+(l._pr==null?'<span class="o">none</span>':'<b>'+fmtP(l._pr)+'</b>')+'</span><span class="'+(l._ev==null?"o":l._ev>=.03?"bup":l._ev>=0?"o":"bdn")+'">'+(l._ev==null?"–":(l._ev>=0?"+":"−")+Math.abs(Math.round(l._ev*100))+'%')+'</span><button class="bdel" type="button" data-pbdel="'+i+'" aria-label="Remove leg">×</button></li>'}).join("")+'</ul>';
+    if(c.miss)h+='<p class="note">'+c.miss+' leg'+(c.miss===1?' has':'s have')+' no '+esc(PB.book)+' price. Pick another book or remove '+(c.miss===1?'it':'them')+'.</p>';
+    else if(c.P!=null){var be=c.be==null?"–":c.be<=0?"none":Math.ceil(c.be*100)+"%";
+      h+='<div class="pbtiles">'+T(esc(PB.book)+" price",fmtP(amer(c.d)),"legs multiplied")+T("Chance",p1(c.P),"fair "+fairOdds(c.P))+T("Edge",(c.ev>=0?"+":"−")+Math.abs(Math.round(c.ev*100))+"%","chance × price − 1",c.ev>=0?"bup":"bdn")+
+        (bo?T("With "+PB.boost+"% boost",fmtP(amer(c.bd))+' <i class="'+(c.bev>=0?"bup":"bdn")+'">'+(c.bev>=0?"+":"−")+Math.abs(Math.round(c.bev*100))+'%</i>',"break-even boost "+be):T("Boost to break even",be,c.be!=null&&c.be<=0?"already a fair bet":"profit boost for edge 0"))+'</div>';
+      var u=+PB.units||0,w=u*((bo?c.bd:c.d)-1);h+='<p class="pbw">'+u+'u to win <b>'+w.toFixed(2)+'u</b> · $'+(u*S.unit).toFixed(0)+' to win $'+(w*S.unit).toFixed(2)+'</p>'}
+    if(c.warn.length)h+='<ul class="pbwarn">'+c.warn.map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
+    h+='<div class="pbact"><button class="btn2" type="button" id="pbAdd"'+(c.d&&c.P!=null?'':' disabled')+'>Add to My bets</button><button class="btn2" type="button" id="pbClear">Clear</button></div>'}
+  el.innerHTML=h+'</div>'}
+function pbLog(){var c=pbCalc();if(!c.d)return;var at=new Date().toISOString(),bk=PB.book,day="";
+  var legs=PB.legs.map(function(l){if(l.d>day)day=l.d;return{id:betId(),at:at,d:l.d,p:l.p,nm:l.nm,t:l.t||"",opp:l.opp||"",home:l.home==null?null:l.home,m:l.m,line:l.line,price:l._pr,price0:l._pr,book:bk,u:1,res:"auto",pc:l._ch==null?undefined:+l._ch.toFixed(4)}});
+  var price=amer(+PB.boost>0?c.bd:c.d);
+  S.bets.push({id:betId(),at:at,d:day,legs:legs,nm:"Parlay",m:"par",book:bk,price:price,price0:amer(c.d),u:+PB.units||.3,res:"auto"});saveBets();betCount();
+  toast("Parlay added to My bets: "+legs.length+" legs at "+fmtP(price)+" · "+bk+(c.warn.some(function(x){return /same-game/.test(x)})?". Same-game: type the slip's price into My bets.":""));PB.legs=[];PB.open=false;savePB();renderSlip();if(S.tab==="bets")render()}
+
 
 function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
   return '<div class="rcard'+(c.win>0?" swin":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
@@ -2241,7 +2316,7 @@ function render(){
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
-  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;var td=todayET();S.bets.forEach(function(b){if(b.d>=td&&!b.man)try{betChance(b)}catch(_){}});if(BCD){BCD=0;saveBets()}pinFix();lazyRest();view._tab=S.tab;betCount();
+  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;var td=todayET();S.bets.forEach(function(b){if(b.d>=td&&!b.man)try{betChance(b)}catch(_){}});if(BCD){BCD=0;saveBets()}renderSlip();pinFix();lazyRest();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
@@ -2267,7 +2342,7 @@ function showTip(h,pin){var el=TIP.el||(TIP.el=document.body.appendChild(Object.
   el.innerHTML='<div class="bkh">'+esc(h.dataset.nm)+' <span>'+l.length+(l.length>1?" books":" book")+'</span></div>'+
     (ch0!=null?'<div class="bkc">Chance <b>'+p1(ch0)+'</b>'+(need!=null&&(1+MIN)/ch0>1.01?' · +3% needs <b>'+fmtP(need)+'</b> or better':'')+'</div>':'')+
     l.map(function(x){var c=chAt(x[0]),e=c==null?null:c*payout(x[1])-1;return '<div class="bkr'+(x[1]===best?" top":"")+(x[0]===h.dataset.at?" at":"")+(e!=null&&e<MIN?" thin":"")+'"'+(pin?' data-add="'+esc(x[0]+"|"+x[1])+'" role="button" tabindex="0"':'')+'><span>'+esc(x[0])+'</span>'+(e!=null?'<em class="'+(e>=MIN?"ok":e>=0?"lo":"neg")+'">'+(e>=0?"+":"−")+Math.abs(Math.round(e*100))+'%</em>':'')+'<b>'+fmtP(x[1])+'</b>'+(pin?'<i>+ add</i>':'')+'</div>'}).join("")+
-    (bet?'<div class="bkf">'+(ch0!=null?"Edge at each book; under +3% is dimmed. ":"")+(pin?"Pick the book you bet it at. You can change the odds afterwards in My bets.":"Click the price to add it to My bets")+'</div>':'');
+    (bet?'<div class="bkf">'+(ch0!=null?"Edge at each book; under +3% is dimmed. ":"")+(pin?"Pick the book you bet it at. You can change the odds afterwards in My bets.":"Click the price to add it to My bets or a parlay")+'</div>'+(pin?'<button class="btn2 pbadd" type="button" data-padd="1">+ Add to parlay</button>':''):'');
   el.className="bktip"+(pin?" pin":"");TIP.pin=pin;TIP.bet=bet||null;TIP.nm=h.dataset.nm;
   el.style.display="block";var r=h.getBoundingClientRect(),w=el.offsetWidth,ht=el.offsetHeight,x=Math.min(window.innerWidth-w-8,Math.max(8,r.left+r.width/2-w/2)),y=r.bottom+6+ht>window.innerHeight?r.top-ht-6:r.bottom+6;
   el.style.left=x+"px";el.style.top=Math.max(8,y)+"px";TIP.at=h}
@@ -2281,6 +2356,11 @@ document.addEventListener("focusin",function(e){var h=e.target.closest&&e.target
 document.addEventListener("focusout",function(e){if(!TIP.pin&&e.target.closest&&e.target.closest(".pxh"))hideTip()});
 document.addEventListener("scroll",hideTip,true);
 document.addEventListener("click",function(e){
+  var pad=e.target.closest(".bktip [data-padd]");if(pad){pbAdd(TIP.bet,TIP.nm);return hideTip()}
+  if(e.target.closest("#slip")){var sid=e.target.closest("[id]");sid=sid&&sid.id; // the parlay slip
+    if(sid==="pbTog"){PB.open=true;savePB();return renderSlip()}if(sid==="pbX"){PB.open=false;savePB();return renderSlip()}
+    var pdl=e.target.closest("[data-pbdel]");if(pdl){PB.legs.splice(+pdl.dataset.pbdel,1);savePB();return renderSlip()}
+    if(sid==="pbAdd")return pbLog();if(sid==="pbClear"){PB.legs=[];savePB();return renderSlip()}return}
   var ad=e.target.closest(".bktip [data-add]");if(ad){var ax=ad.dataset.add,ai=ax.lastIndexOf("|");addBet(TIP.bet,TIP.nm,ax.slice(0,ai),+ax.slice(ai+1));return hideTip()}
   if(e.target.closest(".bktip"))return;
   if(e.target.closest("input,select"))return;
@@ -2335,6 +2415,8 @@ function sortBy(th){var p=th.dataset.sort.split("|"),cur=S.sort[p[0]];
   if(cur&&cur.k===p[1])cur.dir=-cur.dir;else if(!cur&&th.getAttribute("aria-sort"))S.sort[p[0]]={k:p[1],dir:th.getAttribute("aria-sort")==="descending"?1:-1};
   else S.sort[p[0]]={k:p[1],dir:th.classList.contains("n")?-1:1};render()}
 document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
+  if(id==="pbBook"){PB.book=v;savePB();return renderSlip()}if(id==="pbBoost"){var bb=parseFloat(String(v).replace(/[^0-9.]/g,""));PB.boost=bb>0?bb:0;savePB();return renderSlip()}
+  if(id==="pbUnits"){var pu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(pu>0)PB.units=Math.round(pu*100)/100;savePB();return renderSlip()}
   if(t.dataset.be){var bp=t.dataset.be.split("|"),bb=S.bets.filter(function(b){return b.id===bp[0]})[0];if(!bb)return;
     if(bp[1]==="price"){var bn=parseInt(String(v).replace(/[^0-9+-]/g,""),10);if(bn&&Math.abs(bn)>=100)bb.price=bn}
     else if(bp[1]==="u"){var bu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(bu>0)bb.u=Math.round(bu*100)/100}
