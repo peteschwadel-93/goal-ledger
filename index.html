@@ -680,6 +680,18 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 @media(max-width:760px){.slipbox{width:100%}}
 .mdl{border:1px solid var(--line);border-radius:12px;background:var(--raise);margin-top:10px}.mdl summary{cursor:pointer;padding:12px 16px;font:600 14px var(--body);color:var(--ink);list-style:none}.mdl summary::-webkit-details-marker{display:none}
 .mdl summary::before{content:"▸";color:var(--accent);margin-right:8px;display:inline-block;transition:transform .15s}.mdl[open] summary::before{transform:rotate(90deg)}.mdl>div{padding:0 18px 12px;font-size:13.5px;line-height:1.55;color:var(--soft);max-width:900px}.mdl p{margin:0 0 9px}.mdl b{color:var(--ink)}
+/* closing price and tonight's exposure in My bets */
+.clv{white-space:nowrap;font:400 12.5px var(--mono)}.clv b{font-weight:600}.clv.pre b{opacity:.65}
+.netclv{display:block;margin-top:8px;font-size:13.5px;color:var(--soft)}
+.expo .xbar{height:6px;border-radius:3px;background:var(--line,rgba(255,255,255,.08));overflow:hidden;margin:2px 0 8px}
+.expo .xbar span{display:block;height:100%;background:var(--made,#4ade80)}.expo .xbar.over span{background:var(--goal-hot)}
+.expo .xtot{margin:0 0 10px;font-size:13.5px;color:var(--soft)}.expo .xtot b{color:var(--ink)}
+.expo .xrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.expo .xrow small{flex-basis:100%;font:500 11px var(--body);letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.expo .xch{font-size:13px;padding:3px 9px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:999px;white-space:nowrap}
+.expo .xwarn{margin:6px 0 0;padding-left:18px;font-size:13.5px;color:var(--goal-hot)}.expo .xwarn li{margin:3px 0}
+.expo .xok{margin:6px 0 0;font-size:13px;color:var(--muted)}
+.netclv .nv{font-weight:600;color:var(--ink)}.netclv .nv.bup{color:var(--made,#4ade80)}.netclv .nv.bdn{color:var(--goal-hot)}
 </style>
 
 <div class="wrap">
@@ -1144,6 +1156,18 @@ function legLive(l,r){if(!r)return null;if(l.m==="g")return fairP(r);var h=r.sh;
   var po=l.line===h.line?(h.fairO!=null?SP.w*nbOver(r.xs,h.line)+(1-SP.w)*h.fairO:nbOver(r.xs,h.line)):l.line>h.line?rungChance(r,Math.ceil(l.line)):nbOver(r.xs,l.line);
   return l.m==="u"?1-po:po}
 function betChance(b){if(b.man)return null;if(!b.legs)return legChance(b);return parChance(b.legs)} // a parlay: the legs' chances multiplied, with the allowance for legs in the same game that move together
+/* ---- Closing price: the price at the last odds look before puck drop. Taken from the feed while it still holds the game and kept on the bet,
+   so it outlasts the feed. Measured at the bet's own book when that book had him, otherwise the best price anywhere. ---- */
+function legClose(l,bk){var pr={};try{pr=legPrices(l);if(l.m==="g"&&!Object.keys(pr).length){var r=legRow(l);if(r&&r.px&&r.px.price!=null&&r.px.book)pr[r.px.book]=r.px.price}}catch(_){}var v=null,b=null; // a goal pick locked at puck drop keeps only its best price
+  if(bk&&pr[bk]!=null){v=pr[bk];b=bk}else Object.keys(pr).forEach(function(k){if(pr[k]!=null&&(v==null||payout(pr[k])>payout(v))){v=pr[k];b=k}});
+  if(v!=null&&(l.cp!==v||l.cpb!==b)){l.cp=v;l.cpb=b;BCD=1}return l.cp!=null?{price:l.cp,book:l.cpb}:null}
+function betClose(b){if(b.man)return null; // {dec, price, book, same}: same is 1 when it was read at the book the bet was placed at
+  if(!b.legs){var c=legClose(b,b.book);return c?{dec:payout(c.price),price:c.price,book:c.book,same:c.book===b.book}:null}
+  var dec=1,same=1;for(var i=0;i<b.legs.length;i++){var l=b.legs[i],bk=b.book||l.book,c=legClose(l,bk);if(!c)return null;dec*=payout(c.price);if(c.book!==bk)same=0}
+  return{dec:dec,price:amer(dec),book:same?b.book:"",same:same}}
+function betClv(b){var c=b.man?null:betClose(b);return c?payout(b.price)/c.dec-1:null} // above zero: your price paid more than the closing one
+var CLVA=0; // the first render each visit fills the closing prices of the last two weeks of bets; after that only the last two nights are refreshed
+function clvSweep(){var td=todayET(),lim=CLVA?1:14;CLVA=1;S.bets.forEach(function(b){if(!b.man&&days(b.d,td)<=lim)try{betClose(b)}catch(_){}})}
 /* ---- Parlay builder: a slip in the corner that any price can feed. It prices the ticket at one book, works out the model's chance of every leg landing
    (with an allowance for legs that move together) and the edge, with or without a profit boost. ----
    How often two legs land together against what their separate chances say, measured on 2024-25 to 2026-27 games:
@@ -2125,6 +2149,30 @@ function bookList(){ // every book the odds feed has quoted, plus the usual ones
   if(BKS)return BKS;var m={};["FanDuel","DraftKings","BetMGM","Caesars","Fanatics","BetRivers","ESPN BET","bet365","Bovada","Hard Rock Bet"].forEach(function(k){m[k]=1});
   Object.keys(D.odds||{}).forEach(function(k){var g=D.odds[k];(g.p||[]).forEach(function(x){if(typeof x[2]==="string")m[x[2]]=1});(g.s||[]).forEach(function(x){Object.keys(x[1]||{}).forEach(function(b){m[b]=1})})});
   return BKS=Object.keys(m).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1})}
+function clvLine(all){ // how the prices taken compare with the closing ones, over every bet whose game has started
+  var n=0,up=0,dn=0,sum=0,ps=0;all.forEach(function(x){var b=x.b,g=x.g;if(b.man||g.st==="open"||g.st==="void")return;var e=betClv(b);if(e==null)return;n++;sum+=e;if(e>.005)up++;else if(e<-.005)dn++;if(b.legs)ps++});
+  if(!n)return '';var av=sum/n;
+  return '<span class="netclv" title="Closing price: the best price at the last odds look before puck drop, at the book you bet when it had him. Beating it regularly is the surest early sign the bets are good ones, long before the win–loss record settles down. Parlays are measured against their legs\' closing prices multiplied.">Closing price: beat it on <span class="nv">'+up+' of '+n+'</span>'+(dn?', worse on '+dn:'')+(n-up-dn?', level on '+(n-up-dn):'')+' · average <span class="nv '+(av>.0005?"bup":av<-.0005?"bdn":"")+'">'+(av>=0?"+":"−")+Math.abs(av*100).toFixed(1)+'%</span>'+(ps?' <span class="o">('+ps+' parlay'+(ps>1?"s":"")+' in there)</span>':'')+'</span>'}
+var EXPO=(function(){try{var v=+localStorage.getItem("golCap");return v>0?v:4}catch(_){return 4}})(); // the nightly stake cap, in units
+function expoHtml(all){ // tonight's money by game and by player, singles and parlays together, with what to look at twice
+  var td=todayET(),bs=all.filter(function(x){return x.b.d===td&&x.g.st!=="void"});if(!bs.length)return '';
+  var tot=0,G={},P={},warn=[];
+  function gk(l){return l.t&&l.opp?[l.t,l.opp].sort().join("–"):null}
+  bs.forEach(function(x){var b=x.b,u=+b.u||0;tot+=u;if(b.man)return;var L=b.legs||[b],seenG={},seenP={};
+    L.forEach(function(l){var k=gk(l);if(k&&!seenG[k]){seenG[k]=1;var q=G[k]||(G[k]={u:0,n:0});q.u+=u;q.n++}
+      if(!seenP[l.p]){seenP[l.p]=1;var z=P[l.p]||(P[l.p]={nm:l.nm,t:l.t,u:0,n:0,sides:{}});z.u+=u;z.n++}P[l.p].sides[l.m==="u"?"u":"o"]=1});
+    if(b.legs){var cnt={};b.legs.forEach(function(l){var k=gk(l);if(k)cnt[k]=(cnt[k]||0)+1});Object.keys(cnt).forEach(function(k){if(cnt[k]>1)warn.push('A '+b.legs.length+'-leg parlay has '+cnt[k]+' legs from '+k+': books cut same-game prices by far more than the legs move together, so it needs a boost to be worth it.')})}});
+  var gl=Object.keys(G).map(function(k){return{k:k,u:G[k].u,n:G[k].n}}).sort(function(a,b){return b.u-a.u}),
+      pl=Object.keys(P).map(function(k){return P[k]}).filter(function(z){return z.n>1}).sort(function(a,b){return b.u-a.u||b.n-a.n});
+  Object.keys(P).forEach(function(k){var z=P[k];if(z.n>=3)warn.push(z.nm+' is in '+z.n+' bets, '+(+z.u.toFixed(2))+'u riding on him: one quiet night from him sinks all of them.');if(z.sides.o&&z.sides.u)warn.push(z.nm+' has both an over and an under on him.')});
+  if(gl.length&&gl[0].n>1&&tot>=1&&gl[0].u/tot>=.4)warn.push(gl[0].k+' carries '+(+gl[0].u.toFixed(2))+'u, '+Math.round(100*gl[0].u/tot)+'% of tonight\'s stake.');
+  var over=tot>EXPO+1e-9;if(over)warn.unshift('Tonight\'s stake, '+(+tot.toFixed(2))+'u, is over your '+EXPO+'u cap.');
+  function chip(lab,u,n){return '<span class="xch"><b>'+esc(lab)+'</b> '+(+u.toFixed(2))+'u <span class="o">· '+n+(n===1?" bet":" bets")+'</span></span>'}
+  return '<section class="panel expo"><div class="phead"><h2>Tonight\'s exposure</h2><label class="f">Nightly cap <input type="text" inputmode="decimal" class="pxin bun" id="expoCap" value="'+EXPO+'" aria-label="Nightly stake cap in units">u</label></div>'+
+    '<div class="xbar'+(over?" over":"")+'"><span style="width:'+Math.min(100,100*tot/EXPO).toFixed(1)+'%"></span></div><p class="xtot"><b>'+(+tot.toFixed(2))+'u</b> staked on '+bs.length+(bs.length===1?" bet":" bets")+' of your '+EXPO+'u cap'+(over?'':' · '+(+(EXPO-tot).toFixed(2))+'u left')+'. A parlay counts in full against every game and player in it, since one leg missing loses all of it.</p>'+
+    (gl.length?'<div class="xrow"><small>By game</small>'+gl.map(function(g){return chip(g.k,g.u,g.n)}).join("")+'</div>':'')+
+    (pl.length?'<div class="xrow"><small>Players in more than one bet</small>'+pl.map(function(z){return chip(z.nm,z.u,z.n)}).join("")+'</div>':'')+
+    (warn.length?'<ul class="xwarn">'+warn.map(function(w){return '<li>'+esc(w)+'</li>'}).join("")+'</ul>':'<p class="xok">Nothing doubled up: no player in three bets, no same-game parlay legs, no game carrying the night.</p>')+'</section>'}
 function vBets(){
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
@@ -2138,7 +2186,7 @@ function vBets(){
   all.forEach(function(x){var g=x.g,b=x.b;if(g.st==="void")return;if(g.pl==null){T.open++;T.ostk+=b.u;return}
     T.n++;T.stk+=b.u;T.u+=g.pl;if(g.w>0)T.w++;else if(g.w<0)T.l++;else T.p++;var K=b.legs||b.man?kinds.p:kinds[b.m]||kinds.o;K.n++;K.stk+=b.u;K.u+=g.pl;if(g.w>0)K.w++;byDay[b.d]=(byDay[b.d]||0)+g.pl});
   var dk=Object.keys(byDay).sort(),run=0,runs=dk.map(function(d){run+=byDay[d];return{d:d,u:byDay[d],run:run}});
-  var head='<section class="panel netp"><div class="netbig '+(T.u>0?"up":T.u<0?"dn":"")+'"><small>My bets · net units</small><b>'+(T.n?sg(T.u)+"u":"–")+'</b><span>'+(T.n?usd(T.u)+' at $'+S.unit+' a unit · '+T.w+'–'+T.l+(T.p?'–'+T.p:'')+' · '+(+T.stk.toFixed(2))+' units staked · ROI '+(T.u/T.stk>=0?"+":"−")+Math.abs(Math.round(100*T.u/T.stk))+'%':'Nothing settled yet')+(T.open?' · '+T.open+' open ('+(+T.ostk.toFixed(2))+'u at risk)':'')+'</span></div>'+
+  var head='<section class="panel netp"><div class="netbig '+(T.u>0?"up":T.u<0?"dn":"")+'"><small>My bets · net units</small><b>'+(T.n?sg(T.u)+"u":"–")+'</b><span>'+(T.n?usd(T.u)+' at $'+S.unit+' a unit · '+T.w+'–'+T.l+(T.p?'–'+T.p:'')+' · '+(+T.stk.toFixed(2))+' units staked · ROI '+(T.u/T.stk>=0?"+":"−")+Math.abs(Math.round(100*T.u/T.stk))+'%':'Nothing settled yet')+(T.open?' · '+T.open+' open ('+(+T.ostk.toFixed(2))+'u at risk)':'')+'</span>'+clvLine(all)+'</div>'+
     '<div class="netparts n4">'+["g","o","u","p"].map(function(k){var K=kinds[k];return '<div class="netpart"><small>'+K.l+'</small><b class="'+(K.u>0?"up":K.u<0?"dn":"")+'">'+(K.n?sg(K.u)+'u':"–")+'</b><span>'+(K.n?K.w+' of '+K.n+' won · ROI '+(K.u/K.stk>=0?"+":"−")+Math.abs(Math.round(100*K.u/K.stk))+'%':'nothing settled yet')+'</span></div>'}).join("")+'</div>'+
     (runs.length?'<div class="netdays"><small>Night by night</small>'+runs.slice().reverse().slice(0,14).map(function(x){return '<span class="netday '+(x.u>0?"up":x.u<0?"dn":"")+'" title="Running total '+sg(x.run)+'u">'+fmtD(x.d)+' <b>'+sg(x.u)+'u</b></span>'}).join("")+'</div>':'')+
     '<p class="note">To add a bet, click any price on Picks, Slate table, Shots, Goals feed, Lineups or a player card and choose the book you bet it at. It lands here at one unit and that book\'s price; change the odds for a boost, or the units, in the table. The same bet can be added more than once, or copied to a new line with ⧉, when you take it again at a different price. Results fill in by themselves from the same live feed as the rest of the page. <b>Parlay:</b> tick two or more bets and press Make parlay (the ticked bets move into it) or Parlay + keep singles (they stay as bets of their own as well); the legs are multiplied together, so type the book\'s own price over it for a same-game parlay or a boost. It loses as soon as one leg loses and wins when all have. <b>Add custom bet</b> makes a blank line for anything not listed on the page, which you settle by hand. These bets are saved in this browser only, so use Export to back them up or move them to another device.</p></section>';
@@ -2158,7 +2206,10 @@ function vBets(){
       if(b.book&&l.indexOf(b.book)<0)l=l.concat([b.book]);
       return '<select class="bsel bbs" data-be="'+b.id+'|book" aria-label="Book for '+esc(b.nm)+'">'+(b.book?'':'<option value="" selected>Book</option>')+l.map(function(k){return '<option'+(k===b.book?" selected":"")+'>'+esc(k)+'</option>'}).join("")+'<option value="__other">Other…</option></select>'}},
     {k:"price",l:"Odds",num:1,v:function(x){return payout(x.b.price)},f:function(x){return '<input type="text" inputmode="numeric" class="pxin" data-be="'+x.b.id+'|price" value="'+fmtP(x.b.price)+'" aria-label="Odds for '+esc(x.b.nm)+'">'}},
-    {k:"p0",l:"Listed",num:1,v:function(x){return x.b.price0&&x.b.price0!==x.b.price?payout(x.b.price0):null},f:function(x){return x.b.price0&&x.b.price0!==x.b.price&&!x.b.man?'<span class="o bwas" title="'+(x.b.legs?"The legs multiplied together":"The price listed when you added it, before your change")+'">'+fmtP(x.b.price0)+'</span>':''}},
+    {k:"clv",l:"Close",num:1,v:function(x){return betClv(x.b)},f:function(x){var b=x.b,was=b.price0&&b.price0!==b.price&&!b.man?'<span class="o bwas" title="'+(b.legs?"The legs multiplied together":"The price listed when you added it, before your change")+'">was '+fmtP(b.price0)+'</span>':'';
+      var c=b.man?null:betClose(b);if(!c)return (was?was:'<span class="o">–</span>');var e=payout(b.price)/c.dec-1,pre=x.g.st==="open",r=Math.round(e*100);
+      var t=(pre?"Latest price":"Closing price, from the last odds look before puck drop")+(c.same?", at "+(c.book||b.book):b.legs?", each leg's best price multiplied":", best price anywhere ("+c.book+"; "+(b.book||"your book")+" did not have him)")+"."+(pre?" It becomes the closing price at the last odds look before puck drop.":"")+" "+(b.legs?"A same-game parlay shows the book's cut here. ":"")+"The figure is how much more your odds pay than the close: above zero means you beat it.";
+      return '<span class="clv'+(pre?" pre":"")+'" title="'+esc(t)+'"><span class="o">'+fmtP(c.price)+'</span> <b class="'+(Math.abs(e)<.005?"":e>0?"bup":"bdn")+'">'+(Math.abs(e)<.005?"even":(e>0?"+":"−")+Math.abs(r||(e>0?1:-1))+"%")+'</b></span>'+(was?'<br>'+was:'')}},
     {k:"pc",l:"Chance",num:1,v:function(x){return betChance(x.b)},f:function(x){var P=betChance(x.b);if(P==null)return '<span class="o">–</span>';var b=x.b,same=b.legs&&b.legs.some(function(l,i){return b.legs.some(function(q,j){return j!==i&&q.d===l.d&&q.t&&l.t&&(q.t===l.t||q.t===l.opp)})});
       return '<span class="chh"'+tipAttr(b.legs?"Parlay chance":esc(b.nm||""),(b.legs?b.legs.map(function(l){var q=legChance(l);return [l.nm+" "+betWhat(l),q==null?"–":p1(q)]}):[]).concat([["Fair price",fairOdds(P)]]).concat(same?[["Note","Some legs share a game; the chance treats them as independent"]]:[]))+'>'+p1(P)+'</span>'}},
     {k:"pe",l:"Edge",num:1,v:function(x){var P=betChance(x.b);return P==null?null:P*payout(x.b.price)-1},f:function(x){var P=betChance(x.b);if(P==null)return '<span class="o">–</span>';var e=P*payout(x.b.price)-1;return '<b class="'+(e>0?"bup":"bdn")+'" title="The chance times the payout at your odds, less one: what each unit is worth on average">'+(e>0?"+":"")+Math.round(e*100)+'%</b>'}},
@@ -2175,7 +2226,7 @@ function vBets(){
   else all.forEach(function(x){x.cont=x.grp=0});
   cols.push({k:"rec",l:"Night",v:function(x){return x.b.d+x.b.at},f:function(x){var q=x.day;if(!byN||!x.last||!q)return "";var st=q.w+q.l+q.p;
     return '<span class="brec">'+(st?q.w+'–'+q.l+(q.p?'–'+q.p:'')+' <b class="'+(q.u>0?"bup":q.u<0?"bdn":"")+'">'+sg(q.u)+'u</b>':'')+'</span>'}});
-  view.innerHTML=head+'<section class="panel bets"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
+  view.innerHTML=head+expoHtml(all)+'<section class="panel bets"><div class="phead"><h2>My bets · '+S.bets.length+'</h2><div class="pickers"><span class="seg" role="group" aria-label="Which bets">'+[["all","All"],["open","Open"],["done","Settled"]].map(function(o){return '<button data-bf="'+o[0]+'" aria-pressed="'+(f===o[0])+'">'+o[1]+'</button>'}).join("")+'</span>'+
     '<label class="f">One unit = $ <input type="text" inputmode="decimal" class="pxin" id="unitSize" value="'+S.unit+'" aria-label="Dollars per unit"></label><button class="btn2" id="betParlay"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. The ticked bets move into the parlay.">Make parlay'+(nSel?" · "+nSel:"")+'</button><button class="btn2" id="betParlayK"'+(nSel>1?"":" disabled")+' title="Tick two or more bets first. Makes the parlay and leaves the ticked bets as singles too.">Parlay + keep singles</button><button class="btn2" id="betCustom">Add custom bet</button><button class="btn2" id="betExport"'+(S.bets.length?"":" disabled")+'>Export</button><button class="btn2" id="betImport">Import</button><input type="file" id="betFile" accept="application/json,.json" hidden></div></div>'+
     (S.bets.length?table("bets",cols,rows,{k:"d",dir:-1},{row:function(x){return IX.P[x.b.p]?' data-player="'+x.b.p+'" class="'+(x.g.st==="won"?"bwon"+(x.b.m==="g"?" glit":""):"")+(byN&&x.first?" bday":"")+(x.cont?" bcont":"")+(x.grp?" bgrp":"")+'"':' class="'+(x.b.legs?"bpar":"bman")+(byN&&x.first?" bday":"")+'"'}}):'<p class="empty">No bets yet. Click any price on the Picks, Slate table, Shots, Goals feed or Lineups tabs and pick the book you took it at, or use Add custom bet.</p>')+'</section>'}
 /* ================= Movers: everything that changed between refreshes today ================= */
@@ -2349,7 +2400,7 @@ function render(){
   var keep=document.activeElement&&document.activeElement.id,pos=keep==="q"?document.activeElement.selectionStart:null;
   if(!G.length&&["scores","picks","slate","shots","feed","movers","lineups","tracker","bets","player"].indexOf(S.tab)<0){view.innerHTML='<p class="empty">No games match these filters.</p>';return}
   var tws=function(){return view.querySelectorAll?view.querySelectorAll(".tw"):[]},sx=view._tab===S.tab?[].map.call(tws(),function(e){return e.scrollLeft}):[]; // a redraw of the same tab (a sort, a filter, a live update) keeps each table where it was scrolled to
-  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;var td=todayET();S.bets.forEach(function(b){if(b.d>=td&&!b.man)try{betChance(b)}catch(_){}});if(BCD){BCD=0;saveBets()}renderSlip();pinFix();lazyRest();view._tab=S.tab;betCount();
+  LAZY.on=view._tab!==S.tab;LAZY.q=[];TABS[S.tab]();LAZY.on=0;var td=todayET();S.bets.forEach(function(b){if(b.d>=td&&!b.man)try{betChance(b)}catch(_){}});clvSweep();if(BCD){BCD=0;saveBets()}renderSlip();pinFix();lazyRest();view._tab=S.tab;betCount();
   [].forEach.call(tws(),function(e,i){if(sx[i])e.scrollLeft=sx[i]});
   if(keep&&$(keep)){$(keep).focus();if(pos!=null&&$(keep).setSelectionRange)try{$(keep).setSelectionRange(pos,pos)}catch(_){}}
 }
@@ -2461,6 +2512,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
   if(t.dataset.px){var n=parseInt(String(v).replace(/[^0-9+-]/g,""),10),k=S.day+"|"+t.dataset.px;
     if(!v.trim())delete S.px[k];else if(n&&Math.abs(n)>=100)S.px[k]=n;else{t.value="";return}
     save();return render()}
+  if(id==="expoCap"){var cu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(cu>0){EXPO=cu;try{localStorage.setItem("golCap",String(cu))}catch(_){}}return render()}
   if(id==="unitSize"){var u=parseFloat(String(v).replace(/[^0-9.]/g,""));if(u>0)S.unit=u;save();return render()}
   if(t.dataset.gk){S.goalie[t.dataset.gk]=+v;save();return render()}
   if(id==="selA")S.a=v;else if(id==="selB")S.b=v;else if(id==="selDay"){S.day=v;S.topN=12}else if(id==="selBook"){S.book=v;S.topN=12}else if(id==="selMinP"){S.minP=v==="np"?"np":+v;S.topN=12}
