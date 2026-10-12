@@ -2165,14 +2165,14 @@ function expoHtml(all){ // tonight's money by game and by player, singles and pa
   var gl=Object.keys(G).map(function(k){return{k:k,u:G[k].u,n:G[k].n}}).sort(function(a,b){return b.u-a.u}),
       pl=Object.keys(P).map(function(k){return P[k]}).filter(function(z){return z.n>1}).sort(function(a,b){return b.u-a.u||b.n-a.n});
   Object.keys(P).forEach(function(k){var z=P[k];if(z.n>=3)warn.push(z.nm+' is in '+z.n+' bets, '+(+z.u.toFixed(2))+'u riding on him: one quiet night from him sinks all of them.');if(z.sides.o&&z.sides.u)warn.push(z.nm+' has both an over and an under on him.')});
-  if(gl.length&&gl[0].n>1&&tot>=1&&gl[0].u/tot>=.4)warn.push(gl[0].k+' carries '+(+gl[0].u.toFixed(2))+'u, '+Math.round(100*gl[0].u/tot)+'% of tonight\'s stake.');
+  if(gl.length&&gl[0].n>1&&tot>=2&&gl[0].u>=1.5&&gl[0].u/tot>=.4)warn.push(gl[0].k+' carries '+(+gl[0].u.toFixed(2))+'u, '+Math.round(100*gl[0].u/tot)+'% of tonight\'s stake.');
   var over=tot>EXPO+1e-9;if(over)warn.unshift('Tonight\'s stake, '+(+tot.toFixed(2))+'u, is over your '+EXPO+'u cap.');
   function chip(lab,u,n){return '<span class="xch"><b>'+esc(lab)+'</b> '+(+u.toFixed(2))+'u <span class="o">· '+n+(n===1?" bet":" bets")+'</span></span>'}
   return '<section class="panel expo"><div class="phead"><h2>Tonight\'s exposure</h2><label class="f">Nightly cap <input type="text" inputmode="decimal" class="pxin bun" id="expoCap" value="'+EXPO+'" aria-label="Nightly stake cap in units">u</label></div>'+
     '<div class="xbar'+(over?" over":"")+'"><span style="width:'+Math.min(100,100*tot/EXPO).toFixed(1)+'%"></span></div><p class="xtot"><b>'+(+tot.toFixed(2))+'u</b> staked on '+bs.length+(bs.length===1?" bet":" bets")+' of your '+EXPO+'u cap'+(over?'':' · '+(+(EXPO-tot).toFixed(2))+'u left')+'. A parlay counts in full against every game and player in it, since one leg missing loses all of it.</p>'+
     (gl.length?'<div class="xrow"><small>By game</small>'+gl.map(function(g){return chip(g.k,g.u,g.n)}).join("")+'</div>':'')+
     (pl.length?'<div class="xrow"><small>Players in more than one bet</small>'+pl.map(function(z){return chip(z.nm,z.u,z.n)}).join("")+'</div>':'')+
-    (warn.length?'<ul class="xwarn">'+warn.map(function(w){return '<li>'+esc(w)+'</li>'}).join("")+'</ul>':'<p class="xok">Nothing doubled up: no player in three bets, no same-game parlay legs, no game carrying the night.</p>')+'</section>'}
+    (warn.length?'<ul class="xwarn">'+warn.map(function(w){return '<li>'+esc(w)+'</li>'}).join("")+'</ul>':'<p class="xok">Nothing doubled up: no player in three bets, no same-game parlay legs, no game carrying a big share of a big night.</p>')+'</section>'}
 function vBets(){
   function sg(u,dp){return (u>=0?"+":"−")+Math.abs(u).toFixed(dp==null?2:dp)}
   function usd(u){return (u<0?"−$":"+$")+Math.abs(u*S.unit).toFixed(2)}
