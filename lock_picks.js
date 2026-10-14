@@ -167,7 +167,7 @@ if (games.length) {
   Object.values(byP).forEach(r => {
     const ts = r.info.m.ts;
     if (!ts || Date.parse(ts) <= now) return;
-    const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, mv: 2, s: {} });   // mv: which version of the shots model wrote these numbers
+    const sd = r.info.side[r.t], g = fresh[r.info.key] || (fresh[r.info.key] = { at: stamp, mv: 3, s: {} });   // mv: which version of the shots model wrote these numbers
     const t = g.s[r.t] || (g.s[r.t] = { f: Object.fromEntries(Object.entries(sd.f).map(([k, v]) => [k, r5(v)])), scale: r5(sd.scale), model: r5(sd.model), mkt: r5(sd.mkt), gk: { p: sd.gk.p || 0, src: sd.gk.src || "" }, r: [] });
     const e = { p: r.p, l: r5(r.lam0), x: r5(r.xs), u: r.unit || 0, b: Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, r5(v)])),
       c: r5(r.pr), s: r5(r.ps != null ? r.ps : r.pr), px: r.px ? r.px.price : null, ln: r.sh ? r.sh.line : null };

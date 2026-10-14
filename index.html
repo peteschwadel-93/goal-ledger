@@ -693,7 +693,6 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .expo .xok{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .netclv .nv{font-weight:600;color:var(--ink)}.netclv .nv.bup{color:var(--made,#4ade80)}.netclv .nv.bdn{color:var(--goal-hot)}
 .sch3{font:600 15px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:18px 0 6px}
-.obnote{margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--goal-hot);background:var(--raise);font-size:13.5px;color:var(--soft);border-radius:4px}.obnote b{color:var(--ink)}
 </style>
 
 <div class="wrap">
@@ -761,7 +760,7 @@ var $=function(id){return document.getElementById(id)};
 var view=$("view");
 /* ---- the model's constants. Fitted on 2024-25 and 2025-26 (every skater in every game, about 100,000 player-games),
    reading each game only from what had been played before it. See the Tracker tab for how it has done since. ---- */
-var SG={gm:.98,k:7200,w:.3,b:[-.1174,1.013,.0396,1.0254,.1433,.0814],b0:[-.1071,1.1363,.0398,1.0235],role:.5,roleFrom:"2026-10-08",alpha:.06,ladder:1}; // shots on goal: fitted on 2024-25, checked on 2025-26
+var SG={gm:.98,k:7200,w:.3,b:[-.1174,1.013,.0396,1.0254,.1433,.0814],b0:[-.1071,1.1363,.0398,1.0235],role:.5,roleFrom:"2026-10-08",alpha:.06,ladder:1,volFrom:"2026-10-14",volK:2000}; // shots on goal: fitted on 2024-25, checked on 2025-26
 var C={gm:.99,   // each older game counts 1% less than the one after it (half weight about 70 games back)
        gt:.92,   // ice time looks back much less far: half weight about 8 games back
        k1:600,   // seconds of league-average even-strength shooting mixed into every player's rate
@@ -843,7 +842,11 @@ function rate(st,d){ // a player's scoring rate before the opponent is considere
   return{tev:tev,tpp:tpp,evr:evr,ppr:ppr,fin:fin,en:en,ev:fin*evr*tev,pp:fin*ppr*tpp,base:fin*(evr*tev+ppr*tpp)+en,finRel:fin/L.fin,toiF:toiF,mt:mt,role:toiF*mt,sr:sr,sog0:sog0}}
 function saF(t){var T=IX.T[t]||{sa:0,n:0};return ((T.sa||0)+C.KT*IX.L.sa)/(T.n+C.KT)/IX.L.sa} // shots the opponent allows against the league's
 function sogMu(sog0,home,opp,unit){return Math.exp(SG.b[0]+SG.b[1]*Math.log(sog0)+SG.b[2]*(home?1:0)+SG.b[3]*Math.log(saF(opp))+(unit===1?SG.b[4]:unit===2?SG.b[5]:0))}
-function sogX(day,b,q,home,opp){return day>=SG.roleFrom?sogMu(q.sog0,home,opp,q.unit):Math.exp(SG.b0[0]+SG.b0[1]*Math.log(b.sog0)+SG.b0[2]*(home?1:0)+SG.b0[3]*Math.log(saF(opp)))} // games before the role change keep the numbers the earlier version gave, so the saved record stays as it was bet
+var VS={s:null,E:0,A:0,cur:null,dE:0,dA:0}; // this season's shots so far, expected against actual, for the volume adjustment: whole days only, so games on the same day never see each other
+function volAdd(g,raw,act){if(VS.s!==g.s){VS={s:g.s,E:0,A:0,cur:null,dE:0,dA:0}}if(VS.cur!==g.d){VS.E+=VS.dE;VS.A+=VS.dA;VS.dE=VS.dA=0;VS.cur=g.d}VS.dE+=raw;VS.dA+=act}
+function volF(day){if(!day||day<SG.volFrom)return 1;var E=VS.E,A=VS.A;if(VS.cur&&day>VS.cur){E+=VS.dE;A+=VS.dA}return (A+SG.volK)/(E+SG.volK)} // how this season is shooting against the model, shrunk towards 1 until there are thousands of shots behind it
+function sogX(day,b,q,home,opp){return sogX0(day,b,q,home,opp)*volF(day)}
+function sogX0(day,b,q,home,opp){return day>=SG.roleFrom?sogMu(q.sog0,home,opp,q.unit):Math.exp(SG.b0[0]+SG.b0[1]*Math.log(b.sog0)+SG.b0[2]*(home?1:0)+SG.b0[3]*Math.log(saF(opp)))} // games before the role change keep the numbers the earlier version gave, so the saved record stays as it was bet
 function sogRole(t,list){ // tonight's role for shots: each skater's usual ice time scaled to who is dressed (minutes left by an absent regular are shared out), and his power-play unit in this lineup. list: [{p,b}] with b from rate()
   var T=IX.T[t],tt=T&&T.tt,sF=0,sD=0,sP=0,u=ppUnits(list),out={};
   list.forEach(function(e){if(isD(e.p))sD+=e.b.tev;else sF+=e.b.tev;sP+=e.b.tpp});
@@ -868,7 +871,7 @@ function build(){
       var f=context(t===g.h,defF(o),sg?gkF(sg):1,O.last&&days(O.last,g.d)===1,T.last&&days(T.last,g.d)===1);
       f.goalie=sg;cx[t]=f;
       var dressed=g.p[t].map(function(r){return{p:r[0],b:rate(pl(r[0]),isD(r[0])),r:r}}),ro=sogRole(t,dressed);
-      dressed.forEach(function(e){var x=e.b,st=IX.P[e.p],q=ro[e.p];pre[e.p]=[x.base*x.role*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6],x.toiF,x.mt,sogX(g.d,x,q,t===g.h,o)];
+      dressed.forEach(function(e){var x=e.b,st=IX.P[e.p],q=ro[e.p];var raw=sogX0(g.d,x,q,t===g.h,o);pre[e.p]=[x.base*x.role*f.all,x.tev,x.tpp,x.evr,x.ppr,x.fin,x.en,st.a[6],x.toiF,x.mt,raw*volF(g.d)];volAdd(g,raw,e.r[2]);
         if(IX.SF)IX.SF.push([g.s,st.a[6],Math.log(q.sog0),t===g.h?1:0,Math.log(saF(o)),q.unit===1?1:0,q.unit===2?1:0,e.r[2],Math.log(x.sog0)])})});
     [[g.h,g.a],[g.a,g.h]].forEach(function(pr){var t=pr[0],o=pr[1],T=tm(t);
       var fe=0,de=0,pe=0;g.p[t].forEach(function(r){if(isD(r[0]))de+=r[6]-r[7];else fe+=r[6]-r[7];pe+=r[7]});T.tt=[T.tt[0]*C.gt+fe,T.tt[1]*C.gt+de,T.tt[2]*C.gt+pe,T.tt[3]*C.gt+1];
@@ -1050,21 +1053,16 @@ function ladderWatch(day,rows){var sv=(!S.book||S.bookOff)?((D.locks||{})[day]||
     out.passed=out.length;var cut=out.slice(0,npCap(matchups(day).length));cut.passed=out.passed;return cut} // the same nightly cap as the picks: one for every three games, five at most
   return out.sort(function(a,b){return b.edge-a.edge})}
 /* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
-var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5,ob:.02,obGap:-.02,obFrom:"2026-10-14",obMin:300}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike. ob: the extra points an over needs while this season's players are taking fewer shots than expected (obGap or worse, over obMin player-games), from obFrom on
+var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
 function shotAct(r){return r.info.m.g&&r.res?[r.res[2],1]:r.sgl||null} // [his shots so far, 1 once the game is over], or null before it starts
 function shotGrade(side,line,act){ // 1 won, -1 lost, 0 push, null still open. An over is won the moment it is cleared; an under is lost the same moment
   if(!act)return null;var a=act[0];if(a>line)return side==="o"?1:-1;if(!act[1])return null;return a===line?0:side==="o"?-1:1}
-var VG={}; // the season so far, before a day: how players expected at 2+ shots did against that, {gap, n}
-function volGap(day){if(VG[day])return VG[day];var last=null;D.games.forEach(function(g){if(g.d<day&&(!last||g.d>last.d))last=g});var out={gap:0,n:0};
-  if(last){var E=0,A=0;D.games.forEach(function(g){if(g.s!==last.s||g.d>=day)return;var pre=IX.PRE[g.id];if(!pre)return;[g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var x=pre[r[0]];if(x&&x[10]>=2){out.n++;E+=x[10];A+=r[2]}})})});if(E)out.gap=A/E-1}
-  return VG[day]=out}
-function overBar(day){if(!day||day<SP.obFrom)return 0;var v=volGap(day);return v.n>=SP.obMin&&v.gap<=SP.obGap?SP.ob:0} // the extra an over needs tonight: 0 when shots are running near expectation
 function shotCands(day,rows){ // every side that passes the tests, best edge first; r.spx marks a row the model likes but the market disagrees with too much
-  var out=[],ob=overBar(day);(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
+  var out=[];(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
     var pm=nbOver(r.xs,h.line),best=null;
     [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var ps=SP.w*x[1]+(1-SP.w)*x[2],ev=ps*payout(x[3].price)-1;
       if(!best||ps-1/payout(x[3].price)>best.vs)best={r:r,p:r.p,side:x[0],line:h.line,price:x[3].price,book:x[3].bk,all:x[3].all,lab:x[3].book,pm:x[1],mk:x[2],ps:ps,ev:ev,vs:ps-1/payout(x[3].price),xs:r.xs,ts:r.info.m.ts||null}});
-    if(!best||best.vs<SP.minVs+(best.side==="o"?ob:0))return;if(best.side==="o"&&ob)best.ob=1;
+    if(!best||best.vs<SP.minVs)return;
     if(Math.abs(best.pm-best.mk)>SP.gap){r.spx=1;return}
     out.push(best)});
   return out.sort(function(a,b){return b.vs-a.vs})}
@@ -1241,7 +1239,7 @@ function pbLog(){var c=pbCalc();if(!c.d)return;var at=new Date().toISOString(),b
 
 function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
   return '<div class="rcard'+(c.win>0?" swin":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
-    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+(c.ob?'<span class="tag w" title="Cleared the stricter bar for overs">STRICTER BAR</span> ':'')+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+
       (c.act==null?'':c.win==null?'<span class="res live">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · LIVE</span>':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+(c.live?" · LIVE":"")+'</span>')+
       (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g&&c.act==null&&Date.parse(c.ts)>Date.now()?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
       (c.side==="o"&&c.xs>=c.line+SG.ladder?'<span class="tag lad">LADDER</span>':'')+'</div></div>'+
@@ -1553,7 +1551,7 @@ function vShots(){
   var cols=shotCols(isPk);
   var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
   var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><div class="pickers"><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span>'+bookPicker(day)+dayPicker(dl)+'</div></div>'+
-    (overBar(day)?'<p class="obnote"><b>Stricter on overs tonight:</b> players expected at 2+ shots are taking '+Math.abs(Math.round(volGap(day).gap*1000)/10)+'% fewer than expected this season, so an over needs '+Math.round((SP.minVs+SP.ob)*100)+' points above break-even instead of '+Math.round(SP.minVs*100)+'. Unders are unchanged. This switches off by itself once the season is back within '+Math.abs(SP.obGap*100)+'%.</p>':'')+'<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
+    '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
     (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+
     (S.book&&!S.bookOff?'':droppedStrip(day,"s",(function(){var m={};picks.forEach(function(c){m[c.p+"|"+c.side+"|"+c.line]=1});return m})()))+'</section>';
   var lw=ladderWatch(day,all);
@@ -1931,6 +1929,7 @@ function modelHtml(){ // how the numbers on the page are made, in plain words, a
   D_('Shots on goal: expected shots and the over/under',
     '<p><b>xSOG</b> is his shots-on-goal rate per minute, leaning 70% on unblocked attempts (steadier than shots that happen to reach the net) and 30% on shots on goal, weighted to recent games and mixed with two hours of league-average ice. That is multiplied by his ice time, adjusted for home ice and how many shots the opponent allows.</p>'+
     '<p><b>Tonight\'s role</b> (from Oct 8): his ice time is shared out among who is actually dressed, so a scratched regular\'s minutes go to the others, and his power-play unit in tonight\'s lineup counts. Fitted on 2024-25 and checked on 2025-26.</p>'+
+    '<p><b>This season\'s shot volume</b> (from Oct 14): every xSOG is scaled by how this season\'s players are actually shooting against what the model expected, counting whole days only and leaning towards no change until there are thousands of shots behind it. When the league shoots less than last season, as it did in early 2026-27, overs and rungs are priced down to match; if volume recovers, the scale drifts back to 1. Tested on 2024-25, 2025-26 and this season: it helped when shooting had shifted and changed nothing when it had not. The Shots check on this page shows how it is doing.</p>'+
     '<p><b>Over and under chances</b> come from xSOG through a negative binomial, which allows for shot counts being a bit more spread out than pure chance. <b>Rungs</b> (3+, 4+ and up) above the main line have their chance trimmed 8%, because the model is least sure out in the tail.</p>')+
   D_('Blending with the market, and edge',
     '<p>The books know things the model does not (late news, sharp money), so the page\'s <b>Chance</b> is the model and the market averaged half and half.</p>'+
