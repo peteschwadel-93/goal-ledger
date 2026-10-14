@@ -692,6 +692,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .expo .xwarn{margin:6px 0 0;padding-left:18px;font-size:13.5px;color:var(--goal-hot)}.expo .xwarn li{margin:3px 0}
 .expo .xok{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .netclv .nv{font-weight:600;color:var(--ink)}.netclv .nv.bup{color:var(--made,#4ade80)}.netclv .nv.bdn{color:var(--goal-hot)}
+.sch3{font:600 15px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:18px 0 6px}
 </style>
 
 <div class="wrap">
@@ -1892,9 +1893,9 @@ function firstRecord(season,lab){ // every pick graded at the price it was first
 function shotCheckHtml(cur){ // is the shots model running hot this season? expected against actual shots, week by week, from finished games, and the same for the shot bets in My bets
   function wk(d){var t=new Date(d+"T12:00:00Z"),dw=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dw);return t.toISOString().slice(0,10)}
   function plus(d,n){var t=new Date(d+"T12:00:00Z");t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
-  var W={},base={g:0,ts:0,n:0,mu:0,y:0};
-  D.games.forEach(function(g){var pre=IX.PRE[g.id];if(!pre)return;var last=g.s===cur-1&&g.d.slice(5,7)==="10",q=g.s===cur?(W[wk(g.d)]||(W[wk(g.d)]={g:0,ts:0,n:0,mu:0,y:0,bn:0,bp:0,bw:0})):last?base:null;if(!q)return;q.g++;
-    [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){q.ts+=r[2];var x=pre[r[0]];if(!x||!(x[10]>=2))return;q.n++;q.mu+=x[10];q.y+=r[2]})})});
+  var W={},base={g:0,ts:0,n:0,mu:0,y:0},PB={g:0,ts:0,n:0,mu:0,y:0},PA={g:0,ts:0,n:0,mu:0,y:0};
+  D.games.forEach(function(g){var pre=IX.PRE[g.id];if(!pre)return;var last=g.s===cur-1&&g.d.slice(5,7)==="10",q=g.s===cur?(W[wk(g.d)]||(W[wk(g.d)]={g:0,ts:0,n:0,mu:0,y:0,bn:0,bp:0,bw:0})):last?base:null;if(!q)return;var qs=[q];if(g.s===cur)qs.push(g.d<SG.roleFrom?PB:PA);qs.forEach(function(z){z.g++});
+    [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var x=pre[r[0]];qs.forEach(function(z){z.ts+=r[2];if(!x||!(x[10]>=2))return;z.n++;z.mu+=x[10];z.y+=r[2]})})})});
   S.bets.forEach(function(b){if(b.legs||b.man||(b.m!=="o"&&b.m!=="u")||b.pc==null||!W[wk(b.d)])return;var g=betGrade(b);if(g.w==null||g.st==="void"||g.w===0)return;var q=W[wk(b.d)];q.bn++;q.bp+=b.pc;if(g.w>0)q.bw++});
   var ks=Object.keys(W).sort();if(!ks.length)return '';
   function pct(a,b){var v=b?a/b-1:0;return '<b class="'+(Math.abs(v)<.02?"":v>0?"bup":"bdn")+'">'+(v>=0?"+":"−")+Math.abs(v*100).toFixed(1)+'%</b>'}
@@ -1905,7 +1906,13 @@ function shotCheckHtml(cur){ // is the shots model running hot this season? expe
     '<p class="note">Is the shots model running hot? For every finished game this season: the shots each team took, and for every player the model expected at 2 or more, his expected shots against what he actually took. A few points either way in a week is normal; several weeks in a row well below zero would mean overs are being priced too high, by the model and the books alike. The last two columns are your own shot bets (singles with a saved chance): how many won against how many the chances said should have.</p>'+
     '<div class="tw"><table class="lwt"><thead><tr><th>Week</th><th class="n">Games</th><th class="n">Team shots a game</th><th class="n">Expected (2+ players)</th><th class="n">Actual</th><th class="n">Actual vs expected</th><th class="n">Your shot bets won</th><th class="n">Chances said</th></tr></thead><tbody>'+
     ks.slice().reverse().map(function(k){return row(fmtD(k)+'–'+fmtD(plus(k,6)).replace(/^[A-Za-z]+ /,function(m){return k.slice(5,7)===plus(k,6).slice(5,7)?"":m}),W[k],1)}).join("")+
-    row('<b>Season so far</b>',tot,1)+(base.g?row('<span class="o">October last season</span>',base,0):'')+'</tbody></table></div></section>'}
+    row('<b>Season so far</b>',tot,1)+(PB.g&&PA.g?row('<span class="o">Before '+fmtD(SG.roleFrom)+' (earlier model)</span>',PB,0)+row('<span class="o">Since '+fmtD(SG.roleFrom)+' (tonight\'s role)</span>',PA,0):'')+(base.g?row('<span class="o">October last season</span>',base,0):'')+'</tbody></table></div>'+sideSplit()+'</section>'
+  function sideSplit(){var R=REC.s;if(!R||!R.n)return '';var B={};
+    R.days.forEach(function(dd){dd.pk.forEach(function(c){var k=(dd.d<SG.roleFrom?"b":"a")+c.side,z=B[k]||(B[k]={n:0,w:0,u:0,xs:0,ac:0,ln:0,m:0});z.n++;if(c.win>0)z.w++;z.u+=c.u||0;var xs=c.xs!=null?c.xs:c.r&&c.r.xs;if(xs!=null&&c.act!=null){z.m++;z.xs+=xs;z.ac+=c.act;z.ln+=c.line}})});
+    var rows=[["bo","Overs","before "+fmtD(SG.roleFrom)],["bu","Unders","before "+fmtD(SG.roleFrom)],["ao","Overs","since "+fmtD(SG.roleFrom)],["au","Unders","since "+fmtD(SG.roleFrom)]];
+    return '<h3 class="sch3">Shot Picks by side</h3><p class="note">The same picks as the Shot Picks record, split into overs and unders, before and since the role change. If the newer model leans too far towards overs, it shows here as more overs since the change, with actual shots falling short of expected on them.</p><div class="tw"><table class="lwt"><thead><tr><th>Side</th><th class="n">Picks</th><th class="n">Won</th><th class="n">Units</th><th class="n">Avg line</th><th class="n">Expected shots</th><th class="n">Actual shots</th></tr></thead><tbody>'+
+      rows.map(function(x){var z=B[x[0]];if(!z)return '<tr><td>'+x[1]+' <span class="o">'+x[2]+'</span></td><td class="n">0</td><td></td><td></td><td></td><td></td><td></td></tr>';
+        return '<tr><td>'+x[1]+' <span class="o">'+x[2]+'</span></td><td class="n">'+z.n+'</td><td class="n">'+z.w+' <span class="o">('+Math.round(100*z.w/z.n)+'%)</span></td><td class="n"><b class="'+(z.u>0?"bup":z.u<0?"bdn":"")+'">'+(z.u>=0?"+":"−")+Math.abs(z.u).toFixed(2)+'u</b></td><td class="n">'+(z.m?(z.ln/z.m).toFixed(1):"–")+'</td><td class="n">'+(z.m?(z.xs/z.m).toFixed(2):"–")+'</td><td class="n">'+(z.m?(z.ac/z.m).toFixed(2):"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}}
 function modelHtml(){ // how the numbers on the page are made, in plain words, at the foot of the Tracker
   function D_(t,b,open){return '<details class="mdl"'+(open?' open':'')+'><summary>'+t+'</summary><div>'+b+'</div></details>'}
   return '<section class="panel"><div class="phead"><h2>How the model works</h2></div>'+
