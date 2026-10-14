@@ -1889,6 +1889,23 @@ function firstRecord(season,lab){ // every pick graded at the price it was first
     rows.map(function(R){return '<tr><td>'+R.lab+'</td><td class="n">'+R.n+'</td><td class="n">'+R.g+'</td><td class="n"><b>'+R.w+'</b>'+(R.g?' · '+pct(R.w,R.g):'')+'</td><td class="n">'+(R.g?pill2(R.u):"–")+'</td><td class="n">'+(R.g?pill(R.u/R.g):"–")+'</td><td class="n">'+(R.cn?'<b>'+R.cb+' of '+R.cn+'</b> · '+pct(R.cb,R.cn):"–")+'</td><td class="n">'+(R.pn?(R.pts/R.pn>=0?"+":"")+(100*R.pts/R.pn).toFixed(1)+' pts':"–")+'</td></tr>'}).join("")+'</tbody></table></div>'+
     '<div class="tw" style="margin-top:14px"><table><thead><tr><th>Day</th><th>Pick</th><th class="n">First price</th><th>First listed</th><th>Last price before the game</th><th>Result</th></tr></thead><tbody>'+
     all.slice(0,S.trkN).map(function(x){var e=x.e;return '<tr class="pick" data-player="'+e.p+'"><td>'+fmtD(x.d)+'</td><td>'+seenLabel(e,x.k)+' <span class="o">'+({s:"shots",w:"ladder",l:"goal",g:"goal · experiment"})[x.k]+'</span></td><td class="n">'+(x.k==="w"?ladRungs(e).map(function(r){return '<b>'+fmtP(r.price)+'</b>'}).join(" · "):'<b>'+fmtP(e.price0)+'</b> <span class="o">'+esc(e.book0||"")+'</span>')+'</td><td>'+esc(fmtClock(e.at0).replace(" ET",""))+'</td><td>'+seenClose(e,x.k)+'</td><td>'+(x.g==null?'<span class="o">open</span>':'<span class="res '+(x.g>0?"m":"x")+'">'+(x.k==="w"?(function(){var by={};slate(x.d).forEach(function(r){by[r.p]=r});var u=ladUnits(e,by);return (u>=0?"+":"−")+Math.abs(u).toFixed(2)+"u"})():x.g>0?"WON":x.g<0?"LOST":"PUSH")+'</span>')+'</td></tr>'}).join("")+'</tbody></table></div></section>'}
+function shotCheckHtml(cur){ // is the shots model running hot this season? expected against actual shots, week by week, from finished games, and the same for the shot bets in My bets
+  function wk(d){var t=new Date(d+"T12:00:00Z"),dw=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dw);return t.toISOString().slice(0,10)}
+  function plus(d,n){var t=new Date(d+"T12:00:00Z");t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
+  var W={},base={g:0,ts:0,n:0,mu:0,y:0};
+  D.games.forEach(function(g){var pre=IX.PRE[g.id];if(!pre)return;var last=g.s===cur-1&&g.d.slice(5,7)==="10",q=g.s===cur?(W[wk(g.d)]||(W[wk(g.d)]={g:0,ts:0,n:0,mu:0,y:0,bn:0,bp:0,bw:0})):last?base:null;if(!q)return;q.g++;
+    [g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){q.ts+=r[2];var x=pre[r[0]];if(!x||!(x[10]>=2))return;q.n++;q.mu+=x[10];q.y+=r[2]})})});
+  S.bets.forEach(function(b){if(b.legs||b.man||(b.m!=="o"&&b.m!=="u")||b.pc==null||!W[wk(b.d)])return;var g=betGrade(b);if(g.w==null||g.st==="void"||g.w===0)return;var q=W[wk(b.d)];q.bn++;q.bp+=b.pc;if(g.w>0)q.bw++});
+  var ks=Object.keys(W).sort();if(!ks.length)return '';
+  function pct(a,b){var v=b?a/b-1:0;return '<b class="'+(Math.abs(v)<.02?"":v>0?"bup":"bdn")+'">'+(v>=0?"+":"−")+Math.abs(v*100).toFixed(1)+'%</b>'}
+  function row(lab,q,bets){return '<tr><td>'+lab+'</td><td class="n">'+q.g+'</td><td class="n">'+(q.g?(q.ts/q.g/2).toFixed(1):"–")+'</td><td class="n">'+(q.n?(q.mu/q.n).toFixed(2):"–")+'</td><td class="n">'+(q.n?(q.y/q.n).toFixed(2):"–")+'</td><td class="n">'+(q.n?pct(q.y,q.mu):"–")+'</td>'+
+    (bets?'<td class="n">'+(q.bn?q.bw+' of '+q.bn:'<span class="o">–</span>')+'</td><td class="n">'+(q.bn?(q.bp).toFixed(1):'<span class="o">–</span>')+'</td>':'<td></td><td></td>')+'</tr>'}
+  var tot={g:0,ts:0,n:0,mu:0,y:0,bn:0,bp:0,bw:0};ks.forEach(function(k){Object.keys(tot).forEach(function(f){tot[f]+=W[k][f]})});
+  return '<section class="panel"><div class="phead"><h2>Shots check · expected against actual</h2></div>'+
+    '<p class="note">Is the shots model running hot? For every finished game this season: the shots each team took, and for every player the model expected at 2 or more, his expected shots against what he actually took. A few points either way in a week is normal; several weeks in a row well below zero would mean overs are being priced too high, by the model and the books alike. The last two columns are your own shot bets (singles with a saved chance): how many won against how many the chances said should have.</p>'+
+    '<div class="tw"><table class="lwt"><thead><tr><th>Week</th><th class="n">Games</th><th class="n">Team shots a game</th><th class="n">Expected (2+ players)</th><th class="n">Actual</th><th class="n">Actual vs expected</th><th class="n">Your shot bets won</th><th class="n">Chances said</th></tr></thead><tbody>'+
+    ks.slice().reverse().map(function(k){return row(fmtD(k)+'–'+fmtD(plus(k,6)).replace(/^[A-Za-z]+ /,function(m){return k.slice(5,7)===plus(k,6).slice(5,7)?"":m}),W[k],1)}).join("")+
+    row('<b>Season so far</b>',tot,1)+(base.g?row('<span class="o">October last season</span>',base,0):'')+'</tbody></table></div></section>'}
 function modelHtml(){ // how the numbers on the page are made, in plain words, at the foot of the Tracker
   function D_(t,b,open){return '<details class="mdl"'+(open?' open':'')+'><summary>'+t+'</summary><div>'+b+'</div></details>'}
   return '<section class="panel"><div class="phead"><h2>How the model works</h2></div>'+
@@ -2070,7 +2087,7 @@ function vTracker2(){
     '<p class="note">Every finished game in '+lab+', read as the model would have seen it before puck drop: only earlier games feed each call. One caveat: for past games it uses the skaters who actually dressed and the goalie who actually started, which on the night you only know close to puck drop. The weights were fitted on 2024-25 and 2025-26, so those two seasons flatter the model a little; games from 2026-27 on are a true test.</p>'+
     '<div class="kv">'+rec("Most likely scorer in each game",top1)+rec("Top three in each game",top3)+rec("Top five on each slate",t5)+'</div>'+
     '<h3>Is a 30% call really 30%?</h3>'+cal+money+'</section>'+
-    lsRec+sHtml+npHtml+firstRecord(cur,lab)+wHtml+pzRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>'+modelHtml();
+    lsRec+sHtml+shotCheckHtml(cur)+npHtml+firstRecord(cur,lab)+wHtml+pzRecord(cur,lab)+ladderRecord(cur,lab)+rungRecord(cur,lab)+'<section class="panel"><div class="phead"><h2>Slate by slate</h2></div>'+t5Html+log+(more?'<button class="more" id="trkMore">Show 30 more days</button>':'')+'</section>'+modelHtml();
 }
 
 /* ================= Game log ================= */
