@@ -693,6 +693,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .expo .xok{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .netclv .nv{font-weight:600;color:var(--ink)}.netclv .nv.bup{color:var(--made,#4ade80)}.netclv .nv.bdn{color:var(--goal-hot)}
 .sch3{font:600 15px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:18px 0 6px}
+.obnote{margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--goal-hot);background:var(--raise);font-size:13.5px;color:var(--soft);border-radius:4px}.obnote b{color:var(--ink)}
 </style>
 
 <div class="wrap">
@@ -1049,16 +1050,21 @@ function ladderWatch(day,rows){var sv=(!S.book||S.bookOff)?((D.locks||{})[day]||
     out.passed=out.length;var cut=out.slice(0,npCap(matchups(day).length));cut.passed=out.passed;return cut} // the same nightly cap as the picks: one for every three games, five at most
   return out.sort(function(a,b){return b.edge-a.edge})}
 /* ---- Shot Picks: the model averaged with the market, a real edge, three books, and no pick where the two disagree wildly ---- */
-var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike
+var SP={w:.5,minVs:.02,books:3,gap:.12,cap:5,ob:.02,obGap:-.02,obFrom:"2026-10-14",obMin:300}; // minVs: how far the pick chance must sit above the price's break-even chance. Measured in points of chance, it treats a long price and a short one alike. ob: the extra points an over needs while this season's players are taking fewer shots than expected (obGap or worse, over obMin player-games), from obFrom on
 function shotAct(r){return r.info.m.g&&r.res?[r.res[2],1]:r.sgl||null} // [his shots so far, 1 once the game is over], or null before it starts
 function shotGrade(side,line,act){ // 1 won, -1 lost, 0 push, null still open. An over is won the moment it is cleared; an under is lost the same moment
   if(!act)return null;var a=act[0];if(a>line)return side==="o"?1:-1;if(!act[1])return null;return a===line?0:side==="o"?-1:1}
+var VG={}; // the season so far, before a day: how players expected at 2+ shots did against that, {gap, n}
+function volGap(day){if(VG[day])return VG[day];var last=null;D.games.forEach(function(g){if(g.d<day&&(!last||g.d>last.d))last=g});var out={gap:0,n:0};
+  if(last){var E=0,A=0;D.games.forEach(function(g){if(g.s!==last.s||g.d>=day)return;var pre=IX.PRE[g.id];if(!pre)return;[g.h,g.a].forEach(function(t){g.p[t].forEach(function(r){var x=pre[r[0]];if(x&&x[10]>=2){out.n++;E+=x[10];A+=r[2]}})})});if(E)out.gap=A/E-1}
+  return VG[day]=out}
+function overBar(day){if(!day||day<SP.obFrom)return 0;var v=volGap(day);return v.n>=SP.obMin&&v.gap<=SP.obGap?SP.ob:0} // the extra an over needs tonight: 0 when shots are running near expectation
 function shotCands(day,rows){ // every side that passes the tests, best edge first; r.spx marks a row the model likes but the market disagrees with too much
-  var out=[];(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
+  var out=[],ob=overBar(day);(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
     var pm=nbOver(r.xs,h.line),best=null;
     [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var ps=SP.w*x[1]+(1-SP.w)*x[2],ev=ps*payout(x[3].price)-1;
       if(!best||ps-1/payout(x[3].price)>best.vs)best={r:r,p:r.p,side:x[0],line:h.line,price:x[3].price,book:x[3].bk,all:x[3].all,lab:x[3].book,pm:x[1],mk:x[2],ps:ps,ev:ev,vs:ps-1/payout(x[3].price),xs:r.xs,ts:r.info.m.ts||null}});
-    if(!best||best.vs<SP.minVs)return;
+    if(!best||best.vs<SP.minVs+(best.side==="o"?ob:0))return;if(best.side==="o"&&ob)best.ob=1;
     if(Math.abs(best.pm-best.mk)>SP.gap){r.spx=1;return}
     out.push(best)});
   return out.sort(function(a,b){return b.vs-a.vs})}
@@ -1235,7 +1241,7 @@ function pbLog(){var c=pbCalc();if(!c.d)return;var at=new Date().toISOString(),b
 
 function shotCard(c,i){var r=c.r,b=r.b,h=r.sh,lg=(IX.P[r.p]?IX.P[r.p].log:[]).filter(function(e){return e.g.d<S.day}).slice(-10),hit=lg.filter(function(e){return c.side==="o"?e.r[2]>c.line:e.r[2]<c.line}).length;
   return '<div class="rcard'+(c.win>0?" swin":"")+'" tabindex="0" data-player="'+r.p+'"><div class="rhead"><span class="tm">'+tmL(r.t)+' <span class="at">'+(r.home?"vs":"@")+'</span> '+r.opp+'</span><span class="sside '+c.side+'">'+(c.side==="o"?"OVER ":"UNDER ")+f1(c.line)+'</span></div>'+
-    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+
+    '<div class="rblock"><h3>'+i+' · '+esc(r.pos)+(r.unit?" · PP"+r.unit:"")+'<span class="rtime">'+gameWhen(r.info.m)+'</span></h3><div class="rname">'+esc(r.name)+'</div><div class="rf">'+injTag(r)+(c.ob?'<span class="tag w" title="Cleared the stricter bar for overs">STRICTER BAR</span> ':'')+
       (c.act==null?'':c.win==null?'<span class="res live">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · LIVE</span>':'<span class="res '+(c.win>0?"m":"x")+'">'+c.act+(c.act===1?" SHOT":" SHOTS")+' · '+(c.win>0?"WON":c.win<0?"LOST":"PUSH")+(c.live?" · LIVE":"")+'</span>')+
       (c.locked?'<span class="tag">LOCKED</span>':c.ts&&!r.info.m.g&&c.act==null&&Date.parse(c.ts)>Date.now()?'<span class="tag q" title="His game has not started, so this place can still go to someone else.">OPEN · LOCKS '+esc(fmtClock(c.ts).replace(" ET",""))+'</span>':'')+
       (c.side==="o"&&c.xs>=c.line+SG.ladder?'<span class="tag lad">LADDER</span>':'')+'</div></div>'+
@@ -1547,7 +1553,7 @@ function vShots(){
   var cols=shotCols(isPk);
   var graded=priced.filter(function(r){return r.sv.act!=null&&r.sv.fin}),ov=graded.filter(function(r){return r.sv.act>r.sh.line}).length,ladG=lads.filter(function(r){return r.sv.act!=null&&r.sv.fin});
   var pkHtml='<section class="panel"><div class="phead"><h2>Shot Picks · '+fmtD(day)+'</h2><div class="pickers"><span class="tag nt'+(gr.length?(un>=0?" w":" l"):"")+'">'+(gr.length?won+' of '+gr.length+' · '+(un>=0?"+":"")+un.toFixed(2)+'u':picks.length+(picks.length===1?" pick":" picks"))+'</span>'+bookPicker(day)+dayPicker(dl)+'</div></div>'+
-    '<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
+    (overBar(day)?'<p class="obnote"><b>Stricter on overs tonight:</b> players expected at 2+ shots are taking '+Math.abs(Math.round(volGap(day).gap*1000)/10)+'% fewer than expected this season, so an over needs '+Math.round((SP.minVs+SP.ob)*100)+' points above break-even instead of '+Math.round(SP.minVs*100)+'. Unders are unchanged. This switches off by itself once the season is back within '+Math.abs(SP.obGap*100)+'%.</p>':'')+'<p class="note">The model\'s chance is averaged half and half with the market\'s own chance (each book\'s two prices with its margin removed). A pick needs its chance to sit at least 2 points above the break-even chance of the best price on the commonest line (measured in points so that neither long prices nor heavy favourites get an unfair lift), three or more books on that line, and the model within 12 points of the market; a bigger gap is marked CHECK in the table instead'+(chk?' ('+chk+' tonight)':'')+'. Ranked by that margin, one per team, one pick for every three games and five at most. Overs and unders both qualify. Each pick locks when its game starts. These thresholds are starting guesses: there is no record against real prices yet.</p>'+
     (picks.length?'<div class="rcards">'+picks.map(function(c,i){return shotCard(c,i+1)}).join("")+'</div>':'<p class="empty">'+(priced.length?"No side passes the tests "+(dl.today<=day?"right now.":"on this day."):"No shots lines are stored for this day.")+'</p>')+
     (S.book&&!S.bookOff?'':droppedStrip(day,"s",(function(){var m={};picks.forEach(function(c){m[c.p+"|"+c.side+"|"+c.line]=1});return m})()))+'</section>';
   var lw=ladderWatch(day,all);
