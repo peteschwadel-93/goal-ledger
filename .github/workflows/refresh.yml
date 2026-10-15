@@ -55,7 +55,7 @@ jobs:
           # Hours before puck drop at which each game is priced. Three requests per game per look.
           # "9,7,5,2" for Oct 14 only: tonight's games already had their day-ahead look, so this adds a 7-hour look
           # before the 5-hour one. Switch to "10,5,2" once tonight's games have started.
-          ODDS_LOOKS: "9,7,5,2"
+          ODDS_LOOKS: "10,5,2"
           ODDS_BACKFILL: ${{ inputs.backfill && '1' || '' }}
         run: python build_data.py --out data.json
 
