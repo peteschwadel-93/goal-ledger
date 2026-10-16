@@ -339,18 +339,23 @@ def build_season(season, d):
     return games, names, pos
 
 
-def upcoming(sched, days=7):
-    """Games not yet final over the next week: [{d, t, ts, h, a, gid}], in Eastern time."""
+def upcoming(sched, days=7, have=()):
+    """Games not yet final over the next week: [{d, t, ts, h, a, gid}], in Eastern time. Yesterday's games stay listed,
+    final or not, until the play-by-play archive has them (have: the archive's game ids), so last night's bets keep their
+    players and the page can still fetch their results live."""
     today = (datetime.now(ET) - timedelta(hours=DAY_ROLLS)).date()   # the hockey day, which runs past midnight
     out = []
     for r in sched.itertuples():
-        if str(r.game_state) in ("OFF", "FINAL") or str(r.game_type) not in ("R", "P"):
+        if str(r.game_type) not in ("R", "P"):
             continue
+        done = str(r.game_state) in ("OFF", "FINAL")
         try:
             when = pd.to_datetime(r.game_time, utc=True).tz_convert(ET)
         except Exception:
             continue
         ahead = (when.date() - today).days
+        if done and not (ahead == -1 and int(r.game_id) not in have):
+            continue
         if -1 <= ahead <= days:   # last night's games stay listed until the archive has them
             hour = when.strftime("%I:%M %p ET").lstrip("0")
             out.append({"d": when.strftime("%Y-%m-%d"), "t": hour, "ts": when.isoformat(), "h": r.home_team_abbr,
@@ -446,7 +451,7 @@ def load_lineups(sched):
     now, who = datetime.now(ET), {}
     for u in sched:
         hrs = (datetime.fromisoformat(u["ts"]) - now).total_seconds() / 3600
-        if not -6 <= hrs <= 3:
+        if not -36 <= hrs <= 3:   # from three hours before puck drop; last night's games are only still listed while the archive lacks them, so their results come from here
             continue
         try:
             pbp = json.loads(get(NHL_GAME.format(gid=u["gid"], what="play-by-play"), timeout=30)[0])
@@ -1038,7 +1043,7 @@ def make(seasons=3, season=None, html=None, live=True):
                 names[p] = n
         pos.update(ps)
         if y == yr:
-            sched = upcoming(d["sched"])
+            sched = upcoming(d["sched"], have={g["id"] for g in games})
             for r in d["sched"].itertuples():
                 try:
                     starts[int(r.game_id)] = pd.to_datetime(r.game_time, utc=True).to_pydatetime()
