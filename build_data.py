@@ -305,7 +305,8 @@ def build_season(season, d):
             if toi <= 0:
                 continue
             rows[r.team_abbrev].append([p, int(r.goals), int(r.shots_on_goal), e[0], round(e[1] * 1000), round(e[2] * 1000), toi,
-                                        min(pp.get(p, 0), toi), int(r.power_play_goals), e[3], e[4], e[5]])
+                                        min(pp.get(p, 0), toi), int(r.power_play_goals), e[3], e[4], e[5],
+                                        int(getattr(r, "assists", 0) or 0), int(getattr(r, "blocked_shots", 0) or 0)])   # assists and blocked shots, for the fantasy projections
         for t in (home, away):
             rows[t].sort(key=lambda x: -x[6])
             tb = sk[sk.team_abbrev == t]
