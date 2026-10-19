@@ -1024,12 +1024,13 @@ function slate(day){
       var scale=z?z.scale:S.mkt&&mk&&sum?Math.max(.6,Math.min(1.6,mk[t===m.h?"h":"a"]/sum)):1,u;
       if(z){u={};rows.forEach(function(r){u[r.p]=r.fzu})}else u=ppUnits(rows);
       info.side[t]={f:f,gk:gk,model:z?z.model:sum,scale:scale,mkt:z?z.mkt:mk?mk[t===m.h?"h":"a"]:null,conf:!m.g&&!!(m.lu&&m.lu[t]),frozen:z?1:0};
-      rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);
-        var px=priceOf(o,r.name,day,r.p);if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
+      var dn={};rows.forEach(function(r){var k=normName(pname(r.p));if(!dn[k]||(r.xs||0)>(dn[k].xs||0))dn[k]=r}); // two players with one name on a team (Elias Pettersson, VAN): the books' lines are the busier shooter's, so only he gets them
+      rows.forEach(function(r){r.lam=r.lam0*scale;r.pr=1-Math.exp(-r.lam);r.t=t;r.opp=op;r.home=t===m.h;r.info=info;r.unit=u[r.p];r.name=pname(r.p);r.pos=ppos(r.p);r.dupName=dn[normName(r.name)]!==r?1:0;r.dupOf=!r.dupName&&rows.some(function(q){return q!==r&&normName(pname(q.p))===normName(r.name)})?1:0;
+        var px=r.dupName?null:priceOf(o,r.name,day,r.p);if(px&&r.dupOf&&1/payout(px.price)<.4*r.pr)px=null; /* a shared name's price that looks like the other player's is left out */if(px){r.px=px;r.pay=payout(px.price);r.be=1/r.pay;r.ev=r.pr*r.pay-1;r.vs=valScore(r.pr,r.pay);
           var mid=1/payout(px.mid||px.price);r.mk=mktChance(mid,day);r.ps=C.np.w*r.pr+(1-C.np.w)*r.mk;r.evS=r.ps*r.pay-1;r.vsS=valScore(r.ps,r.pay);
           r.outl=!px.manual&&r.be<mid*C.np.out;r.np=r.ps>=C.np.minP&&r.evS>0&&(px.manual||px.n>=C.np.books);
           r.evM=r.ev;r.vsM=r.vs;r.ev=r.evS;r.vs=r.vsS} // edge and value score everywhere are judged on the pick chance (model and market averaged); the model-only figures are kept as evM and vsM
-        r.sh=shotsOf(o,r.name);
+        r.sh=r.dupName?null:shotsOf(o,r.name);
         out.push(r)})})});
   return out}
 function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line across books and the best price each way on it, or one book's own line
@@ -2481,9 +2482,9 @@ function dfsPool(day){ // every skater and goalie with a projection, joined to t
   var seen={};rows.forEach(function(r){var m=r.info.m,k=r.info.key+"|"+r.t;if(seen[k])return;seen[k]=1;var op=r.opp,gk=r.info.side[op]&&r.info.side[op].gk;if(!gk||!gk.p)return; // his goalie is the one the other side shoots at
     var o=r.info.o,wp=o&&o.ln&&o.ln.wp!=null?(r.t===m.h?o.ln.wp:1-o.ln.wp):poisWin(TG[r.t]||0,TG[op]||0),f=fanGoalie(wp,TG[op]||0,SA[op]||0);
     out.push({p:gk.p,name:pname(gk.p),t:r.t,opp:op,home:r.t===m.h,pos:"G",g:1,fp:f[0],sd:f[1],W:f[2],GA:f[3],SV:f[4],src:gk.src||"",r:null})});
-  if(FDSAL&&FDSAL.list){var ix={};out.forEach(function(x){ix[x.t+"|"+normName(x.name)]=x;var l=normName(x.name).split(" ").pop();var k2=x.t+"|~"+l;ix[k2]=ix[k2]?"dup":x});
+  if(FDSAL&&FDSAL.list){var ix={},grp=function(x){return x.g?"G":isD(x.p)?"D":"F"},fg=function(f){return f.pos==="G"?"G":/^D/.test(f.pos)?"D":"F"};out.forEach(function(x){ix[x.t+"|"+grp(x)+"|"+normName(x.name)]=x;var l=normName(x.name).split(" ").pop();var k2=x.t+"|"+grp(x)+"|~"+l;ix[k2]=ix[k2]?"dup":x}); // matched on team, position group and name, so two players with one name stay apart
     out.forEach(function(x){x.fd=null});var miss=[];
-    FDSAL.list.forEach(function(f){var full=normName(f.fn+" "+f.ln),nick=normName((f.nick||f.fn)+" "+f.ln),x=ix[f.team+"|"+full]||ix[f.team+"|"+nick];if(!x){var y=ix[f.team+"|~"+normName(f.ln).split(" ").pop()];if(y&&y!=="dup")x=y}
+    FDSAL.list.forEach(function(f){var G=f.team+"|"+fg(f)+"|",full=normName(f.fn+" "+f.ln),nick=normName((f.nick||f.fn)+" "+f.ln),x=ix[G+full]||ix[G+nick];if(!x){var y=ix[G+"~"+normName(f.ln).split(" ").pop()];if(y&&y!=="dup")x=y}
       if(x&&((f.pos==="G")===!!x.g))x.fd=f;else miss.push(f)});
     out.miss=miss;dfsOwn(out,day)}
   return out}
@@ -2515,7 +2516,7 @@ function dfsBuild(day){ // the lineups
   pool.forEach(function(x){by[x.p]=x});var util=FDSAL.util,n=Math.max(1,Math.min(50,+DFS.n||10)),cap=Math.max(1,Math.ceil(n*DFS.exp)),use={},stUse={},lineups=[],keys={};
   for(var it=0;lineups.length<n&&it<n*4;it++){
     var zt={},zl={};pool.forEach(function(x){if(zt[x.t]==null)zt[x.t]=gauss();var lk=x.mates&&x.mates.length?[x.p].concat(x.mates).sort().join(","):x.p;if(zl[lk]==null)zl[lk]=gauss();
-      x.v=(x.fp+(DFS.obj==="ceil"?.5*x.sd:0))*(1-(+DFS.lev||0)*(x.own||0))+DFS.rand*x.sd*(.35*zt[x.t]+.35*zl[lk]+.6*gauss())}); // leverage: a heavily owned player is worth a little less to a tournament lineup
+      x.v=(x.fp+(DFS.obj==="ceil"?.5*x.sd:0))*(1-(+DFS.lev||0)*(x.own||0))+(it?DFS.rand:0)*x.sd*(.35*zt[x.t]+.35*zl[lk]+.6*gauss())}); // the first lineup has no randomness: the plain best lineup for the aim // leverage: a heavily owned player is worth a little less to a tournament lineup
     var st=null;if(DFS.stack!=="none"&&stacks.length){var best=-1e9;stacks.forEach(function(s){var k=s.ps.join(",");if((stUse[k]||0)>=Math.ceil(n*.4))return;if(s.ps.some(function(q){return DFS.ban[q]||(use[q]||0)>=cap}))return;
       var v=0;s.ps.forEach(function(q){v+=by[q].v});if(v>best){best=v;st=s}})}
     var L=dfsSolve(pool,st,util,use,cap,null);if(!L)continue;
@@ -2523,9 +2524,10 @@ function dfsBuild(day){ // the lineups
     var key=L.map(function(x){return x.p}).sort().join(",");if(keys[key])continue;keys[key]=1;
     L.forEach(function(x){use[x.p]=(use[x.p]||0)+1});if(st)stUse[st.ps.join(",")]=(stUse[st.ps.join(",")]||0)+1;
     lineups.push({ps:L,st:st,sal:L.reduce(function(a,x){return a+x.fd.sal},0),fp:L.reduce(function(a,x){return a+x.fp},0),sd:Math.sqrt(L.reduce(function(a,x){return a+x.sd*x.sd},0)),own:L.reduce(function(a,x){return a+(x.own||0)},0)})}
-  DFSOUT={day:day,at:Date.now(),lineups:lineups,use:use,pool:pool.length};
+  dfsSort(lineups);DFSOUT={day:day,at:Date.now(),lineups:lineups,use:use,pool:pool.length};
   try{var sv=JSON.parse(localStorage.getItem("golDfsHist")||"{}");sv[day]=lineups.map(function(l){return{ps:l.ps.map(function(x){return x.p}),fp:+l.fp.toFixed(2),sal:l.sal}});localStorage.setItem("golDfsHist",JSON.stringify(sv))}catch(_){}
   render()}
+function dfsSort(L){var k=DFS.sort||(DFS.obj==="ceil"?"ce":"fp");L.sort(function(a,b){return k==="own"?(a.own||0)-(b.own||0):k==="ce"?(b.fp+b.sd)-(a.fp+a.sd):b.fp-a.fp});return L} // best first: by ceiling, projection, or least owned
 function dfsSolve(pool,st,util,use,cap,gk){ // one integer program: best total value under the cap and FanDuel's roster rules
   var m={optimize:"v",opType:"max",constraints:{sal:{max:55000,min:Math.min(55000,+DFS.minSal||0)},G:{equal:1},C:{min:2},W:{min:2},D:{min:2},SK:{equal:8}},variables:{},ints:{}};
   if(!util){m.constraints.C={equal:2};m.constraints.W={equal:4};m.constraints.D={equal:2}}
@@ -2565,7 +2567,7 @@ function vDfs(){
     '<label class="f">Leverage <select class="bsel" id="dfsLev">'+[[0,"Off"],[.25,"Low"],[.5,"Medium"]].map(function(o){return '<option value="'+o[0]+'"'+(+DFS.lev===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select></label>'+'<label class="f"><input type="checkbox" id="dfsOppG"'+(DFS.noOppG?" checked":"")+'> No skaters against my goalie</label>'+
     '<button class="btn2" id="dfsGo">Build lineups</button>'+(DFSOUT&&DFSOUT.day===day&&DFSOUT.lineups.length?'<button class="btn2" id="dfsCsv">Download for FanDuel upload</button>':'')+'<details class="dfsown"><summary>Real ownership numbers'+((DFS.ownOv||{})[day]?' · '+Object.keys(DFS.ownOv[day]).length+' in':'')+'</summary><p class="note">If a site posts projected ownership, paste it here, one player a line: <i>Name, 23.5</i>. It replaces the estimate for those players on this night. Save with the box empty to go back to the estimates.</p><textarea id="ownTxt" rows="5" placeholder="Nikita Kucherov, 31&#10;Connor McDavid, 28"></textarea><button class="btn2" id="ownSave">Save</button></details>'+'</div>':'';
   var lu='';if(DFSOUT&&DFSOUT.day===day){var L=DFSOUT.lineups;
-    lu='<section class="panel"><div class="phead"><h2>Lineups · '+L.length+'</h2></div>'+(L.length?'<div class="dfsls">'+L.map(function(l,i){var sl=dfsSlots(l.ps,FDSAL.util);
+    dfsSort(L);var sk=DFS.sort||(DFS.obj==="ceil"?"ce":"fp");lu='<section class="panel"><div class="phead"><h2>Lineups · '+L.length+'</h2><div class="pickers"><label class="f">Sort <select class="bsel" id="dfsSort">'+[["ce","Ceiling"],["fp","Projection"],["own","Least owned"]].map(function(o){return '<option value="'+o[0]+'"'+(sk===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select></label></div></div>'+(L.length?'<div class="dfsls">'+L.map(function(l,i){var sl=dfsSlots(l.ps,FDSAL.util);
       return '<div class="dfsl"><div class="dfslh"><b>#'+(i+1)+'</b><span>'+(l.st?(l.st.k==="pp"?"PP1 ":"Line ")+l.st.t:"No stack")+'</span><span class="o">$'+l.sal.toLocaleString()+'</span><span><b>'+l.fp.toFixed(1)+'</b> <span class="o">proj · ceiling '+(l.fp+l.sd).toFixed(0)+' · own '+Math.round(100*(l.own||0))+'%</span></span></div>'+
         sl.map(function(s){var x=s[1];return '<div class="dfsr'+(l.st&&l.st.ps.indexOf(x.p)>=0?" stk":"")+'" data-player="'+x.p+'"><span class="o">'+s[0]+'</span><span>'+esc(x.name)+' <span class="o">'+x.t+(x.g?' vs '+x.opp:'')+'</span></span><span class="o">$'+(x.fd.sal/1000).toFixed(1)+'k</span><span>'+x.fp.toFixed(1)+'</span></div>'}).join("")+'</div>'}).join("")+'</div>':'<p class="empty">No lineup fits these settings. Loosen the stack, exposure or minimum salary.</p>')+'</section>'}
   var cols=[{k:"t",l:"Team",v:function(x){return x.t},f:function(x){return tmL(x.t)}},
@@ -2712,7 +2714,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
     if(!v.trim())delete S.px[k];else if(n&&Math.abs(n)>=100)S.px[k]=n;else{t.value="";return}
     save();return render()}
   if(id==="fdFile")return fdImport(t);
-  if(/^dfs(N|Obj|Stack|Exp|Rand|Min|OppG|Lev)$/.test(id)){var k={dfsN:"n",dfsObj:"obj",dfsStack:"stack",dfsExp:"exp",dfsRand:"rand",dfsMin:"minSal",dfsOppG:"noOppG",dfsLev:"lev"}[id];DFS[k]=id==="dfsOppG"?(t.checked?1:0):/^(obj|stack)$/.test(k)?v:+String(v).replace(/[^0-9.]/g,"")||0;saveDfs();return render()}
+  if(/^dfs(N|Obj|Stack|Exp|Rand|Min|OppG|Lev|Sort)$/.test(id)){var k={dfsN:"n",dfsObj:"obj",dfsStack:"stack",dfsExp:"exp",dfsRand:"rand",dfsMin:"minSal",dfsOppG:"noOppG",dfsLev:"lev",dfsSort:"sort"}[id];DFS[k]=id==="dfsOppG"?(t.checked?1:0):/^(obj|stack|sort)$/.test(k)?v:+String(v).replace(/[^0-9.]/g,"")||0;saveDfs();return render()}
   if(id==="expoCap"){var cu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(cu>0){EXPO=cu;try{localStorage.setItem("golCap",String(cu))}catch(_){}}return render()}
   if(id==="unitSize"){var u=parseFloat(String(v).replace(/[^0-9.]/g,""));if(u>0)S.unit=u;save();return render()}
   if(t.dataset.gk){S.goalie[t.dataset.gk]=+v;save();return render()}
