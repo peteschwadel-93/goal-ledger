@@ -704,6 +704,7 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .dfsr span:nth-child(3),.dfsr span:nth-child(4){text-align:right;font-family:var(--mono)}
 .dfsr.stk{background:color-mix(in srgb,var(--made,#4ade80) 10%,transparent)}
 .bdel.on{background:var(--raise);color:var(--ink);border-color:var(--soft)}
+.dfsown{margin-top:8px;flex-basis:100%}.dfsown textarea{width:100%;max-width:520px;background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:13px var(--mono);display:block;margin:6px 0}
 </style>
 
 <div class="wrap">
@@ -2459,7 +2460,7 @@ if(typeof window!=="undefined"&&/^https?:$/.test((typeof location!=="undefined"&
    Goalies: win chance from the moneyline, saves and goals against from the other side's expected shots and goals.
    Salaries come from the FanDuel player list the user uploads. Lineups are built by an integer program (javascript-lp-solver),
    each one around a forced stack (a forward line or the top power-play unit), with randomness for variety and caps on exposure. */
-var DFS=(function(){var d={n:10,obj:"ceil",stack:"any",exp:.6,minSal:54000,noOppG:1,rand:.5,lock:{},ban:{}};try{var v=JSON.parse(localStorage.getItem("golDfs")||"null");if(v)Object.keys(v).forEach(function(k){d[k]=v[k]})}catch(_){}return d})();
+var DFS=(function(){var d={n:10,obj:"ceil",stack:"any",exp:.6,minSal:54000,noOppG:1,rand:.5,lev:.25,lock:{},ban:{},ownOv:{}};try{var v=JSON.parse(localStorage.getItem("golDfs")||"null");if(v)Object.keys(v).forEach(function(k){d[k]=v[k]})}catch(_){}return d})();
 var FDSAL=(function(){try{return JSON.parse(localStorage.getItem("golFDsal")||"null")}catch(_){return null}})(),DFSOUT=null;
 function saveDfs(){try{var c={};Object.keys(DFS).forEach(function(k){c[k]=DFS[k]});localStorage.setItem("golDfs",JSON.stringify(c))}catch(_){}}
 function csvRows(txt){var out=[],row=[],f="",q=false;for(var i=0;i<txt.length;i++){var c=txt[i];
@@ -2470,7 +2471,7 @@ function fdImport(inp){var fl=inp.files&&inp.files[0];if(!fl)return;var rd=new F
     var R=csvRows(String(rd.result)),hd=R[0].map(function(h){return h.trim()}),ix=function(n){return hd.indexOf(n)},need=["Id","Position","Salary","Team"];
     if(need.some(function(n){return ix(n)<0}))throw 0;
     var list=R.slice(1).filter(function(r){return r[ix("Id")]}).map(function(r){var g=function(n){return ix(n)>=0?String(r[ix(n)]||"").trim():""};
-      return{id:g("Id"),pos:g("Position"),fn:g("First Name"),ln:g("Last Name"),nick:g("Nickname"),sal:+g("Salary")||0,team:eab(g("Team")),opp:eab(g("Opponent")),game:g("Game"),inj:g("Injury Indicator"),rp:g("Roster Position")}});
+      return{id:g("Id"),fppg:+g("FPPG")||0,pos:g("Position"),fn:g("First Name"),ln:g("Last Name"),nick:g("Nickname"),sal:+g("Salary")||0,team:eab(g("Team")),opp:eab(g("Opponent")),game:g("Game"),inj:g("Injury Indicator"),rp:g("Roster Position")}});
     FDSAL={at:new Date().toISOString(),day:S.day,file:fl.name,list:list,util:list.some(function(x){return /UTIL/i.test(x.rp)})};
     try{localStorage.setItem("golFDsal",JSON.stringify(FDSAL))}catch(_){}DFSOUT=null;toast(list.length+" FanDuel players loaded");render()}catch(_){toast("That file is not a FanDuel player list (it needs Id, Position, Salary and Team columns)")}};rd.readAsText(fl)}
 function dfsPool(day){ // every skater and goalie with a projection, joined to the FanDuel list when one is loaded
@@ -2484,8 +2485,23 @@ function dfsPool(day){ // every skater and goalie with a projection, joined to t
     out.forEach(function(x){x.fd=null});var miss=[];
     FDSAL.list.forEach(function(f){var full=normName(f.fn+" "+f.ln),nick=normName((f.nick||f.fn)+" "+f.ln),x=ix[f.team+"|"+full]||ix[f.team+"|"+nick];if(!x){var y=ix[f.team+"|~"+normName(f.ln).split(" ").pop()];if(y&&y!=="dup")x=y}
       if(x&&((f.pos==="G")===!!x.g))x.fd=f;else miss.push(f)});
-    out.miss=miss}
+    out.miss=miss;dfsOwn(out,day)}
   return out}
+/* ---- Estimated ownership: an educated guess at how much of the field picks each player, from what the field sorts by: FanDuel's own
+   points-per-game (printed beside every name), value per $1,000, the team's expected goals, a top power-play spot and price. Each group's
+   shares add up to what a lineup holds (goalie 100%, defensemen about 230%, forwards about 570%). Pasted real numbers replace the guess. ---- */
+var OWN={tau:{G:.6,D:1.2,F:2.3},tot:{G:1,D:2.3,F:5.7},cap:.6}; // spread: forwards are spread widest, goalies most concentrated, as on a typical main slate
+function dfsOwn(pool,day){var L=pool.filter(function(x){return x.fd&&x.fd.sal>0}),TG={};pool.forEach(function(x){if(!x.g&&x.r)TG[x.t]=(TG[x.t]||0)+x.r.lam});
+  function z(a,f){var v=a.map(f),m=v.reduce(function(s,q){return s+q},0)/Math.max(1,v.length),sd=Math.sqrt(v.reduce(function(s,q){return s+(q-m)*(q-m)},0)/Math.max(1,v.length))||1;return function(x){return (f(x)-m)/sd}}
+  ["G","D","F"].forEach(function(k){var grp=L.filter(function(x){return (x.g?"G":isD(x.p)?"D":"F")===k});if(!grp.length)return;
+    var zf=z(grp,function(x){return x.fd.fppg||x.fp}),zv=z(grp,function(x){return (x.fd.fppg||x.fp)/x.fd.sal*1000}),zp=z(grp,function(x){return x.fp/x.fd.sal*1000}),zt=z(grp,function(x){return x.g?(x.W||0):(TG[x.t]||0)}),zs=z(grp,function(x){return x.fd.sal});
+    var u=grp.map(function(x){var bad=/^(O|IR|NA|D)$/i.test(x.fd.inj||"")||!(x.fp>0);return bad?-9:.55*zf(x)+.7*zv(x)+.35*zp(x)+.4*zt(x)+(x.unit===1?.35:0)+.15*zs(x)}),mx=Math.max.apply(null,u);
+    var e=u.map(function(q){return Math.exp((q-mx)/OWN.tau[k])}),own=e.map(function(){return 0}),left=OWN.tot[k],free=e.map(function(){return 1});
+    for(var it=0;it<6&&left>1e-6;it++){var den=0;e.forEach(function(v,i){if(free[i])den+=v});if(!den)break;var spill=0;e.forEach(function(v,i){if(!free[i])return;var a=own[i]+left*v/den;if(a>=OWN.cap){spill+=a-OWN.cap;a=OWN.cap;free[i]=0}own[i]=a});left=spill} // shares over the cap spill to the rest
+    grp.forEach(function(x,i){x.own=own[i];x.ownSrc="est"})});
+  var ov=(DFS.ownOv||{})[day]||{};pool.forEach(function(x){var k=normName(x.name);if(ov[k]!=null){x.own=ov[k]/100;x.ownSrc="real"}})}
+function ownImport(txt,day){var m={},n=0;String(txt||"").split(/\r?\n/).forEach(function(l){var mm=/^\s*"?([^",\t]+?)"?\s*[,\t]\s*"?(\d+(?:\.\d+)?)\s*%?"?\s*$/.exec(l);if(mm){m[normName(mm[1])]=+mm[2];n++}});
+  DFS.ownOv=DFS.ownOv||{};if(n)DFS.ownOv[day]=m;else delete DFS.ownOv[day];saveDfs();toast(n?n+" ownership numbers in for "+fmtD(day):"Ownership numbers cleared");render()}
 function dfsStacks(pool){ // stack candidates: each forward line and each team's top power-play unit, three players with salaries
   var by={},out=[],seen={};pool.forEach(function(x){if(x.fd&&!x.g)by[x.p]=x});
   pool.forEach(function(x){if(!by[x.p]||isD(x.p)||x.mates.length<2)return;var tr=[x.p].concat(x.mates.slice(0,2));if(tr.some(function(q){return !by[q]}))return;var k=tr.slice().sort().join(",");if(seen[k])return;seen[k]=1;out.push({k:"line",t:x.t,ps:tr})});
@@ -2499,14 +2515,14 @@ function dfsBuild(day){ // the lineups
   pool.forEach(function(x){by[x.p]=x});var util=FDSAL.util,n=Math.max(1,Math.min(50,+DFS.n||10)),cap=Math.max(1,Math.ceil(n*DFS.exp)),use={},stUse={},lineups=[],keys={};
   for(var it=0;lineups.length<n&&it<n*4;it++){
     var zt={},zl={};pool.forEach(function(x){if(zt[x.t]==null)zt[x.t]=gauss();var lk=x.mates&&x.mates.length?[x.p].concat(x.mates).sort().join(","):x.p;if(zl[lk]==null)zl[lk]=gauss();
-      x.v=x.fp+(DFS.obj==="ceil"?.5*x.sd:0)+DFS.rand*x.sd*(.35*zt[x.t]+.35*zl[lk]+.6*gauss())});
+      x.v=(x.fp+(DFS.obj==="ceil"?.5*x.sd:0))*(1-(+DFS.lev||0)*(x.own||0))+DFS.rand*x.sd*(.35*zt[x.t]+.35*zl[lk]+.6*gauss())}); // leverage: a heavily owned player is worth a little less to a tournament lineup
     var st=null;if(DFS.stack!=="none"&&stacks.length){var best=-1e9;stacks.forEach(function(s){var k=s.ps.join(",");if((stUse[k]||0)>=Math.ceil(n*.4))return;if(s.ps.some(function(q){return DFS.ban[q]||(use[q]||0)>=cap}))return;
       var v=0;s.ps.forEach(function(q){v+=by[q].v});if(v>best){best=v;st=s}})}
     var L=dfsSolve(pool,st,util,use,cap,null);if(!L)continue;
     if(DFS.noOppG){var gk=L.filter(function(x){return x.g})[0];if(gk&&L.some(function(x){return !x.g&&x.t===gk.opp})){var L2=dfsSolve(pool,st,util,use,cap,gk);if(L2)L=L2}}
     var key=L.map(function(x){return x.p}).sort().join(",");if(keys[key])continue;keys[key]=1;
     L.forEach(function(x){use[x.p]=(use[x.p]||0)+1});if(st)stUse[st.ps.join(",")]=(stUse[st.ps.join(",")]||0)+1;
-    lineups.push({ps:L,st:st,sal:L.reduce(function(a,x){return a+x.fd.sal},0),fp:L.reduce(function(a,x){return a+x.fp},0),sd:Math.sqrt(L.reduce(function(a,x){return a+x.sd*x.sd},0))})}
+    lineups.push({ps:L,st:st,sal:L.reduce(function(a,x){return a+x.fd.sal},0),fp:L.reduce(function(a,x){return a+x.fp},0),sd:Math.sqrt(L.reduce(function(a,x){return a+x.sd*x.sd},0)),own:L.reduce(function(a,x){return a+(x.own||0)},0)})}
   DFSOUT={day:day,at:Date.now(),lineups:lineups,use:use,pool:pool.length};
   try{var sv=JSON.parse(localStorage.getItem("golDfsHist")||"{}");sv[day]=lineups.map(function(l){return{ps:l.ps.map(function(x){return x.p}),fp:+l.fp.toFixed(2),sal:l.sal}});localStorage.setItem("golDfsHist",JSON.stringify(sv))}catch(_){}
   render()}
@@ -2537,7 +2553,7 @@ function dfsActual(day,p,g){ // FanDuel points he actually scored that night, fr
 function vDfs(){
   var dl=dayList(),day=S.day,pool=dfsPool(day),has=FDSAL&&FDSAL.list&&FDSAL.list.length,matched=pool.filter(function(x){return x.fd}).length;
   var head='<section class="panel"><div class="phead"><h2>DFS · FanDuel · '+fmtD(day)+'</h2><div class="pickers">'+dayPicker(dl)+'</div></div>'+
-    '<p class="note">Projections use the page\'s own model: goals, assists (his usual share of his team\'s goals, times tonight\'s expected team goals), shots on goal, blocked shots and the power-play bonus; goalies from the moneyline\'s win chance and the other side\'s expected shots and goals. Scoring is FanDuel\'s: goal 12, assist 8, shot 1.6, block 1.6, power-play point +0.5, short-handed point +2; goalie win 12, save 0.8, goal against −4, shutout 8. <b>Ceiling</b> is a good-night score (projection plus one spread). Upload the player list from FanDuel\'s contest page (Download players list) to see salaries and build lineups.</p>'+
+    '<p class="note">Projections use the page\'s own model: goals, assists (his usual share of his team\'s goals, times tonight\'s expected team goals), shots on goal, blocked shots and the power-play bonus; goalies from the moneyline\'s win chance and the other side\'s expected shots and goals. Scoring is FanDuel\'s: goal 12, assist 8, shot 1.6, block 1.6, power-play point +0.5, short-handed point +2; goalie win 12, save 0.8, goal against −4, shutout 8. <b>Ceiling</b> is a good-night score (projection plus one spread). <b>Est. own</b> is a guess at how much of the field takes him, from FanDuel\'s own points-per-game, value per $1,000, his team\'s expected goals, a top power-play spot and price; it has not been checked against real ownership yet, so <b>Leverage</b> (how much a heavily owned player is marked down in the lineups) is best left low. Upload the player list from FanDuel\'s contest page (Download players list) to see salaries and build lineups.</p>'+
     '<div class="dfsbar"><label class="btn2 dfsup">Upload FanDuel players<input type="file" id="fdFile" accept=".csv,text/csv" hidden></label>'+(has?'<span class="o">'+esc(FDSAL.file||"list")+' · '+FDSAL.list.length+' players · '+matched+' matched to the model'+(pool.miss&&pool.miss.length?' · '+pool.miss.length+' not matched (not expected to dress or no projection)':'')+' · '+(FDSAL.util?'2C 2W 2D 2UTIL 1G':'2C 4W 2D 1G')+'</span>':'<span class="o">No FanDuel list loaded</span>')+'</div>';
   var opts=has?'<div class="dfsopt">'+
     '<label class="f">Lineups <input type="text" inputmode="numeric" class="pxin bun" id="dfsN" value="'+DFS.n+'"></label>'+
@@ -2546,11 +2562,11 @@ function vDfs(){
     '<label class="f">Max exposure <select class="bsel" id="dfsExp">'+[.3,.4,.5,.6,.8,1].map(function(v){return '<option value="'+v+'"'+(+DFS.exp===v?" selected":"")+'>'+Math.round(v*100)+'%</option>'}).join("")+'</select></label>'+
     '<label class="f">Variety <select class="bsel" id="dfsRand">'+[[0,"None"],[.3,"Low"],[.5,"Medium"],[.8,"High"]].map(function(o){return '<option value="'+o[0]+'"'+(+DFS.rand===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select></label>'+
     '<label class="f">Min salary <input type="text" inputmode="numeric" class="pxin" id="dfsMin" value="'+DFS.minSal+'"></label>'+
-    '<label class="f"><input type="checkbox" id="dfsOppG"'+(DFS.noOppG?" checked":"")+'> No skaters against my goalie</label>'+
-    '<button class="btn2" id="dfsGo">Build lineups</button>'+(DFSOUT&&DFSOUT.day===day&&DFSOUT.lineups.length?'<button class="btn2" id="dfsCsv">Download for FanDuel upload</button>':'')+'</div>':'';
+    '<label class="f">Leverage <select class="bsel" id="dfsLev">'+[[0,"Off"],[.25,"Low"],[.5,"Medium"]].map(function(o){return '<option value="'+o[0]+'"'+(+DFS.lev===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select></label>'+'<label class="f"><input type="checkbox" id="dfsOppG"'+(DFS.noOppG?" checked":"")+'> No skaters against my goalie</label>'+
+    '<button class="btn2" id="dfsGo">Build lineups</button>'+(DFSOUT&&DFSOUT.day===day&&DFSOUT.lineups.length?'<button class="btn2" id="dfsCsv">Download for FanDuel upload</button>':'')+'<details class="dfsown"><summary>Real ownership numbers'+((DFS.ownOv||{})[day]?' · '+Object.keys(DFS.ownOv[day]).length+' in':'')+'</summary><p class="note">If a site posts projected ownership, paste it here, one player a line: <i>Name, 23.5</i>. It replaces the estimate for those players on this night. Save with the box empty to go back to the estimates.</p><textarea id="ownTxt" rows="5" placeholder="Nikita Kucherov, 31&#10;Connor McDavid, 28"></textarea><button class="btn2" id="ownSave">Save</button></details>'+'</div>':'';
   var lu='';if(DFSOUT&&DFSOUT.day===day){var L=DFSOUT.lineups;
     lu='<section class="panel"><div class="phead"><h2>Lineups · '+L.length+'</h2></div>'+(L.length?'<div class="dfsls">'+L.map(function(l,i){var sl=dfsSlots(l.ps,FDSAL.util);
-      return '<div class="dfsl"><div class="dfslh"><b>#'+(i+1)+'</b><span>'+(l.st?(l.st.k==="pp"?"PP1 ":"Line ")+l.st.t:"No stack")+'</span><span class="o">$'+l.sal.toLocaleString()+'</span><span><b>'+l.fp.toFixed(1)+'</b> <span class="o">proj · ceiling '+(l.fp+l.sd).toFixed(0)+'</span></span></div>'+
+      return '<div class="dfsl"><div class="dfslh"><b>#'+(i+1)+'</b><span>'+(l.st?(l.st.k==="pp"?"PP1 ":"Line ")+l.st.t:"No stack")+'</span><span class="o">$'+l.sal.toLocaleString()+'</span><span><b>'+l.fp.toFixed(1)+'</b> <span class="o">proj · ceiling '+(l.fp+l.sd).toFixed(0)+' · own '+Math.round(100*(l.own||0))+'%</span></span></div>'+
         sl.map(function(s){var x=s[1];return '<div class="dfsr'+(l.st&&l.st.ps.indexOf(x.p)>=0?" stk":"")+'" data-player="'+x.p+'"><span class="o">'+s[0]+'</span><span>'+esc(x.name)+' <span class="o">'+x.t+(x.g?' vs '+x.opp:'')+'</span></span><span class="o">$'+(x.fd.sal/1000).toFixed(1)+'k</span><span>'+x.fp.toFixed(1)+'</span></div>'}).join("")+'</div>'}).join("")+'</div>':'<p class="empty">No lineup fits these settings. Loosen the stack, exposure or minimum salary.</p>')+'</section>'}
   var cols=[{k:"t",l:"Team",v:function(x){return x.t},f:function(x){return tmL(x.t)}},
     {k:"name",l:"Player",v:function(x){return x.name},f:function(x){return '<b>'+esc(x.name)+'</b> <span class="o">'+(x.g?"G":esc(x.fd?x.fd.pos:x.pos))+'</span>'+(x.unit===1?' <span class="tag">PP1</span>':'')+(x.g&&x.src?' <span class="o">'+esc(x.src)+'</span>':'')+(x.fd&&x.fd.inj?' <span class="tag l">'+esc(x.fd.inj)+'</span>':'')}},
@@ -2560,6 +2576,7 @@ function vDfs(){
     {k:"ce",l:"Ceiling",num:1,v:function(x){return x.fp+x.sd},f:function(x){return (x.fp+x.sd).toFixed(1)}},
     {k:"val",l:"Pts / $1k",num:1,v:function(x){return x.fd?x.fp/x.fd.sal*1000:null},f:function(x){return x.fd?(x.fp/x.fd.sal*1000).toFixed(2):'<span class="o">–</span>'}},
     {k:"mix",l:"G · A · SOG · BLK",v:function(x){return x.g?x.W:x.G},f:function(x){return x.g?'<span class="o">win '+p1(x.W)+' · GA '+x.GA.toFixed(2)+' · saves '+x.SV.toFixed(1)+'</span>':'<span class="o">'+x.G.toFixed(2)+' · '+x.A.toFixed(2)+' · '+x.S.toFixed(2)+' · '+x.B.toFixed(2)+'</span>'}},
+    {k:"own",l:"Est. own",num:1,v:function(x){return x.own},f:function(x){return x.own==null?'<span class="o">–</span>':(x.ownSrc==="real"?"<b>":"")+(100*x.own).toFixed(1)+"%"+(x.ownSrc==="real"?"</b>":"")}},
     {k:"use",l:"In lineups",num:1,v:function(x){return DFSOUT&&DFSOUT.day===day?(DFSOUT.use[x.p]||0):0},f:function(x){var u=DFSOUT&&DFSOUT.day===day?(DFSOUT.use[x.p]||0):0;return u?u+' <span class="o">'+Math.round(100*u/Math.max(1,DFSOUT.lineups.length))+'%</span>':'<span class="o">–</span>'}},
     {k:"lk",l:"",v:function(x){return DFS.lock[x.p]?2:DFS.ban[x.p]?0:1},f:function(x){return '<button class="bdel bspl'+(DFS.lock[x.p]?" on":"")+'" data-dlock="'+x.p+'" title="Put him in every lineup">🔒</button><button class="bdel'+(DFS.ban[x.p]?" on":"")+'" data-dban="'+x.p+'" title="Leave him out">×</button>'}}];
   var rows=pool.filter(function(x){return !has||x.fd});
@@ -2621,6 +2638,7 @@ document.addEventListener("click",function(e){
   var dk=e.target.closest("[data-dlock],[data-dban]");if(dk){var q=+(dk.dataset.dlock||dk.dataset.dban),o=dk.dataset.dlock?DFS.lock:DFS.ban,o2=dk.dataset.dlock?DFS.ban:DFS.lock;if(o[q])delete o[q];else{o[q]=1;delete o2[q]}saveDfs();return render()}
   if(e.target.closest("#dfsGo")){var b=e.target.closest("#dfsGo");b.disabled=true;b.textContent="Building…";return setTimeout(function(){dfsBuild(S.day)},30)}
   if(e.target.closest("#dfsCsv"))return dfsExport();
+  if(e.target.closest("#ownSave"))return ownImport(($("ownTxt")||{}).value,S.day);
   var pad=e.target.closest(".bktip [data-padd]");if(pad){pbAdd(TIP.bet,TIP.nm);return hideTip()}
   if(e.target.closest("#slip")){var sid=e.target.closest("[id]");sid=sid&&sid.id; // the parlay slip
     if(sid==="pbTog"){PB.open=true;savePB();return renderSlip()}if(sid==="pbX"){PB.open=false;savePB();return renderSlip()}
@@ -2694,7 +2712,7 @@ document.addEventListener("change",function(e){var t=e.target,id=t.id,v=t.value;
     if(!v.trim())delete S.px[k];else if(n&&Math.abs(n)>=100)S.px[k]=n;else{t.value="";return}
     save();return render()}
   if(id==="fdFile")return fdImport(t);
-  if(/^dfs(N|Obj|Stack|Exp|Rand|Min|OppG)$/.test(id)){var k={dfsN:"n",dfsObj:"obj",dfsStack:"stack",dfsExp:"exp",dfsRand:"rand",dfsMin:"minSal",dfsOppG:"noOppG"}[id];DFS[k]=id==="dfsOppG"?(t.checked?1:0):/^(obj|stack)$/.test(k)?v:+String(v).replace(/[^0-9.]/g,"")||0;saveDfs();return render()}
+  if(/^dfs(N|Obj|Stack|Exp|Rand|Min|OppG|Lev)$/.test(id)){var k={dfsN:"n",dfsObj:"obj",dfsStack:"stack",dfsExp:"exp",dfsRand:"rand",dfsMin:"minSal",dfsOppG:"noOppG",dfsLev:"lev"}[id];DFS[k]=id==="dfsOppG"?(t.checked?1:0):/^(obj|stack)$/.test(k)?v:+String(v).replace(/[^0-9.]/g,"")||0;saveDfs();return render()}
   if(id==="expoCap"){var cu=parseFloat(String(v).replace(/[^0-9.]/g,""));if(cu>0){EXPO=cu;try{localStorage.setItem("golCap",String(cu))}catch(_){}}return render()}
   if(id==="unitSize"){var u=parseFloat(String(v).replace(/[^0-9.]/g,""));if(u>0)S.unit=u;save();return render()}
   if(t.dataset.gk){S.goalie[t.dataset.gk]=+v;save();return render()}
@@ -2792,7 +2810,7 @@ function liveTick(){
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets","scores"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
 if(typeof document!=="undefined"&&document.addEventListener)document.addEventListener("focusout",function(e){var t=e.target;if(t&&t.classList&&t.classList.contains("bdt")&&S.bdEdit)setTimeout(function(){if(S.bdEdit){S.bdEdit=null;render()}},200)}); // leaving the date box without a change closes it again
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,ladderWatch:ladderWatch,LW:LW,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({dfsPool:dfsPool,OWN:OWN,likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,ladderWatch:ladderWatch,LW:LW,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
