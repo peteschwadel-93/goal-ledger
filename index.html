@@ -784,7 +784,7 @@ var C={gm:.99,   // each older game counts 1% less than the one after it (half w
        m:30,     // expected goals of league-average finishing mixed into a player's goals-per-expected-goal
        ke:20,    // games of league-average empty-net scoring
        kt:1,     // games of league-average ice time
-       KT:10,KG:60,tDecay:.97,gDecay:.997,
+       KT:10,KG:100,tDecay:.97,gDecay:.98,
        b:{one:-.0969,home:.0606,oxga:.7966,gk:.6436,ob2b:.0396,b2b:-.0719},
        toi:.3075,    // players who get more ice than 15 minutes score more than their rates alone say, and those with less score less
        mates:.0778,  // weight on linemates' playmaking (primary assists per minute against the typical forward's)
@@ -1960,7 +1960,7 @@ function modelHtml(){ // how the numbers on the page are made, in plain words, a
   D_('Goals: a player\'s chance to score',
     '<p><b>His scoring rate.</b> Expected goals per minute at even strength and on the power play, from shot locations and types in the NHL\'s play-by-play, times how well he finishes (goals per expected goal). Every older game counts a little less: half weight about 70 games back. Each rate is mixed with a slice of league average (600 seconds of even-strength shooting, 800 of power play, 30 expected goals of finishing), so a hot start over a few games does not swamp his history.</p>'+
     '<p><b>His role tonight.</b> Expected ice time (half weight about 8 games back, so role changes show quickly), with a small lift for players who get more than 15 minutes, a nudge for his linemates\' playmaking, and his power-play unit.</p>'+
-    '<p><b>The matchup.</b> Home ice, how many expected goals the opponent allows, the opposing goalie\'s goals against relative to expected, and back-to-backs for either side.</p>'+
+    '<p><b>The matchup.</b> Home ice, how many expected goals the opponent allows, the opposing goalie\'s goals against relative to expected, and back-to-backs for either side. A goalie\'s record counts mostly over his last 50 or so starts and is pulled well towards league average, because goalie form barely carries over from one season to the next.</p>'+
     '<p><b>The market\'s team totals.</b> Each team\'s skaters are scaled so their expected goals add up to what the moneyline and total imply, unless Team goals is set to Model. His chance to score at least once then follows from his expected goals (empty-netters count, shootout goals do not).</p>',1)+
   D_('Shots on goal: expected shots and the over/under',
     '<p><b>xSOG</b> is his shots-on-goal rate per minute, leaning 70% on unblocked attempts (steadier than shots that happen to reach the net) and 30% on shots on goal, weighted to recent games and mixed with two hours of league-average ice. That is multiplied by his ice time, adjusted for home ice and how many shots the opponent allows.</p>'+
