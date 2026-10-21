@@ -2482,9 +2482,9 @@ function dfsPool(day){ // every skater and goalie with a projection, joined to t
   var seen={};rows.forEach(function(r){var m=r.info.m,k=r.info.key+"|"+r.t;if(seen[k])return;seen[k]=1;var op=r.opp,gk=r.info.side[op]&&r.info.side[op].gk;if(!gk||!gk.p)return; // his goalie is the one the other side shoots at
     var o=r.info.o,wp=o&&o.ln&&o.ln.wp!=null?(r.t===m.h?o.ln.wp:1-o.ln.wp):poisWin(TG[r.t]||0,TG[op]||0),f=fanGoalie(wp,TG[op]||0,SA[op]||0);
     out.push({p:gk.p,name:pname(gk.p),t:r.t,opp:op,home:r.t===m.h,pos:"G",g:1,fp:f[0],sd:f[1],W:f[2],GA:f[3],SV:f[4],src:gk.src||"",r:null})});
-  if(FDSAL&&FDSAL.list){var ix={},grp=function(x){return x.g?"G":isD(x.p)?"D":"F"},fg=function(f){return f.pos==="G"?"G":/^D/.test(f.pos)?"D":"F"};out.forEach(function(x){ix[x.t+"|"+grp(x)+"|"+normName(x.name)]=x;var l=normName(x.name).split(" ").pop();var k2=x.t+"|"+grp(x)+"|~"+l;ix[k2]=ix[k2]?"dup":x}); // matched on team, position group and name, so two players with one name stay apart
+  if(FDSAL&&FDSAL.list){var ix={},grp=function(x){return x.g?"G":isD(x.p)?"D":"F"},fg=function(f){return f.pos==="G"?"G":/^D/.test(f.pos)?"D":"F"};out.forEach(function(x){ix[x.t+"|"+grp(x)+"|"+normName(x.name)]=x;var l=normName(String(x.name).trim().split(/\s+/).pop());var k2=x.t+"|"+grp(x)+"|~"+l;ix[k2]=ix[k2]?"dup":x}); // matched on team, position group and name, so two players with one name stay apart
     out.forEach(function(x){x.fd=null});var miss=[];
-    FDSAL.list.forEach(function(f){var G=f.team+"|"+fg(f)+"|",full=normName(f.fn+" "+f.ln),nick=normName((f.nick||f.fn)+" "+f.ln),x=ix[G+full]||ix[G+nick];if(!x){var y=ix[G+"~"+normName(f.ln).split(" ").pop()];if(y&&y!=="dup")x=y}
+    FDSAL.list.forEach(function(f){var G=f.team+"|"+fg(f)+"|",full=normName(f.fn+" "+f.ln),nick=normName(f.nick||""),x=ix[G+full]||(nick&&ix[G+nick]);if(!x){var y=ix[G+"~"+normName(String(f.ln).trim().split(/\s+/).pop())];if(y&&y!=="dup")x=y}
       if(x&&((f.pos==="G")===!!x.g))x.fd=f;else miss.push(f)});
     out.miss=miss;dfsOwn(out,day)}
   return out}
@@ -2760,7 +2760,7 @@ if(served){
 }else if(location.protocol==="file:"){say("This copy does not update itself. Run python3 build_data.py --install once, then use http://localhost:8766")}
 /* ---- live goals: while games are on, the page itself asks ESPN's public scoreboard once a minute, so a goal shows up without
    waiting for the half-hourly rebuild. Nothing is stored; the overnight archive remains the record. ---- */
-var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
+var LIVE={},ESPN="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/",EAB={ANH:"ANA",TB:"TBL",SJ:"SJS",NJ:"NJD",LA:"LAK",UTAH:"UTA",UTH:"UTA",VGS:"VGK",WAS:"WSH",MON:"MTL",CLB:"CBJ",NAS:"NSH",WIN:"WPG",CAL:"CGY"};
 function eab(x){return EAB[x]||x}
 function applyLive(){var ch=0;(D.sched||[]).forEach(function(m){var L=LIVE[gameKey(m)];if(!L)return;
   var sig=JSON.stringify([L.gl,L.sc,L.st,(L.ge||[]).length,L.sg]);if(m._live!==sig){m._live=sig;BSL.tick=(BSL.tick||0)+1;m.gl=L.gl;m.sc=L.sc;m.st=L.st;if(L.sg)m.sg=L.sg;ch=1}});return ch}
