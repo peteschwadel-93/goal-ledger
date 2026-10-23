@@ -705,6 +705,8 @@ td .bup{color:var(--made,#4ade80)}td .bdn{color:var(--goal-hot)}
 .dfsr.stk{background:color-mix(in srgb,var(--made,#4ade80) 10%,transparent)}
 .bdel.on{background:var(--raise);color:var(--ink);border-color:var(--soft)}
 .dfsown{margin-top:8px;flex-basis:100%}.dfsown textarea{width:100%;max-width:520px;background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:13px var(--mono);display:block;margin:6px 0}
+
+.prc td.prr{white-space:normal;min-width:180px;max-width:260px}.prc td.prr .o{display:block;font-size:.85em;line-height:1.35;margin-top:2px}.prc td,.prc th{padding-left:10px;padding-right:10px}
 </style>
 
 <div class="wrap">
@@ -1946,13 +1948,39 @@ function shotCheckHtml(cur){ // is the shots model running hot this season? expe
     '<p class="note">Is the shots model running hot? For every finished game this season: the shots each team took, and for every player the model expected at 2 or more, his expected shots against what he actually took. A few points either way in a week is normal; several weeks in a row well below zero would mean overs are being priced too high, by the model and the books alike. The last two columns are your own shot bets (singles with a saved chance): how many won against how many the chances said should have.</p>'+
     '<div class="tw"><table class="lwt"><thead><tr><th>Week</th><th class="n">Games</th><th class="n">Team shots a game</th><th class="n">Expected (2+ players)</th><th class="n">Actual</th><th class="n">Actual vs expected</th><th class="n">Your shot bets won</th><th class="n">Chances said</th></tr></thead><tbody>'+
     ks.slice().reverse().map(function(k){return row(fmtD(k)+'–'+fmtD(plus(k,6)).replace(/^[A-Za-z]+ /,function(m){return k.slice(5,7)===plus(k,6).slice(5,7)?"":m}),W[k],1)}).join("")+
-    row('<b>Season so far</b>',tot,1)+(PB.g&&PA.g?row('<span class="o">Before '+fmtD(SG.roleFrom)+' (earlier model)</span>',PB,0)+row('<span class="o">Since '+fmtD(SG.roleFrom)+' (tonight\'s role)</span>',PA,0):'')+(base.g?row('<span class="o">October last season</span>',base,0):'')+'</tbody></table></div>'+sideSplit()+'</section>'
+    row('<b>Season so far</b>',tot,1)+(PB.g&&PA.g?row('<span class="o">Before '+fmtD(SG.roleFrom)+' (earlier model)</span>',PB,0)+row('<span class="o">Since '+fmtD(SG.roleFrom)+' (tonight\'s role)</span>',PA,0):'')+(base.g?row('<span class="o">October last season</span>',base,0):'')+'</tbody></table></div>'+sideSplit()+pickRuleHtml(cur)+'</section>'
   function sideSplit(){var R=REC.s;if(!R||!R.n)return '';var B={};
     R.days.forEach(function(dd){dd.pk.forEach(function(c){var k=(dd.d<SG.roleFrom?"b":"a")+c.side,z=B[k]||(B[k]={n:0,w:0,u:0,xs:0,ac:0,ln:0,m:0});z.n++;if(c.win>0)z.w++;z.u+=c.u||0;var xs=c.xs!=null?c.xs:c.r&&c.r.xs;if(xs!=null&&c.act!=null){z.m++;z.xs+=xs;z.ac+=c.act;z.ln+=c.line}})});
     var rows=[["bo","Overs","before "+fmtD(SG.roleFrom)],["bu","Unders","before "+fmtD(SG.roleFrom)],["ao","Overs","since "+fmtD(SG.roleFrom)],["au","Unders","since "+fmtD(SG.roleFrom)]];
     return '<h3 class="sch3">Shot Picks by side</h3><p class="note">The same picks as the Shot Picks record, split into overs and unders, before and since the role change. If the newer model leans too far towards overs, it shows here as more overs since the change, with actual shots falling short of expected on them.</p><div class="tw"><table class="lwt"><thead><tr><th>Side</th><th class="n">Picks</th><th class="n">Won</th><th class="n">Units</th><th class="n">Avg line</th><th class="n">Expected shots</th><th class="n">Actual shots</th></tr></thead><tbody>'+
       rows.map(function(x){var z=B[x[0]];if(!z)return '<tr><td>'+x[1]+' <span class="o">'+x[2]+'</span></td><td class="n">0</td><td></td><td></td><td></td><td></td><td></td></tr>';
         return '<tr><td>'+x[1]+' <span class="o">'+x[2]+'</span></td><td class="n">'+z.n+'</td><td class="n">'+z.w+' <span class="o">('+Math.round(100*z.w/z.n)+'%)</span></td><td class="n"><b class="'+(z.u>0?"bup":z.u<0?"bdn":"")+'">'+(z.u>=0?"+":"−")+Math.abs(z.u).toFixed(2)+'u</b></td><td class="n">'+(z.m?(z.ln/z.m).toFixed(1):"–")+'</td><td class="n">'+(z.m?(z.xs/z.m).toFixed(2):"–")+'</td><td class="n">'+(z.m?(z.ac/z.m).toFixed(2):"–")+'</td></tr>'}).join("")+'</tbody></table></div>'}}
+var PRC=null; // the pick rule check, worked out once per data build and book setting
+function pickRuleHtml(cur){ // the current Shot Picks rule against three alternatives, replayed on every finished night this season with the prices saved for it
+  var key=(D.built||"")+"|"+(S.book&&!S.bookOff?S.book:"");if(!PRC||PRC.k!==key)PRC={k:key,h:pickRuleCalc(cur)};return PRC.h}
+function pickRuleCalc(cur){
+  var today=todayET(),GD={},days={};
+  D.games.forEach(function(g){if(g.s!==cur||g.d>=today)return;(GD[g.d]=GD[g.d]||{})[g.h]=g;GD[g.d][g.a]=g});
+  Object.keys(D.odds||{}).forEach(function(k){var d=k.slice(0,10);if(GD[d])days[d]=1});
+  var RU=[["Current rule","blend 2+ points over break-even, model and market within "+Math.round(SP.gap*100),function(c){return c.vs>=SP.minVs}],
+    ["Higher bar","blend 4+ points over break-even",function(c){return c.vs>=.04}],
+    ["Market must agree","current rule, and the market alone also at or above break-even",function(c){return c.vs>=SP.minVs&&c.mk>=c.be}],
+    ["Favourites only","current rule, minus-money prices only",function(c){return c.vs>=SP.minVs&&c.price<0}]];
+  var Z=RU.map(function(){return{a:{n:0,w:0,e:0,u:0,v:0},p:{n:0,w:0,e:0,u:0,v:0}}});
+  function add(z,c){z.n++;z.w+=c.y;z.e+=c.ps;z.u+=c.u;var q=payout(c.price);z.v+=q*q*c.be*(1-c.be)}
+  Object.keys(days).sort().forEach(function(d){var C=[];
+    slate(d).forEach(function(r){var h=r.sh;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;var g=GD[d][r.t];if(!g)return;var row=null;(g.p[r.t]||[]).forEach(function(x){if(x[0]===r.p)row=x});if(!row)return;
+      var pm=nbOver(r.xs,h.line);if(Math.abs(pm-h.fairO)>SP.gap)return;
+      [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var be=1/payout(x[3].price),ps=SP.w*x[1]+(1-SP.w)*x[2],y=x[0]==="o"?row[2]>h.line:row[2]<h.line;
+        C.push({t:r.t,price:x[3].price,mk:x[2],be:be,ps:ps,vs:ps-be,y:y?1:0,u:y?payout(x[3].price)-1:-1})})});
+    C.sort(function(a,b){return b.vs-a.vs});var cap=npCap(matchups(d).length);
+    RU.forEach(function(R,i){var tm={},n=0;C.forEach(function(c){if(!R[2](c))return;add(Z[i].a,c);if(n<cap&&!tm[c.t]){tm[c.t]=1;n++;add(Z[i].p,c)}})})});
+  if(!Z[0].a.n)return '';
+  function cells(z){if(!z.n)return '<td class="n">0</td><td></td><td></td><td></td>';var roi=z.u/z.n,sd=Math.sqrt(z.v)/z.n;
+    return '<td class="n">'+z.n+'</td><td class="n">'+z.w+' <span class="o">of '+z.e.toFixed(1)+'</span></td><td class="n"><b class="'+(z.u>0?"bup":z.u<0?"bdn":"")+'">'+(z.u>=0?"+":"−")+Math.abs(z.u).toFixed(2)+'u</b></td><td class="n">'+(roi>=0?"+":"−")+Math.abs(roi*100).toFixed(1)+'% <span class="o">±'+(sd*100).toFixed(0)+'</span></td>'}
+  return '<h3 class="sch3">Pick rule check</h3><p class="note">Is the Shot Picks rule the best way to choose? Every finished night this season replayed with the prices saved for it, four ways. <b>All that pass</b> counts every side that clears the rule; <b>as picks</b> keeps only the top of each night (one per team, up to the nightly cap), as Shot Picks does. Won shows how many won against how many the chances said should. The ± is the noise: until a gap between rules is bigger than it, the rules have not been told apart. Prices here are the last saved ones, not always the ones at lock, so the current rule\'s line will not match the Shot Picks record exactly. To be judged at the mid-November review.</p>'+
+    '<div class="tw"><table class="lwt prc"><thead><tr><th>Rule</th><th class="n">All that pass</th><th class="n">Won</th><th class="n">Units</th><th class="n">Return</th><th class="n">As picks</th><th class="n">Won</th><th class="n">Units</th><th class="n">Return</th></tr></thead><tbody>'+
+    RU.map(function(R,i){return '<tr><td class="prr">'+R[0]+'<span class="o">'+R[1]+'</span></td>'+cells(Z[i].a)+cells(Z[i].p)+'</tr>'}).join("")+'</tbody></table></div>'}
 function modelHtml(){ // how the numbers on the page are made, in plain words, at the foot of the Tracker
   function D_(t,b,open){return '<details class="mdl"'+(open?' open':'')+'><summary>'+t+'</summary><div>'+b+'</div></details>'}
   return '<section class="panel"><div class="phead"><h2>How the model works</h2></div>'+
@@ -2812,7 +2840,7 @@ function liveTick(){
       if(applyLive()&&!typing&&["picks","slate","lineups","feed","shots","bets","scores"].indexOf(S.tab)>=0){var y=window.scrollY;render();window.scrollTo(0,y)}}).catch(function(){})}
 if(/^https?:$/.test(location.protocol)){setInterval(liveTick,60000);setTimeout(liveTick,4000)}
 if(typeof document!=="undefined"&&document.addEventListener)document.addEventListener("focusout",function(e){var t=e.target;if(t&&t.classList&&t.classList.contains("bdt")&&S.bdEdit)setTimeout(function(){if(S.bdEdit){S.bdEdit=null;render()}},200)}); // leaving the date box without a change closes it again
-if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({dfsPool:dfsPool,OWN:OWN,likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,ladderWatch:ladderWatch,LW:LW,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
+if(typeof window!=="undefined"&&window.__GL_HOOK)window.__GL_HOOK({pickRuleCalc:pickRuleCalc,dfsPool:dfsPool,OWN:OWN,likelyOk:likelyOk,likelySelect:likelySelect,slate:slate,shotPrep:shotPrep,pzPick:pzPick,pzIdeas:pzIdeas,ladderWatch:ladderWatch,LW:LW,matchups:matchups,nbOver:nbOver,altOf:altOf,rungValues:rungValues,ladderOf:ladderOf,ladderGap:SG.ladder,liveShots:liveShots,shotCands:shotCands,shotSelect:shotSelect,shotPicks:shotPicks,pre:function(){return IX.PRE},livePlays:livePlays,goalEvents:goalEvents,npCap:npCap,todayET:todayET,S:S,C:C,data:function(){return D},ix:function(){return IX}}); // lets the build run the same model to lock the picks
 var emb=$("goal-data"),inline=null;
 try{if(emb&&emb.textContent.trim())inline=JSON.parse(emb.textContent)}catch(_){}
 if(inline)start(inline);
