@@ -1047,7 +1047,10 @@ function shotsOf(o,name){ // a player's shots-on-goal line: the commonest line a
     if(x[1]!=null){out.allO[lab]=x[1];if(mine&&x[0]===line&&(!out.o||payout(x[1])>payout(out.o.price)))out.o={price:x[1],book:lab,bk:b}}
     if(x[2]!=null){out.allU[lab]=x[2];if(mine&&x[0]===line&&(!out.u||payout(x[2])>payout(out.u.price)))out.u={price:x[2],book:lab,bk:b}}});
   if(out.o)out.o.all=out.allO;if(out.u)out.u.all=out.allU;
+  [["o",1],["u",2]].forEach(function(z){var x=out[z[0]],b=x&&q[x.bk];if(!b||b[0]!==line||b[1]==null||b[2]==null)return;var io=1/payout(b[1]),iu=1/payout(b[2]);x.own=(z[1]===1?io:iu)/(io+iu)}); // that book's own chance on the side, its margin taken out
   return out}
+function mkSide(h,s){ // the market's chance on one side: the middle book, or the book with the best price if its own two prices say less. A book posting a price well clear of the rest usually knows something, so the price only counts as value if it beats that book's own line too
+  if(!h||h.fairO==null)return null;var m=s==="o"?h.fairO:1-h.fairO,x=h[s];return x&&x.own!=null?Math.min(m,x.own):m}
 function altOf(o,name){ // best over price on every line a book offers for him: alternate lines plus each book's main line. {line: {price, bk, book, all}}
   var out={},k=normName(name),one=S.book&&!S.bookOff?S.book:null;
   function put(b,line,price){if(price==null||(one&&b!==one))return;var x=out[line]||(out[line]={all:{}}),lab=b+" · "+line+"+";lab=b;x.all[lab]=x.all[lab]==null||payout(price)>payout(x.all[lab])?price:x.all[lab];
@@ -1069,7 +1072,7 @@ function rungGrade(line,act){if(!act)return null;return act[0]>line?1:act[1]?-1:
 var LW={lo:2,hi:5,ref:6,minEdge:.02,maxEdge:.2,minP:.2,minTop:3,step:.05}; // tightened on the first five nights of real prices: long shots and outsized edges were where the losses were
 function rungChance(r,need){ // the chance a rung is judged on: blended with the market on his main line, the model as it stands below it, trimmed above it
   var h=r.sh,p=nbOver(r.xs,need-.5),main=Math.ceil(h.line);
-  if(need===main&&h.fairO!=null)return SP.w*p+(1-SP.w)*h.fairO;
+  if(need===main&&h.fairO!=null)return SP.w*p+(1-SP.w)*mkSide(h,"o");
   return need>main?p*RV.hair:p}
 function ladderOf(r,saved){ // every rung from 2+ to 6+ with its price and edge, which ones to bet and how to split one unit; saved = the list locked before his game
   var h=r.sh;if(!h||r.xs==null)return null;var alt=saved?null:altOf(r.info.o,r.name),cells=[],bet=[];
@@ -1098,7 +1101,7 @@ function shotGrade(side,line,act){ // 1 won, -1 lost, 0 push, null still open. A
 function shotCands(day,rows){ // every side that passes the tests, best edge first; r.spx marks a row the model likes but the market disagrees with too much
   var out=[];(rows||slate(day)).forEach(function(r){var h=r.sh;r.spx=0;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;
     var pm=nbOver(r.xs,h.line),best=null;
-    [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var ps=SP.w*x[1]+(1-SP.w)*x[2],ev=ps*payout(x[3].price)-1;
+    [["o",pm,mkSide(h,"o"),h.o],["u",1-pm,mkSide(h,"u"),h.u]].forEach(function(x){if(!x[3])return;var ps=SP.w*x[1]+(1-SP.w)*x[2],ev=ps*payout(x[3].price)-1;
       if(!best||ps-1/payout(x[3].price)>best.vs)best={r:r,p:r.p,side:x[0],line:h.line,price:x[3].price,book:x[3].bk,all:x[3].all,lab:x[3].book,pm:x[1],mk:x[2],ps:ps,ev:ev,vs:ps-1/payout(x[3].price),xs:r.xs,ts:r.info.m.ts||null}});
     if(!best||best.vs<SP.minVs)return;
     if(Math.abs(best.pm-best.mk)>SP.gap){r.spx=1;return}
@@ -1118,8 +1121,8 @@ var PZ={minEdge:.03,maxEdge:.25,minMain:.45,minRung:.3,cand:24,two:2,three:1,fra
 function pzLegs(day,rows,openOnly){var out=[],now=Date.now();
   rows.forEach(function(r){var h=r.sh,m=r.info.m,ts=m.ts||(m.g&&m.g.ts)||null;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;if(openOnly&&(!ts||Date.parse(ts)<=now||m.g))return;
     var pm=nbOver(r.xs,h.line);if(Math.abs(pm-h.fairO)>SP.gap)return; // the model and the market disagree too much: same rule as Shot Picks
-    var po=SP.w*pm+(1-SP.w)*h.fairO,cands=[];
-    [["o",h.o,po],["u",h.u,1-po]].forEach(function(x){var q=x[1];if(!q)return;var bk={};
+    var cands=[];
+    [["o",h.o,SP.w*pm+(1-SP.w)*mkSide(h,"o")],["u",h.u,SP.w*(1-pm)+(1-SP.w)*mkSide(h,"u")]].forEach(function(x){var q=x[1];if(!q)return;var bk={};
       Object.keys(q.all||{}).forEach(function(l){var i=l.lastIndexOf(" · ");if(i>0&&+l.slice(i+3)===h.line)bk[l.slice(0,i)]=q.all[l]});if(!Object.keys(bk).length)bk[q.bk]=q.price;
       cands.push({side:x[0],line:h.line,ps:x[2],price:q.price,bk:bk,min:PZ.minMain})});
     var alt=altOf(r.info.o,r.name),main=Math.ceil(h.line);
@@ -1531,9 +1534,9 @@ function trendOf(p,day){ // his last 10 games before this day against the 20 bef
 function trendCell(v,d,flat,fmt,dfmt){if(d==null)return fmt(v);var up=d>=flat,dn=d<=-flat;
   return fmt(v)+' <span class="trd '+(up?"up":dn?"dn":"fl")+'" title="Against his 20 games before those">'+(up?"▲":dn?"▼":"•")+(up||dn?" "+dfmt(Math.abs(d)):"")+'</span>'}
 function shotPrep(r,day){ // everything the shots table shows for one player
-    var h=r.sh;r.sv={};r.tr=trendOf(r.p,day);if(!h)return;var po=nbOver(r.xs,h.line),pso=h.fairO!=null?SP.w*po+(1-SP.w)*h.fairO:po; // pso: the pick chance of the over, the model averaged with the market when the books' own chance is known
-    r.sv={po:po,pu:1-po,pso:pso,psu:1-pso,
-      eo:h.o?pso*payout(h.o.price)-1:null,eu:h.u?(1-pso)*payout(h.u.price)-1:null,
+    var h=r.sh;r.sv={};r.tr=trendOf(r.p,day);if(!h)return;var po=nbOver(r.xs,h.line),pso=h.fairO!=null?SP.w*po+(1-SP.w)*mkSide(h,"o"):po,psu=h.fairO!=null?SP.w*(1-po)+(1-SP.w)*mkSide(h,"u"):1-po; // pso, psu: the pick chance of each side, the model averaged with the market (checked against the best-price book's own line) when the books' own chance is known
+    r.sv={po:po,pu:1-po,pso:pso,psu:psu,
+      eo:h.o?pso*payout(h.o.price)-1:null,eu:h.u?psu*payout(h.u.price)-1:null,
       eoM:h.o?po*payout(h.o.price)-1:null,euM:h.u?(1-po)*payout(h.u.price)-1:null,
       n1:nbOver(r.xs,h.line+1),n2:nbOver(r.xs,h.line+2),lad:r.xs>=h.line+SG.ladder};
     var alt=altOf(r.info.o,r.name);r.sv.a1=alt[h.line+1]||null;r.sv.a2=alt[h.line+2]||null;
@@ -1961,24 +1964,24 @@ function pickRuleHtml(cur){ // the current Shot Picks rule against three alterna
 function pickRuleCalc(cur){
   var today=todayET(),GD={},days={};
   D.games.forEach(function(g){if(g.s!==cur||g.d>=today)return;(GD[g.d]=GD[g.d]||{})[g.h]=g;GD[g.d][g.a]=g});
-  Object.keys(D.odds||{}).forEach(function(k){var d=k.slice(0,10);if(GD[d])days[d]=1});
-  var RU=[["Current rule","blend 2+ points over break-even, model and market within "+Math.round(SP.gap*100),function(c){return c.vs>=SP.minVs}],
-    ["Higher bar","blend 4+ points over break-even",function(c){return c.vs>=.04}],
-    ["Market must agree","current rule, and the market alone also at or above break-even",function(c){return c.vs>=SP.minVs&&c.mk>=c.be}],
+  var cut={};Object.keys(D.odds||{}).forEach(function(k){var v=D.odds[k],d=k.slice(0,10);if(v&&v.slim)cut[d]=1;if(GD[d])days[d]=1});Object.keys(cut).forEach(function(d){delete days[d]}); // a night saved with only the best price each way has no market left to replay against
+  var RU=[["Current rule","blend 2+ points over break-even, the market checked against the best-price book\'s own line",function(c){return c.vs>=SP.minVs}],
+    ["Old rule","the same, against the middle book only (used until Nov 8)",function(c){return c.vs0>=SP.minVs}],
+    ["Higher bar","current rule at 4+ points over break-even",function(c){return c.vs>=.04}],
     ["Favourites only","current rule, minus-money prices only",function(c){return c.vs>=SP.minVs&&c.price<0}]];
   var Z=RU.map(function(){return{a:{n:0,w:0,e:0,u:0,v:0},p:{n:0,w:0,e:0,u:0,v:0}}});
-  function add(z,c){z.n++;z.w+=c.y;z.e+=c.ps;z.u+=c.u;var q=payout(c.price);z.v+=q*q*c.be*(1-c.be)}
+  function add(z,c,o){z.n++;z.w+=c.y;z.e+=o?c.ps0:c.ps;z.u+=c.u;var q=payout(c.price);z.v+=q*q*c.be*(1-c.be)}
   Object.keys(days).sort().forEach(function(d){var C=[];
     slate(d).forEach(function(r){var h=r.sh;if(!h||h.fairO==null||h.nl<SP.books||r.xs==null)return;var g=GD[d][r.t];if(!g)return;var row=null;(g.p[r.t]||[]).forEach(function(x){if(x[0]===r.p)row=x});if(!row)return;
       var pm=nbOver(r.xs,h.line);if(Math.abs(pm-h.fairO)>SP.gap)return;
-      [["o",pm,h.fairO,h.o],["u",1-pm,1-h.fairO,h.u]].forEach(function(x){if(!x[3])return;var be=1/payout(x[3].price),ps=SP.w*x[1]+(1-SP.w)*x[2],y=x[0]==="o"?row[2]>h.line:row[2]<h.line;
-        C.push({t:r.t,price:x[3].price,mk:x[2],be:be,ps:ps,vs:ps-be,y:y?1:0,u:y?payout(x[3].price)-1:-1})})});
-    C.sort(function(a,b){return b.vs-a.vs});var cap=npCap(matchups(d).length);
-    RU.forEach(function(R,i){var tm={},n=0;C.forEach(function(c){if(!R[2](c))return;add(Z[i].a,c);if(n<cap&&!tm[c.t]){tm[c.t]=1;n++;add(Z[i].p,c)}})})});
+      [["o",pm,h.fairO,h.o,mkSide(h,"o")],["u",1-pm,1-h.fairO,h.u,mkSide(h,"u")]].forEach(function(x){if(!x[3])return;var be=1/payout(x[3].price),ps0=SP.w*x[1]+(1-SP.w)*x[2],ps=SP.w*x[1]+(1-SP.w)*x[4],y=x[0]==="o"?row[2]>h.line:row[2]<h.line;
+        C.push({t:r.t,price:x[3].price,mk:x[4],be:be,ps:ps,vs:ps-be,ps0:ps0,vs0:ps0-be,y:y?1:0,u:y?payout(x[3].price)-1:-1})})});
+    var cap=npCap(matchups(d).length);
+    RU.forEach(function(R,i){var tm={},n=0,k=i===1?"vs0":"vs";C.slice().sort(function(a,b){return b[k]-a[k]}).forEach(function(c){if(!R[2](c))return;add(Z[i].a,c,i===1);if(n<cap&&!tm[c.t]){tm[c.t]=1;n++;add(Z[i].p,c,i===1)}})})});
   if(!Z[0].a.n)return '';
   function cells(z){if(!z.n)return '<td class="n">0</td><td></td><td></td><td></td>';var roi=z.u/z.n,sd=Math.sqrt(z.v)/z.n;
     return '<td class="n">'+z.n+'</td><td class="n">'+z.w+' <span class="o">of '+z.e.toFixed(1)+'</span></td><td class="n"><b class="'+(z.u>0?"bup":z.u<0?"bdn":"")+'">'+(z.u>=0?"+":"−")+Math.abs(z.u).toFixed(2)+'u</b></td><td class="n">'+(roi>=0?"+":"−")+Math.abs(roi*100).toFixed(1)+'% <span class="o">±'+(sd*100).toFixed(0)+'</span></td>'}
-  return '<h3 class="sch3">Pick rule check</h3><p class="note">Is the Shot Picks rule the best way to choose? Every finished night this season replayed with the prices saved for it, four ways. <b>All that pass</b> counts every side that clears the rule; <b>as picks</b> keeps only the top of each night (one per team, up to the nightly cap), as Shot Picks does. Won shows how many won against how many the chances said should. The ± is the noise: until a gap between rules is bigger than it, the rules have not been told apart. Prices here are the last saved ones, not always the ones at lock, so the current rule\'s line will not match the Shot Picks record exactly. To be judged at the mid-November review.</p>'+
+  return '<h3 class="sch3">Pick rule check</h3><p class="note">Is the Shot Picks rule the best way to choose? Every finished night this season replayed with the prices saved for it, four ways. <b>All that pass</b> counts every side that clears the rule; <b>as picks</b> keeps only the top of each night (one per team, up to the nightly cap), as Shot Picks does. Won shows how many won against how many the chances said should. The ± is the noise: until a gap between rules is bigger than it, the rules have not been told apart. Prices here are the last saved ones, not always the ones at lock, so the current rule\'s line will not match the Shot Picks record exactly. Oct 24 to 28 are left out: only the best price each way was kept for those nights. The current rule changed on Nov 8 after the November review; next look in mid-December.</p>'+
     '<div class="tw"><table class="lwt prc"><thead><tr><th>Rule</th><th class="n">All that pass</th><th class="n">Won</th><th class="n">Units</th><th class="n">Return</th><th class="n">As picks</th><th class="n">Won</th><th class="n">Units</th><th class="n">Return</th></tr></thead><tbody>'+
     RU.map(function(R,i){return '<tr><td class="prr">'+R[0]+'<span class="o">'+R[1]+'</span></td>'+cells(Z[i].a)+cells(Z[i].p)+'</tr>'}).join("")+'</tbody></table></div>'}
 function modelHtml(){ // how the numbers on the page are made, in plain words, at the foot of the Tracker
@@ -1997,7 +2000,7 @@ function modelHtml(){ // how the numbers on the page are made, in plain words, a
     '<p><b>Over and under chances</b> come from xSOG through a negative binomial, which allows for shot counts being a bit more spread out than pure chance. <b>Rungs</b> (3+, 4+ and up) above the main line have their chance trimmed 8%, because the model is least sure out in the tail.</p>')+
   D_('Blending with the market, and edge',
     '<p>The books know things the model does not (late news, sharp money), so the page\'s <b>Chance</b> is the model and the market averaged half and half.</p>'+
-    '<p><b>The market\'s chance on goals:</b> the middle price across books with the books\' cut removed. Books take a much bigger cut on long shots than on likely scorers, so from Oct 9 the cut is taken out with a power curve (fitted on 1,806 priced skaters) rather than a flat 15%, which had been making long shots look like value. <b>On shots:</b> each book\'s over and under prices with its margin removed, then the middle book.</p>'+
+    '<p><b>The market\'s chance on goals:</b> the middle price across books with the books\' cut removed. Books take a much bigger cut on long shots than on likely scorers, so from Oct 9 the cut is taken out with a power curve (fitted on 1,806 priced skaters) rather than a flat 15%, which had been making long shots look like value. <b>On shots:</b> each book\'s over and under prices with its margin removed, then the middle book. From Nov 8 the book offering the best price is also checked against its own two prices: if they put the side lower than the middle book does, the lower chance is used. A price well clear of the other books usually means that book knows something; before this check, bets taken on those outlier prices won about 18 fewer times than expected out of 274.</p>'+
     '<p><b>Edge</b> is chance × payout − 1: what a unit is worth on average at that price. <b>Value score</b> is the edge divided by the profit if it wins, the share of bankroll Kelly would stake, so a modest edge on a likely result can outrank a big edge on a long shot.</p>')+
   D_('The lists',
     '<p><b>Shot Picks:</b> main-line overs and unders at least 2 points of chance above the price\'s break-even, three or more books, and no pick where the model and the market disagree by more than 12 points (that usually means the model is missing news). One a team, one pick for every three games, five at most.</p>'+

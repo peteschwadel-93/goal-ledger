@@ -888,8 +888,8 @@ def remember_odds(sched, old):
     for k, v in store.items():
         if not isinstance(v, dict) or k.startswith("lines|"):
             continue
-        if v.get("s") and not v.get("slim") and not v.get("hs") and k[:10] < old:
-            v["s"], v["slim"] = slim_shots(v["s"]), 1
+        # main shots lines keep every book for the whole season (about 6 KB a night): the Tracker's pick rule check replays them,
+        # and cutting a night down to the best price each way leaves no market to replay against
         if v.get("sa") and not v.get("ha") and k[:10] < gone:    # a backfilled game keeps its alternate lines: nothing else holds them
             v["sa"] = []      # alternate lines are bulky; the ladder candidates' own rung prices were saved by lock_picks.js
     if json.dumps(store, sort_keys=True) != before:
