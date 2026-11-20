@@ -1116,7 +1116,7 @@ function shotSelect(cands,cap,kept){ // one per team, up to the cap, after the p
   cands.forEach(function(c){var t=c.r.t;if(teams[t]||out.length>=Math.max(0,cap-(kept||[]).length))return;teams[t]=1;out.push(c)});return out}
 function shotPicks(day,rows){ // tonight's list: the saved one where the build has locked or listed it, otherwise worked out now
   var by={};rows.forEach(function(r){by[r.p]=r});var L=(D.locks||{})[day],st=L&&L.shots&&(!S.book||S.bookOff)?L.shots:null,list;
-  if(st&&st.length)list=st.map(function(k){var r=by[k.p];return r?{r:r,p:k.p,side:k.side,line:k.line,price:k.price,book:k.book,lab:k.book+" · "+k.line,all:null,pm:k.pm,mk:k.mk,ps:k.ps,ev:k.ev,vs:k.vs,xs:k.xs,ts:k.ts,locked:k.lk?1:0,saved:1}:null}).filter(Boolean);
+  if(st&&st.length)list=st.map(function(k){var r=by[k.p];return r?{r:r,p:k.p,side:k.side,line:k.line,price:k.price,book:k.book,lab:k.book+" · "+k.line,all:null,pm:k.pm,mk:k.mk,ps:k.ps,ev:k.ev,vs:k.vs,xs:k.xs,ts:k.ts,locked:k.lk||(k.ts&&Date.parse(k.ts)<=Date.now())?1:0,saved:1}:null}).filter(Boolean);
   else list=shotSelect(shotCands(day,rows),npCap(matchups(day).length),[]);
   list.forEach(function(c){var act=shotAct(c.r);c.act=act?act[0]:null;c.live=act&&!act[1]?1:0;c.win=shotGrade(c.side,c.line,act);c.u=c.win==null?null:c.win>0?payout(c.price)-1:c.win<0?-1:0});
   return list}
@@ -1318,7 +1318,7 @@ function lockedRows(day,rows,list){var L=lockOf(day);if(!L)return null;var by={}
     if(base)r=Object.assign({},base);
     else{var mate=rows.filter(function(x){return x.t===k.t})[0];if(!mate)return null;
       r={p:k.p,name:pname(k.p),pos:ppos(k.p),t:k.t,opp:k.o,home:mate.home,info:mate.info,b:rate(stOf(k.p),isD(k.p)),unit:0,isVoid:1}}
-    r.pr=k.pr;r.px={price:k.price,book:k.book,n:k.nb||0,mid:null,locked:1};r.pay=payout(k.price);r.be=1/r.pay;r.ps=k.ps;r.mk=k.mk;r.evS=k.ev;r.vsS=k.vs;r.evM=k.pr*r.pay-1;r.vsM=valScore(k.pr,r.pay);r.ev=k.ev;r.vs=k.vs;r.np=1;r.locked=k.lk===0?0:1;r.openTs=k.lk===0?k.ts:null;r.outl=0;
+    r.pr=k.pr;r.px={price:k.price,book:k.book,n:k.nb||0,mid:null,locked:1};r.pay=payout(k.price);r.be=1/r.pay;r.ps=k.ps;r.mk=k.mk;r.evS=k.ev;r.vsS=k.vs;r.evM=k.pr*r.pay-1;r.vsM=valScore(k.pr,r.pay);r.ev=k.ev;r.vs=k.vs;r.np=1;var open=k.lk===0&&!(k.ts&&Date.parse(k.ts)<=Date.now());r.locked=open?0:1;r.openTs=open?k.ts:null; /* a saved pick whose game has started holds its place, even if no run caught it at puck drop */r.outl=0;
     return r}).filter(Boolean)}
 function ranked(rows,mode){var k=mode==="np"?"vsS":mode==="value"?"ev":mode==="blend"?"vs":"pr";
   if(k==="pr")return rows.slice().sort(function(a,b){return fairP(b)-fairP(a)});

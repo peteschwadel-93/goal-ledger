@@ -249,6 +249,15 @@ if (games.length) {
     store[day] = { at: (store[day] && allStarted && store[day].at) || stamp, locked: anyStarted ? 1 : 0, done: allStarted ? 1 : 0, picks, shots, ls, seenG, seenS, seenL, lad, rv, lw, pz, fz, log, seenLS };
   }
 }
+/* An earlier night the last run left part-way (a run can be skipped or start late, and the next one is already on the new day):
+   every saved pick whose game has started holds its place, exactly as a run at puck drop would have kept it. */
+Object.keys(store).forEach(k => {
+  const t = store[k];
+  if (!t || k >= day || t.done) return;
+  let all = true;
+  ["picks", "shots", "ls"].forEach(f => (t[f] || []).forEach(x => { if (x.ts && Date.parse(x.ts) <= now) x.lk = 1; else all = false; }));
+  t.locked = 1; if (all) t.done = 1;
+});
 Object.keys(store).forEach(k => { if (store[k] && k < day && Math.round((Date.parse(day) - Date.parse(k)) / 864e5) > 2) { delete store[k].fz; delete store[k].log; } });   // the archive has those games by now
 const keep = Object.keys(store).sort().slice(-250);
 store = Object.fromEntries(keep.map(k => [k, store[k]]));
