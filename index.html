@@ -939,7 +939,11 @@ function mtCalc(ln){
 function injOf(t,name){var l=(D.inj||{})[t]||[],k=normName(name);for(var i=0;i<l.length;i++)if(normName(l[i].f)===k)return l[i];return null}
 function isOut(it){return !!it&&/out|reserve|suspen|ir/i.test(it.st)&&!/day/i.test(it.st)}
 function gameKey(m){return m.d+"|"+m.a+"|"+m.h}
-function oddsOf(m){var o=(D.odds||{})[gameKey(m)];return o||null}
+function oddsOf(m){var o=(D.odds||{})[gameKey(m)];if(!o)return null;
+  if(o.ln&&o.lat){var ts=m.ts||(m.g&&m.g.ts);if(ts&&o.lat>=etWall(ts)){ // moneyline and total saved after puck drop are in-game lines (a team up 3-0 priced at 9.5 goals), so they are set aside
+    if(!o._pre){var c={};Object.keys(o).forEach(function(k){if(k!=="ln")c[k]=o[k]});try{Object.defineProperty(o,"_pre",{value:c})}catch(_){return c}}return o._pre}}
+  return o}
+function etWall(iso){try{return new Intl.DateTimeFormat("sv-SE",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso)).replace(" ","T")}catch(_){return "9999"}} // "2026-11-19T19:00", the form the odds store uses for its times
 function priceOf(o,name,day,pid){var man=S.px[day+"|"+pid];if(man)return{price:man,book:"your price",n:0,manual:1};
   if(!o||!o.p)return null;var k=normName(name);
   var i=nameIx(o.p)[k];if(i!=null){var x=o.p[i],q=x[5];

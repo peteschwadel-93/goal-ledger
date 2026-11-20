@@ -830,9 +830,10 @@ def remember_odds(sched, old):
                 raw, hd = get(f"{ODDS_API}/odds?apiKey={key}&regions=us&markets=h2h,totals&oddsFormat=american", headers={"Accept": "application/json"})
                 store[day_key] = {"n": meta.get("n", 0) + 1, "at": stamp}
                 for (a, h), rec in parse_lines(json.loads(raw)).items():
-                    when = pd.to_datetime(rec.pop("ts"), utc=True).tz_convert(ET).strftime("%Y-%m-%d") if rec.get("ts") else None
-                    if not when:
-                        continue
+                    start = pd.to_datetime(rec.pop("ts"), utc=True) if rec.get("ts") else None
+                    if start is None or start <= pd.Timestamp.now(tz="UTC"):
+                        continue                          # a game under way is priced on the score: keep the lines from before puck drop
+                    when = start.tz_convert(ET).strftime("%Y-%m-%d")
                     k = f"{when}|{a}|{h}"
                     cur = store.get(k) or {}
                     cur.update({"ln": {x: rec[x] for x in ("wp", "ml", "tot", "n") if x in rec}, "eid": rec.get("id"), "lat": stamp})
